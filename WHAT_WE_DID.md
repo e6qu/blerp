@@ -72,3 +72,9 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bun run openapi:build`
 - Files touched: `package.json`, `openapi/preview/index.html`, `openapi/APPROVAL.md`, `STATUS.md`, `WHAT_WE_DID.md`, `DO_NEXT.md`.
 - Notes/Links: Contract is now frozen for M1 development. Next step is SDK generation pipeline.
+
+## 2026-02-25 — M1-P0-T4 SDK Generation Automation
+- Summary: Initialized `packages/shared` workspace with `openapi-typescript` and `openapi-fetch`. Generated TS client code from the locked `openapi/blerp.v1.yaml` schema. Wired up `sdk:generate` in `package.json` and added a root `Makefile` with a `generate-sdk` target. Output schema is deterministic and `.gitignore` was configured for the `dist/` directory.
+- Tests run: `make generate-sdk`, `cd packages/shared && bun run build`
+- Files touched: `packages/shared/package.json`, `packages/shared/tsconfig.json`, `packages/shared/src/index.ts`, `packages/shared/src/schema.ts`, `packages/shared/.gitignore`, `package.json`, `Makefile`, `README.md`, `STATUS.md`, `WHAT_WE_DID.md`, `DO_NEXT.md`, `tasks/done/M1-P0-T4-sdk-generation-pipeline.md`.
+- Notes/Links: Ready to start M1-PA-T1 (TurboRepo Workspace Initialization).

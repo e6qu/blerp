@@ -13,6 +13,7 @@
 | 2026-02-25 | Repo Coordinates Documentation | completed | Added canonical GitHub URL and contact email to README/AGENTS so future contributors know where the code lives and who to reach. |
 | 2026-02-25 | M1-P0-T2 — OpenAPI Linting | completed | Executed Spectral/Redocly linting, converted OpenAPI 3.0 `nullable` syntax to 3.1 arrays, resolved contact warnings, and adjusted `redocly.yaml` rules. |
 | 2026-02-25 | M1-P0-T3 — OpenAPI Previews | completed | Generated HTML docs via Redocly, organized into `openapi/preview/`, and secured internal sign-off in `openapi/APPROVAL.md`. |
+| 2026-02-25 | M1-P0-T4 — SDK Generation Pipeline | completed | Wired up OpenAPI-to-TypeScript client generation in `packages/shared`, outputting strict types via Make and Bun commands. |
 
 **Update procedure**
 1. After each work session, append a new row with date, plan reference, and concise summary.

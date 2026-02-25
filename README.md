@@ -22,3 +22,15 @@ For quick navigation, `CLAUDE.md` points to `PLAN.md`, and the developer CLI/doc
 
 - Canonical Git repository: [github.com/e6qu/blerp](https://github.com/e6qu/blerp)
 - Primary contact for coordination: `adi11235@gmail.com`
+
+## SDK Generation
+
+The OpenAPI schema is used as the single source of truth to generate TypeScript SDK clients. To regenerate the SDK after updating the `openapi/blerp.v1.yaml` schema, run:
+
+```bash
+bun run sdk:generate
+# or
+make generate-sdk
+```
+
+The generated client is output to `packages/shared/src/schema.ts` and exported via `packages/shared/src/index.ts`.

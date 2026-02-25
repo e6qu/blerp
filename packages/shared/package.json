@@ -1,0 +1,19 @@
+{
+  "name": "@blerp/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "generate": "openapi-typescript ../../openapi/blerp.v1.yaml -o src/schema.ts",
+    "lint": "eslint src/ --ext .ts"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.9.3"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^6.7.5",
+    "typescript": "^5.4.5"
+  }
+}

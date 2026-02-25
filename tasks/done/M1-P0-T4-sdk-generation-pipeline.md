@@ -2,7 +2,7 @@
 
 - **Phase**: Milestone 1 — Phase 0 (OpenAPI Schema Baseline)
 - **Plan Reference**: PLAN.md › Phase 0 Task 4
-- **Status**: Pending
+- **Status**: Completed
 
 ## Objective
 Wire Makefile/Turbo tasks that regenerate SDK clients and docs from the locked OpenAPI spec so all future work can rely on generated artifacts instead of hand-written plumbing.
