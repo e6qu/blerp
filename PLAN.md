@@ -1,7 +1,7 @@
 # Blerp Identity Service — Execution Plan
 
 > **Tooling note**: All package management and script commands MUST run via Bun in npm-compatible mode—use `bun install` for deps, `bun run <script>` for package scripts, and `bunx <binary>` (e.g., Turbo, Spectral) for direct CLI execution. Never use `npm`, `pnpm`, or `yarn` in this project, even if a package claims it needs a post-install script; choose an alternate dependency or disable the script while staying on Bun.
->
+
 > **Engineering standards**: Favor strongly-typed code (avoid `any`, `object`, or hand-waving types), prefer shallow indentation via early exits and inverted conditionals, isolate only exception-throwing statements inside try blocks, and build an imperative shell around functional/pure cores when practical (logging allowed when necessary). Always run industry-standard linting, formatting, vulnerability scans, and SAST tooling as part of the workflow.
 
 ## Milestones Overview
@@ -10,10 +10,8 @@
    Ship the initial backend, SPA flows, and infrastructure scaffolding with working authentication/user flows as defined in `DESIGN_DOCUMENT.md`.
 2. **Milestone 2 — Enterprise & Ecosystem Expansion**  
    Deliver advanced features: organizations, RBAC customization, audit log streaming, inbound webhooks, and SCIM/OIDC enhancements.
-3. **Milestone 3 — Experience & Scale**  
+3. **Milestone 4 — Experience & Scale**  
    Focus on performance tuning, observability automation, developer tooling polish, pricing/billing hooks, and readiness for GA launch.
-
-The remainder of this plan details Milestone 1. All phases are scoped to remain well below 100k tokens of cumulative implementation + planning effort.
 
 ---
 
@@ -93,10 +91,58 @@ Tasks:
 4. [x] Harden HTTP headers (Helmet), CSRF safeguards for dashboard.
 5. [x] Draft initial docs: onboarding guide, API quickstart, component usage; host via VitePress/Storybook docs tab.
 
-### Exit Criteria for Milestone 1
+---
 
-- Automated pipeline green (lint, type check, unit + integration tests).
-- Local developer can run `blerp dev up`, create a project, sign up/sign in via demo app, and inspect sessions.
-- API spec (OpenAPI draft) published covering implemented endpoints.
-- Official Clerk SDK suites (ClerkJS, `@clerk/clerk-react`, server SDKs) run cleanly against the local environment.
-- Security and observability baselines validated (linting, rate limits, OTEL traces).
+## Milestone 2 — Enterprise & Ecosystem Expansion
+
+### Phase A — Organizations & RBAC
+
+_Objective_: implement multi-tenant organization support and custom role-based access control.
+
+Tasks:
+
+1. Implement Organization CRUD, slug management, and per-tenant isolation in API.
+2. Build Membership management service (roles: owner, admin, member) and invitation flows.
+3. Define custom RBAC permissions engine mapping capability keys to roles.
+4. Update Dashboard SPA with Organization switcher, member lists, and role management UIs.
+
+### Phase B — Webhooks & Event System
+
+_Objective_: enable real-time event delivery to customer applications via Redis Streams.
+
+Tasks:
+
+1. Implement Redis Streams-based event bus emitting user, organization, and session events.
+2. Build Webhook Endpoint management (URLs, secrets, event filtering) in API and DB.
+3. Author Webhook delivery worker with HMAC signing, retries, and backoff.
+4. Create Webhook monitoring and log viewer in the Dashboard SPA.
+
+### Phase C — Social Auth & OIDC
+
+_Objective_: expand authentication strategies to include social providers and OIDC.
+
+Tasks:
+
+1. Integrate OAuth 2.0 social providers (GitHub, Google) into the auth flow.
+2. Implement OIDC Discovery and Provider configuration for BIS.
+3. Support linking/unlinking multiple identities and verification states per user.
+
+### Phase D — Enterprise Connectivity
+
+_Objective_: support enterprise-grade provisioning and audit features.
+
+Tasks:
+
+1. Implement SCIM 2.0 provisioning endpoints for automated user/group management.
+2. Build Audit Log streaming service to export events to external sinks (S3, Datadog).
+3. Implement verified domain logic for automatic organization discovery and joining.
+
+### Phase E — Security Polish & Expansion
+
+_Objective_: finalize advanced security features and documentation for GA.
+
+Tasks:
+
+1. Implement Session introspection and multi-device revocation UI in Dashboard.
+2. Harden WebAuthn/Passkey registration and login flows with full attestation.
+3. Finalize Enterprise onboarding guides, API reference updates, and deployment blueprints.
