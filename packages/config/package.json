@@ -1,0 +1,11 @@
+{
+  "name": "@blerp/config",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    "./base.json": "./base.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

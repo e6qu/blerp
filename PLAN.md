@@ -23,16 +23,16 @@ The remainder of this plan details Milestone 1. All phases are scoped to remain 
 *Objective*: finalize and validate the complete OpenAPI document locally before deeper implementation planning proceeds.
 
 Tasks:
-1. Author `openapi/blerp.v1.yaml` covering every endpoint defined in `DESIGN_DOCUMENT.md`, including schemas, security schemes, examples, and error responses.
-2. Run spectral/Redocly linters locally to ensure the spec is syntactically correct and style-compliant.
-3. Generate HTML/Markdown previews and share internally for review; capture approval in repo.
-4. Wire Makefile/Turbo tasks to regenerate SDK clients from this spec so later phases can depend on a frozen contract.
+1. [x] Author `openapi/blerp.v1.yaml` covering every endpoint defined in `DESIGN_DOCUMENT.md`, including schemas, security schemes, examples, and error responses.
+2. [x] Run spectral/Redocly linters locally to ensure the spec is syntactically correct and style-compliant.
+3. [x] Generate HTML/Markdown previews and share internally for review; capture approval in repo.
+4. [x] Wire Makefile/Turbo tasks to regenerate SDK clients from this spec so later phases can depend on a frozen contract.
 
 ### Phase A — Project Scaffolding & Tooling
 *Objective*: establish mono-repo structure, CI, type tooling, and local developer experience.
 
 Tasks:
-1. Initialize TurboRepo workspace with packages (`apps/api`, `apps/dashboard`, `packages/config`, `packages/shared`).
+1. [x] Initialize TurboRepo workspace with packages (`apps/api`, `apps/dashboard`, `packages/config`, `packages/shared`).
 2. Configure shared ESLint, Prettier (or Biome), TypeScript base configs, and lint-staged hooks.
 3. Set up Vite + React SPA skeleton for the dashboard (ENT-style layout) plus Storybook/MSW for mocks.
 4. Scaffold Express 5 API (serving both REST endpoints and SPA static assets); integrate Drizzle ORM and basic database schema migration tooling targeting SQLite.

@@ -34,3 +34,45 @@ make generate-sdk
 ```
 
 The generated client is output to `packages/shared/src/schema.ts` and exported via `packages/shared/src/index.ts`.
+
+## Workspace Structure
+
+- `apps/api` — Express/Node.js backend service.
+- `apps/dashboard` — React SPA dashboard.
+- `packages/shared` — Shared TypeScript logic, types, and generated OpenAPI client.
+- `packages/config` — Shared configuration (TSConfig, ESLint, etc.).
+- `openapi/` — API specifications and documentation.
+
+## Local Setup & Development
+
+### Prerequisites
+- [Bun](https://bun.sh) (v1.2.19+)
+
+### Installation & Setup
+
+```bash
+# Clone and install dependencies
+git clone git@github.com:e6qu/blerp.git
+cd blerp
+bun install
+```
+
+### Common Commands
+
+| Command | Description |
+|---------|-------------|
+| `bun run build` | Build all apps and packages in the monorepo using Turbo. |
+| `bun run dev` | Run all applications in development mode. |
+| `bun run lint` | Run linters across the entire workspace. |
+| `bun run test` | Run the test suite across all packages. |
+| `bun run openapi:lint` | Validate the OpenAPI specification. |
+| `bun run sdk:generate`| Regenerate the shared SDK client from the OpenAPI spec. |
+
+### Adding Dependencies
+
+To add a package to a specific workspace:
+```bash
+bun add <package> --filter @blerp/api
+```
+
+> **Note:** Do not use `npm`, `pnpm`, or `yarn`. This project is standardized on Bun. Use `bunx turbo <cmd>` if you need to run turbo commands directly outside of scripts.

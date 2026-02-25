@@ -2,7 +2,7 @@
 
 - **Phase**: Milestone 1 — Phase A (Project Scaffolding & Tooling)
 - **Plan Reference**: PLAN.md › Phase A Task 1
-- **Status**: Pending
+- **Status**: Completed
 
 ## Objective
 Initialize the monorepo structure (TurboRepo) with `apps/api`, `apps/dashboard`, `packages/config`, and `packages/shared` so all subsequent work has a consistent home.

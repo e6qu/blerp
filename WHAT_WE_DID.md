@@ -78,3 +78,9 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `make generate-sdk`, `cd packages/shared && bun run build`
 - Files touched: `packages/shared/package.json`, `packages/shared/tsconfig.json`, `packages/shared/src/index.ts`, `packages/shared/src/schema.ts`, `packages/shared/.gitignore`, `package.json`, `Makefile`, `README.md`, `STATUS.md`, `WHAT_WE_DID.md`, `DO_NEXT.md`, `tasks/done/M1-P0-T4-sdk-generation-pipeline.md`.
 - Notes/Links: Ready to start M1-PA-T1 (TurboRepo Workspace Initialization).
+
+## 2026-02-25 — M1-PA-T1 TurboRepo Workspace Initialization
+- Summary: Initialized TurboRepo monorepo with `apps/api`, `apps/dashboard`, `packages/config`, and `packages/shared`. Created a base `tsconfig.json` in `packages/config` and extended it across workspaces. Wired up turbo commands (`build`, `dev`, `lint`, `test`) in the root `package.json`. Stubs created for `api` and `dashboard`.
+- Tests run: `bun install`, `bun run build`
+- Files touched: `package.json`, `turbo.json`, `apps/api/*`, `apps/dashboard/*`, `packages/config/*`, `packages/shared/package.json`, `packages/shared/tsconfig.json`
+- Notes/Links: Monorepo structure is now established. Ready for next task.

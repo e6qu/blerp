@@ -34,6 +34,12 @@
    - Never leave tasks without context; future agents rely on these docs to continue seamlessly.
    - After each milestone is complete, summarize/compress historical entries in `PLAN.md`, `STATUS.md`, and `WHAT_WE_DID.md` to keep logs concise.
 
+**Learnings & Gotchas**
+- **Binary PATH**: Installed binaries (like `turbo`) may not be in the shell PATH. Always use `bunx <cmd>` or run via `package.json` scripts (`bun run <cmd>`).
+- **Workspace Config**: When sharing `tsconfig.json` base files via a `packages/config` package, explicitly list them in the `exports` field of its `package.json` to avoid resolution errors.
+- **Internal Deps**: Use `workspace:*` in `package.json` for dependencies between monorepo packages.
+- **Stale Reads**: If `read_file` or `write_file` fails due to "modified by another agent", it's likely a Catenary lock issue. Wait a few seconds or use shell commands (`cat`, `node` fs) as an emergency fallback to inspect/write.
+
 5. **Ambiguity Handling**
    - If requirements are unclear, conflicting, or unknown, stop and ask the user for clarification.
    - Do not make assumptions—wait for the user’s response before proceeding.
