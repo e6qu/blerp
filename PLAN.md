@@ -64,7 +64,7 @@ _Objective_: expose REST endpoints for sign-up, sign-in, session refresh/revoke,
 Tasks:
 
 1. [x] Implement controller + service modules for `/v1/auth/signups`, `/v1/auth/signins`, `/v1/tokens`.
-2. Add Argon2 password hashing, WebAuthn placeholder interfaces, OTP generator utilities.
+2. [x] Add Argon2 password hashing, WebAuthn placeholder interfaces, OTP generator utilities.
 3. Wire JWT signing (Jose library) with configurable key rotation support.
 4. Build Redis-backed session store and cookie helpers complying with security requirements.
 5. Write Vitest integration tests plus Supertest API coverage for happy paths and error cases.

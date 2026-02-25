@@ -2,7 +2,7 @@
 
 - **Phase**: Milestone 1 — Phase C (Auth & Session APIs)
 - **Plan Reference**: PLAN.md › Phase C Task 2
-- **Status**: Pending
+- **Status**: Completed
 
 ## Objective
 
