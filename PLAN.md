@@ -39,7 +39,7 @@ Tasks:
 1. [x] Initialize TurboRepo workspace with packages (`apps/api`, `apps/dashboard`, `packages/config`, `packages/shared`).
 2. [x] Configure shared ESLint, Prettier (or Biome), TypeScript base configs, and lint-staged hooks.
 3. [x] Set up Vite + React SPA skeleton for the dashboard (ENT-style layout) plus Storybook/MSW for mocks.
-4. Scaffold Express 5 API (serving both REST endpoints and SPA static assets); integrate Drizzle ORM and basic database schema migration tooling targeting SQLite.
+4. [x] Scaffold Express 5 API (serving both REST endpoints and SPA static assets); integrate Drizzle ORM and basic database schema migration tooling targeting SQLite.
 5. Author docker-compose stack (SQLite volume mounts, Redis, Mailpit) and `blerp dev` CLI for bootstrapping.
 6. Create GitHub Actions workflow templates (lint, type-check, test, build).
 7. Provision AWS ECR repositories (dev/staging/prod) and ensure dashboard/static assets are baked into the same containers used locally—no CDN allowed.
