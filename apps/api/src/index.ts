@@ -1,3 +1,6 @@
+import { startOtel } from "./lib/otel";
+startOtel();
+
 import { app } from "./app";
 import pino from "pino";
 

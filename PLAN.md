@@ -87,7 +87,7 @@ _Objective_: establish minimum security/observability posture and developer docu
 
 Tasks:
 
-1. Integrate OpenTelemetry SDK in API, exporting traces/metrics to docker-compose collectors.
+1. [x] Integrate OpenTelemetry SDK in API, exporting traces/metrics to docker-compose collectors.
 2. Add structured logger (Pino) with correlation IDs and HTTP access logs.
 3. Implement rate limiting middleware and API key auth guards (publishable vs secret).
 4. Harden HTTP headers (Helmet), CSRF safeguards for dashboard.
