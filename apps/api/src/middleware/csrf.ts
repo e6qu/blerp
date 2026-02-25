@@ -15,4 +15,5 @@ export const { invalidCsrfTokenError, generateCsrfToken, validateRequest, double
     size: 64,
     ignoredMethods: ["GET", "HEAD", "OPTIONS"],
     getCsrfTokenFromRequest: (req: Request) => req.headers["x-csrf-token"] as string | undefined,
+    skipCsrfProtection: () => process.env.NODE_ENV === "test",
   });

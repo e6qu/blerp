@@ -2,7 +2,7 @@
 
 - **Phase**: Milestone 2 — Phase A (Organizations & RBAC)
 - **Plan Reference**: PLAN.md › Phase A Task 1
-- **Status**: Pending
+- **Status**: Completed
 
 ## Objective
 

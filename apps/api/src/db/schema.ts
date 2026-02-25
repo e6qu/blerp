@@ -129,6 +129,9 @@ export const sessions = sqliteTable("sessions", {
 
 export const organizations = sqliteTable("organizations", {
   id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   imageUrl: text("image_url"),
