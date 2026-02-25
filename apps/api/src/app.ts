@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { tenantMiddleware } from "./middleware/tenant";
 import { authRoutes } from "./v1/routes/auth.routes";
 import { httpLogger } from "./lib/logger";
+import { rateLimit } from "./middleware/rate-limit";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +17,15 @@ app.use(httpLogger);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+
+// Apply global rate limiting
+app.use(
+  rateLimit({
+    windowMs: 60 * 1000,
+    limit: 100,
+    keyPrefix: "rl:global",
+  }),
+);
 
 // Health check
 app.get("/health", (req, res) => {
