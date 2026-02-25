@@ -42,7 +42,7 @@ Tasks:
 4. [x] Scaffold Express 5 API (serving both REST endpoints and SPA static assets); integrate Drizzle ORM and basic database schema migration tooling targeting SQLite.
 5. [x] Author docker-compose stack (SQLite volume mounts, Redis, Mailpit) and `blerp dev` CLI for bootstrapping.
 6. [x] Create GitHub Actions workflow templates (lint, type-check, test, build).
-7. Provision AWS ECR repositories (dev/staging/prod) and ensure dashboard/static assets are baked into the same containers used locally—no CDN allowed.
+7. [x] Provision AWS ECR repositories (dev/staging/prod) and ensure dashboard/static assets are baked into the same containers used locally—no CDN allowed.
 8. Define AWS ECS Fargate task/service definitions (API/dashboard container) with IaC (Terraform/CloudFormation) and hook GitHub Actions to perform blue/green ECS deployments—explicitly no Kubernetes stack.
 
 ### Phase B — Identity Data Model & Storage
