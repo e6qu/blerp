@@ -47,16 +47,19 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
 - **Deployment**: One container image is produced via Docker. Locally we run docker-compose with the Express app, Redis, Mailpit, and mounted SQLite volumes. Cloud environments run the same image on AWS ECS Fargate (single service). Per-customer SQLite files live on EFS/EBS (or local disk) managed alongside the ECS service, keeping the stack simple and self-hostable.
 
 ### 4.1 Backend Stack Details
+
 - **Database-per-customer**: A **DB Router** module (Express middleware + Drizzle connection helper) maps tenant IDs to dedicated SQLite files. Files live on standard storage (AWS EFS, gp3 volumes, or local disk) and are accessed with short-lived connections (connection pooling disabled). This mirrors ENT Stack’s “one project per database” mindset while keeping persistence simple and isolated.
 - **Redis Cache & Queue**: Redis is the sole ancillary service. Hashes store session lookups, sorted sets enforce rate limits, Streams/Lists act as queue primitives for webhooks, transactional emails, and audit fan-out. Eliminating BullMQ/Kafka keeps operational complexity low.
 - **Services**: Express routers encapsulate auth, session, organization, and project logic. Shared request context injects the DB router + authenticated actor so each HTTP request or job operates within the proper tenant scope. The same code powers REST endpoints and (optionally) internal tRPC procedures for internal tooling.
 
 ### 4.2 Frontend Stack Details
+
 - **Admin/Dashboard**: Vite + React SPA (no SSR) with Tailwind + Radix UI. Production bundles are emitted as static assets and served by Express. TanStack Query consumes the JSON REST API directly with clients generated from OpenAPI; MSW + Storybook provide rapid UI iteration.
 - **Validation Harness**: We explicitly do **not** ship a custom SDK. Instead, the unmodified official Clerk SDKs (ClerkJS, `@clerk/clerk-react`, server SDKs) are pointed at Blerp endpoints during compatibility testing. Our backend must satisfy the documented schemas so these SDKs work without changes.
 - **Docs+Templates**: VitePress (or plain Vite SPA) for docs plus simple Vite templates that showcase raw REST consumption. Tooling focuses on onboarding but defers to official Clerk SDKs/flows for compatibility checks.
 
 ### 4.3 Simplifying Assumptions
+
 - Single AWS region (us-east-1) and single ECS cluster for launch; replication/failover is a later milestone.
 - No background worker service—everything runs inside the primary Express deployment (with Redis queues when needed).
 - Only Redis (cache + queue) is assumed beyond the Express container and SQLite files; if Redis is unavailable, the API can degrade to direct SQLite reads with limited webhook throughput.
@@ -66,6 +69,7 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
 ## 5. Functional Overview
 
 ### 5.1 Tenancy Model
+
 - Each **Project** owns API keys, environments (Development, Staging, Production), and configuration (SSO providers, appearance, allowed origins).
 - **Organizations**: grouped under projects, support roles (owner/admin/member). Users can belong to multiple organizations across projects.
 - **Sessions**: short-lived session tokens bound to devices + refresh tokens.
@@ -73,6 +77,7 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
 - **Storage isolation**: every customer (workspace) is mapped to a dedicated SQLite database file stored on disk; there is no shared multi-tenant database layer.
 
 ### 5.2 Authentication Flows
+
 1. **Email/password** with Argon2id hashing.
 2. **Magic links** and **OTP codes** (email/SMS).
 3. **Social providers** via OAuth 2.0/OIDC (Google, GitHub, Microsoft, Apple).
@@ -80,20 +85,24 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
 5. **MFA**: TOTP, backup codes, SMS.
 
 ### 5.3 User Management
+
 - CRUD via dashboard or API.
 - Metadata separation: public (client-visible), private (server-only), verification state.
 - Blocking, deletion (soft delete), GDPR export.
 
 ### 5.4 Session + Token Strategy
+
 - JWT access tokens (RS256) with 15 min expiry; refresh tokens 30 days rolling.
 - Session cookies (HttpOnly, Secure, SameSite=Lax) for browser flows.
 - `__blerp_session` cookie referencing opaque session ID stored in Redis for quick lookup.
 
 ### 5.5 Webhooks & Events
+
 - Deliver JSON payloads for lifecycle events (user.created, session.revoked, organization.member_added, identity.provider_linked, etc).
 - HMAC-SHA256 signed using endpoint secret; retries with exponential backoff.
 
 ### 5.6 Admin Dashboard Features
+
 - Configuration UI for providers, allowed origins, JWT templates, theme controls.
 - User search with advanced filters.
 - Audit log viewer with streaming to external sinks (Datadog, Splunk) via event bus.
@@ -102,63 +111,69 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
 
 ### 6.1 Authentication
 
-| Method | Path | Description | Request Body | Response |
-|--------|------|-------------|--------------|----------|
-| POST | `/v1/auth/signups` | Create pending signup (email, phone, passkey) | `{ email?, phone?, password?, strategy }` | Signup object `{id,status,verification}` |
-| POST | `/v1/auth/signups/{id}/attempt` | Submit verification code/magic link token | `{ code?, token? }` | `{ user, session? }` |
-| POST | `/v1/auth/signins` | Begin sign-in flow | `{ identifier, strategy }` | `{ id, status, next_step }` |
-| POST | `/v1/auth/signins/{id}/attempt` | Complete sign-in | `{ password?, code?, webauthnResponse? }` | `{ session, tokens }` |
-| POST | `/v1/sessions/{id}/revoke` | Revoke session | `{ reason }` | 204 |
-| POST | `/v1/tokens/refresh` | Exchange refresh token | `{ refresh_token }` | `{ access_token, expires_in, session_id }` |
+| Method | Path                            | Description                                   | Request Body                              | Response                                   |
+| ------ | ------------------------------- | --------------------------------------------- | ----------------------------------------- | ------------------------------------------ |
+| POST   | `/v1/auth/signups`              | Create pending signup (email, phone, passkey) | `{ email?, phone?, password?, strategy }` | Signup object `{id,status,verification}`   |
+| POST   | `/v1/auth/signups/{id}/attempt` | Submit verification code/magic link token     | `{ code?, token? }`                       | `{ user, session? }`                       |
+| POST   | `/v1/auth/signins`              | Begin sign-in flow                            | `{ identifier, strategy }`                | `{ id, status, next_step }`                |
+| POST   | `/v1/auth/signins/{id}/attempt` | Complete sign-in                              | `{ password?, code?, webauthnResponse? }` | `{ session, tokens }`                      |
+| POST   | `/v1/sessions/{id}/revoke`      | Revoke session                                | `{ reason }`                              | 204                                        |
+| POST   | `/v1/tokens/refresh`            | Exchange refresh token                        | `{ refresh_token }`                       | `{ access_token, expires_in, session_id }` |
 
 ### 6.2 Users
-- `GET /v1/users` w/ filters (email, created_before, metadata.*).
+
+- `GET /v1/users` w/ filters (email, created_before, metadata.\*).
 - `POST /v1/users` body `{ email_addresses[], phone_numbers[], password?, public_metadata?, private_metadata? }`.
 - `PATCH /v1/users/{id}` partial update.
 - `DELETE /v1/users/{id}` soft delete; `POST /v1/users/{id}/restore`.
 - `POST /v1/users/{id}/identities/oauth` to link OAuth provider.
 
 ### 6.3 Organizations
+
 - `GET /v1/organizations`, `POST /v1/organizations`.
 - `POST /v1/organizations/{id}/memberships` with `{ user_id, role }`.
 - `PATCH /v1/organizations/{id}/roles` custom RBAC templates.
 - `POST /v1/organizations/{id}/domains` verified domains for auto-join.
 
 ### 6.4 MFA & Security
+
 - `POST /v1/users/{id}/mfa/totp` to enroll.
 - `POST /v1/users/{id}/mfa/totp/verify`.
 - `POST /v1/users/{id}/mfa/backup_codes/regenerate`.
 - `POST /v1/users/{id}/mfa/webauthn` to register a device.
 
 ### 6.5 Webhooks
+
 - `POST /v1/webhooks/endpoints`.
 - `POST /v1/webhooks/endpoints/{id}/rotate_secret`.
 - `GET /v1/events` for recent deliveries.
 
 ### 6.6 Dashboard + Config
+
 - `GET/PUT /v1/projects/{id}` environment settings.
 - `POST /v1/projects/{id}/jwks` rotate signing keys.
 - `GET /v1/config/theme` etc.
 
 ### 6.7 Client SDK Helper Endpoints
+
 - `GET /v1/client` (public) returns publishable key metadata (like enabled strategies).
 - `POST /v1/client/sessions` create session for server-rendered flows (SSR).
 - `GET /v1/client/user` for active session by session token cookie.
 
 ### 6.8 Resource Schemas (excerpt)
 
-| Resource | Core fields (type) | Notes |
-|----------|--------------------|-------|
-| **User** | `id: uuid`, `primary_email_id: uuid?`, `email_addresses: EmailAddress[]`, `phone_numbers: PhoneNumber[]`, `status: enum("active","inactive","banned")`, `password_digest`, `passkeys: PasskeyCredential[]`, `public_metadata: json`, `private_metadata: json`, `unsafe_metadata: json`, `created_at`, `updated_at`, `deleted_at?`, `last_sign_in_at`, `external_id?` | `EmailAddress` includes `id`, `email`, `verification {status, strategy, attempts}`, `linked_to_session_id?`. Passkeys store credential ID, public key, transports, attestation format, signature counter. |
-| **Session** | `id: uuid`, `user_id`, `organization_id?`, `active_at`, `expires_at`, `abandoned_at?`, `status: enum("active","revoked","expired")`, `ip_address`, `user_agent`, `refresh_token_hash`, `latest_activity`, `actor: {type:"user"|"api_key", id}`, `first_factor: enum`, `second_factor?`, `last_rotated_at` | Session tokens map to this record; `refresh_token_hash` stored using Argon2id and scoped per device. |
-| **Project** | `id`, `owner_user_id`, `name`, `slug`, `environments: ("development","staging","production")[]`, `default_auth_strategies: string[]`, `allowed_origins: string[]`, `jwt_template`, `branding`, `created_at`, `updated_at`, `feature_flags json` | API keys belong to environments; `jwt_template` stores claims map + TTL, signing key reference. |
-| **Organization** | `id`, `project_id`, `name`, `slug`, `logo_url?`, `metadata_public`, `metadata_private`, `created_at`, `domains[] {domain,status,verified_at}`, `settings {allow_invites, default_role, mfa_policy}` | Domain `status` values: `pending`, `verified`, `rejected`. |
-| **Membership** | `id`, `organization_id`, `user_id`, `role`, `permissions[]`, `invited_by?`, `created_at`, `last_active_at`, `status: enum("active","revoked","pending_invite")` | Custom RBAC uses `permissions[]` referencing capability keys. |
-| **Signup** | `id`, `identifier`, `strategy: enum("password","magic_link","otp","passkey","oauth")`, `status: enum("needs_identifier","needs_verification","complete","abandoned")`, `attempts`, `expires_at`, `verification {channel, code, issued_at}`, `created_session_id?` | Used by `/v1/auth/signups`; TTL 30 minutes. |
-| **Signin Attempt** | `id`, `identifier`, `strategy`, `status: enum("needs_first_factor","needs_second_factor","complete","locked")`, `mfa_required: boolean`, `available_strategies[]`, `created_session_id?` | Multi-step statuses surface to SDK for customizing UI. |
-| **API Key** | `id`, `project_id`, `environment`, `type: enum("publishable","secret")`, `scopes[]`, `last_used_at`, `hashed_secret`, `prefix`, `created_at`, `rotated_at?`, `status` | Keys rotated via `/v1/projects/{id}/keys`. Secrets hashed with Argon2id. |
-| **Webhook Endpoint** | `id`, `url`, `secret`, `project_id`, `events[]`, `status`, `headers`, `delivery_stats {success, failure, last_failure}`, `created_at` | `status` includes `active`, `paused`, `failed`; delivery stats maintained via Redis Streams. |
-| **Event Delivery** | `id`, `event_id`, `endpoint_id`, `attempt`, `response_code`, `duration_ms`, `error?`, `signature`, `created_at`, `delivered_at?` | Retry logic handled by Redis queues within the main service. |
+| Resource             | Core fields (type)                                                                                                                                                                                                                                                                                                                                                   | Notes                                                                                                                                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **User**             | `id: uuid`, `primary_email_id: uuid?`, `email_addresses: EmailAddress[]`, `phone_numbers: PhoneNumber[]`, `status: enum("active","inactive","banned")`, `password_digest`, `passkeys: PasskeyCredential[]`, `public_metadata: json`, `private_metadata: json`, `unsafe_metadata: json`, `created_at`, `updated_at`, `deleted_at?`, `last_sign_in_at`, `external_id?` | `EmailAddress` includes `id`, `email`, `verification {status, strategy, attempts}`, `linked_to_session_id?`. Passkeys store credential ID, public key, transports, attestation format, signature counter. |
+| **Session**          | `id: uuid`, `user_id`, `organization_id?`, `active_at`, `expires_at`, `abandoned_at?`, `status: enum("active","revoked","expired")`, `ip_address`, `user_agent`, `refresh_token_hash`, `latest_activity`, `actor: {type:"user"                                                                                                                                       | "api_key", id}`, `first_factor: enum`, `second_factor?`, `last_rotated_at`                                                                                                                                | Session tokens map to this record; `refresh_token_hash` stored using Argon2id and scoped per device. |
+| **Project**          | `id`, `owner_user_id`, `name`, `slug`, `environments: ("development","staging","production")[]`, `default_auth_strategies: string[]`, `allowed_origins: string[]`, `jwt_template`, `branding`, `created_at`, `updated_at`, `feature_flags json`                                                                                                                      | API keys belong to environments; `jwt_template` stores claims map + TTL, signing key reference.                                                                                                           |
+| **Organization**     | `id`, `project_id`, `name`, `slug`, `logo_url?`, `metadata_public`, `metadata_private`, `created_at`, `domains[] {domain,status,verified_at}`, `settings {allow_invites, default_role, mfa_policy}`                                                                                                                                                                  | Domain `status` values: `pending`, `verified`, `rejected`.                                                                                                                                                |
+| **Membership**       | `id`, `organization_id`, `user_id`, `role`, `permissions[]`, `invited_by?`, `created_at`, `last_active_at`, `status: enum("active","revoked","pending_invite")`                                                                                                                                                                                                      | Custom RBAC uses `permissions[]` referencing capability keys.                                                                                                                                             |
+| **Signup**           | `id`, `identifier`, `strategy: enum("password","magic_link","otp","passkey","oauth")`, `status: enum("needs_identifier","needs_verification","complete","abandoned")`, `attempts`, `expires_at`, `verification {channel, code, issued_at}`, `created_session_id?`                                                                                                    | Used by `/v1/auth/signups`; TTL 30 minutes.                                                                                                                                                               |
+| **Signin Attempt**   | `id`, `identifier`, `strategy`, `status: enum("needs_first_factor","needs_second_factor","complete","locked")`, `mfa_required: boolean`, `available_strategies[]`, `created_session_id?`                                                                                                                                                                             | Multi-step statuses surface to SDK for customizing UI.                                                                                                                                                    |
+| **API Key**          | `id`, `project_id`, `environment`, `type: enum("publishable","secret")`, `scopes[]`, `last_used_at`, `hashed_secret`, `prefix`, `created_at`, `rotated_at?`, `status`                                                                                                                                                                                                | Keys rotated via `/v1/projects/{id}/keys`. Secrets hashed with Argon2id.                                                                                                                                  |
+| **Webhook Endpoint** | `id`, `url`, `secret`, `project_id`, `events[]`, `status`, `headers`, `delivery_stats {success, failure, last_failure}`, `created_at`                                                                                                                                                                                                                                | `status` includes `active`, `paused`, `failed`; delivery stats maintained via Redis Streams.                                                                                                              |
+| **Event Delivery**   | `id`, `event_id`, `endpoint_id`, `attempt`, `response_code`, `duration_ms`, `error?`, `signature`, `created_at`, `delivered_at?`                                                                                                                                                                                                                                     | Retry logic handled by Redis queues within the main service.                                                                                                                                              |
 
 ### 6.9 Request / Response Examples
 
@@ -222,6 +237,7 @@ Content-Type: application/json
 ```
 
 ### 6.10 Authentication, Authorization & Versioning
+
 - Server-to-server requests use **secret keys** (`sk_live_*`), client-side requests use **publishable keys** (`pk_live_*`). Each key carries scopes: `users:read`, `sessions:write`, etc.
 - HTTP versioning default `v1` via URI; breaking changes require `/v2`.
 - Rate limiting: sliding window (5 requests/sec baseline) with bursts allowed for login flows; responses include `X-RateLimit-*` headers.

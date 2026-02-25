@@ -46,6 +46,7 @@ The generated client is output to `packages/shared/src/schema.ts` and exported v
 ## Local Setup & Development
 
 ### Prerequisites
+
 - [Bun](https://bun.sh) (v1.2.19+)
 
 ### Installation & Setup
@@ -59,18 +60,19 @@ bun install
 
 ### Common Commands
 
-| Command | Description |
-|---------|-------------|
-| `bun run build` | Build all apps and packages in the monorepo using Turbo. |
-| `bun run dev` | Run all applications in development mode. |
-| `bun run lint` | Run linters across the entire workspace. |
-| `bun run test` | Run the test suite across all packages. |
-| `bun run openapi:lint` | Validate the OpenAPI specification. |
-| `bun run sdk:generate`| Regenerate the shared SDK client from the OpenAPI spec. |
+| Command                | Description                                              |
+| ---------------------- | -------------------------------------------------------- |
+| `bun run build`        | Build all apps and packages in the monorepo using Turbo. |
+| `bun run dev`          | Run all applications in development mode.                |
+| `bun run lint`         | Run linters across the entire workspace.                 |
+| `bun run test`         | Run the test suite across all packages.                  |
+| `bun run openapi:lint` | Validate the OpenAPI specification.                      |
+| `bun run sdk:generate` | Regenerate the shared SDK client from the OpenAPI spec.  |
 
 ### Adding Dependencies
 
 To add a package to a specific workspace:
+
 ```bash
 bun add <package> --filter @blerp/api
 ```

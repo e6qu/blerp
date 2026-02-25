@@ -5,6 +5,7 @@
 > **Engineering Standards**: Favor precise typing (no `any`, `object`, or implicit `unknown` escapes), keep indentation shallow via early exits/inverted conditionals, and isolate only exception-throwing statements inside try blocks. Strive for an imperative shell with a functional/pure core (allow logging when needed) and run industry-standard lint/security tooling (formatters, type-check, vuln scans, SAST) before shipping.
 
 **Project Coordinates**
+
 - Repository: `git@github.com:e6qu/blerp.git`
 - Primary contact: `adi11235@gmail.com`
 
@@ -35,6 +36,7 @@
    - After each milestone is complete, summarize/compress historical entries in `PLAN.md`, `STATUS.md`, and `WHAT_WE_DID.md` to keep logs concise.
 
 **Learnings & Gotchas**
+
 - **Binary PATH**: Installed binaries (like `turbo`) may not be in the shell PATH. Always use `bunx <cmd>` or run via `package.json` scripts (`bun run <cmd>`).
 - **Workspace Config**: When sharing `tsconfig.json` base files via a `packages/config` package, explicitly list them in the `exports` field of its `package.json` to avoid resolution errors.
 - **Internal Deps**: Use `workspace:*` in `package.json` for dependencies between monorepo packages.

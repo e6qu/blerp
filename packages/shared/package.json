@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "generate": "openapi-typescript ../../openapi/blerp.v1.yaml -o src/schema.ts",
-    "lint": "eslint src/ --ext .ts"
+    "lint": "eslint ."
   },
   "dependencies": {
     "openapi-fetch": "^0.9.3"
@@ -16,5 +16,6 @@
     "@blerp/config": "workspace:*",
     "openapi-typescript": "^6.7.5",
     "typescript": "^5.4.5"
-  }
+  },
+  "type": "module"
 }

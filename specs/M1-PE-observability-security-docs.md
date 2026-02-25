@@ -6,6 +6,7 @@
 - **Engineering Standards**: Maintain strong typing (no `any`/`object`), design logic with shallow indentation and early exits, limit try blocks to statements that may throw, implement functional/pure telemetry helpers where feasible, and enforce lint/type/vulnerability/SAST tooling as part of acceptance.
 
 ## Scope
+
 1. OTEL SDK integration with Express, Drizzle, Redis, Docker collector wiring, and sampling controls.
 2. Structured logging (Pino) with correlation IDs, HTTP access logs, and masking of sensitive fields.
 3. Rate limiting middleware + API key guard enforcement tied to Redis + Drizzle metadata.
@@ -13,10 +14,12 @@
 5. Developer enablement docs (VitePress/Storybook) covering onboarding, observability, deployments, SDK repointing references.
 
 ## Traceability
+
 - **User Stories**: 14, 18–25, 27–29.
 - **Acceptance Criteria**: AC §1 (Behavior documented), AC §2 (tests + validations), AC §3 (docs/logs updated), AC §4 (operational readiness), AC §5 (security gates).
 
 ## Validation Plan
+
 1. **OpenTelemetry**
    - Run `docker-compose up otel-collector` via `blerp dev` and confirm traces/metrics exported (use `otel-cli` or Jaeger UI screenshot).
    - Unit/integration tests ensure tracing middleware attaches Request-Ids/correlation IDs.
@@ -34,6 +37,7 @@
    - Link doc URLs inside README + DO_NEXT for future updates.
 
 ## Evidence to Capture
+
 - Trace/log screenshots or JSON snippets included in WHAT_WE_DID.
 - References to throttling test output and header captures.
 - Documentation links recorded in STATUS when Phase E closes.

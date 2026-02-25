@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "echo 'TODO: api dev'",
     "build": "echo 'TODO: api build'",
-    "lint": "echo 'TODO: api lint'",
+    "lint": "eslint .",
     "test": "echo 'TODO: api test'"
   },
   "dependencies": {
@@ -14,5 +14,6 @@
   "devDependencies": {
     "@blerp/config": "workspace:*",
     "typescript": "^5.4.5"
-  }
+  },
+  "type": "module"
 }

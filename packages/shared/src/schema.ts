@@ -3,7 +3,6 @@
  * Do not make direct changes to the file.
  */
 
-
 export interface paths {
   "/.well-known/openid-configuration": {
     /**
@@ -494,13 +493,13 @@ export interface components {
       metadata_private?: {
         [key: string]: unknown;
       };
-      domains?: ({
-          domain?: string;
-          /** @enum {string} */
-          status?: "pending" | "verified" | "rejected";
-          /** Format: date-time */
-          verified_at?: string | null;
-        })[];
+      domains?: {
+        domain?: string;
+        /** @enum {string} */
+        status?: "pending" | "verified" | "rejected";
+        /** Format: date-time */
+        verified_at?: string | null;
+      }[];
       settings?: {
         allow_invites?: boolean;
         default_role?: string;
@@ -687,7 +686,6 @@ export type $defs = Record<string, never>;
 export type external = Record<string, never>;
 
 export interface operations {
-
   /**
    * Retrieve OpenID Connect discovery metadata
    * @description Exposes the OpenID Connect discovery document so clients can locate Blerp endpoints automatically.
@@ -1214,9 +1212,9 @@ export interface operations {
       content: {
         "application/json": {
           roles?: {
-              name?: string;
-              permissions?: string[];
-            }[];
+            name?: string;
+            permissions?: string[];
+          }[];
         };
       };
     };

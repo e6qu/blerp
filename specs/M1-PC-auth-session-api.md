@@ -6,6 +6,7 @@
 - **Engineering Standards**: Enforce precise typing (no `any`/`object` escapes), keep indentation shallow via early exits/inverted conditionals, restrict try blocks to statements that may throw, favor functional/pure service helpers under an imperative shell, and run lint/type/vulnerability/SAST checks throughout implementation.
 
 ## Scope
+
 1. Controllers/services for `/v1/auth/signups`, `/v1/auth/signins`, `/v1/tokens`, `/v1/jwks`, session revoke/refresh endpoints.
 2. Credential primitives (Argon2, OTP, WebAuthn placeholders) with configuration + tests.
 3. JWT signing + JWKS publishing + key rotation workflows.
@@ -13,10 +14,12 @@
 5. Integration test suites (Vitest + Supertest) for happy/error flows across multi-tenant contexts.
 
 ## Traceability
+
 - **User Stories**: 2–6, 17–20, 26–30.
 - **Acceptance Criteria**: AC §1 (spec + SDK parity), AC §2 (tests/validation), AC §3 (documentation updates), AC §5 (security review, lint/type checks).
 
 ## Validation Plan
+
 1. **Controller Behavior**
    - Run contract tests invoking each endpoint; compare responses to OpenAPI examples.
    - Verify RFC 7807 error payloads include `request_id` and localized error codes.
@@ -36,6 +39,7 @@
    - Run minimal Clerk SDK harness scenario (even before Phase D harness) to prove endpoints usable.
 
 ## Evidence to Capture
+
 - Test run outputs with command references.
 - Notes on cryptographic parameter review (Argon2 memory/time cost) in WHAT_WE_DID.
 - Documented rotation schedule & script references appended to DO_NEXT when adjustments needed.

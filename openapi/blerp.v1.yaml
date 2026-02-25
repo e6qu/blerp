@@ -120,7 +120,7 @@ components:
         number:
           type: string
         verification:
-          $ref: '#/components/schemas/EmailAddress/properties/verification'
+          $ref: "#/components/schemas/EmailAddress/properties/verification"
     PasskeyCredential:
       type: object
       required: [id, friendly_name, transports]
@@ -160,21 +160,21 @@ components:
         email_addresses:
           type: array
           items:
-            $ref: '#/components/schemas/EmailAddress'
+            $ref: "#/components/schemas/EmailAddress"
         phone_numbers:
           type: array
           items:
-            $ref: '#/components/schemas/PhoneNumber'
+            $ref: "#/components/schemas/PhoneNumber"
         passkeys:
           type: array
           items:
-            $ref: '#/components/schemas/PasskeyCredential'
+            $ref: "#/components/schemas/PasskeyCredential"
         public_metadata:
-          $ref: '#/components/schemas/PublicMetadata'
+          $ref: "#/components/schemas/PublicMetadata"
         private_metadata:
-          $ref: '#/components/schemas/PrivateMetadata'
+          $ref: "#/components/schemas/PrivateMetadata"
         unsafe_metadata:
-          $ref: '#/components/schemas/PublicMetadata'
+          $ref: "#/components/schemas/PublicMetadata"
         status:
           type: string
           enum: [active, inactive, banned]
@@ -308,7 +308,7 @@ components:
             accent_color:
               type: string
         theme:
-          $ref: '#/components/schemas/ThemeConfig'
+          $ref: "#/components/schemas/ThemeConfig"
         rate_limit_policy:
           type: object
           properties:
@@ -671,7 +671,7 @@ components:
         keys:
           type: array
           items:
-            $ref: '#/components/schemas/JWK'
+            $ref: "#/components/schemas/JWK"
     OpenIDConfiguration:
       type: object
       properties:
@@ -716,7 +716,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: "#/components/schemas/ErrorResponse"
 paths:
   /.well-known/openid-configuration:
     get:
@@ -725,12 +725,12 @@ paths:
       description: Exposes the OpenID Connect discovery document so clients can locate Blerp endpoints automatically.
       operationId: getOpenIdConfiguration
       responses:
-        '200':
+        "200":
           description: Discovery metadata
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OpenIDConfiguration'
+                $ref: "#/components/schemas/OpenIDConfiguration"
   /.well-known/jwks.json:
     get:
       tags: [Discovery]
@@ -738,12 +738,12 @@ paths:
       description: Returns the JSON Web Key Set under the /.well-known path for standards-compliant OIDC verification.
       operationId: getWellKnownJwks
       responses:
-        '200':
+        "200":
           description: JSON Web Key Set
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JWKS'
+                $ref: "#/components/schemas/JWKS"
   /v1/jwks:
     get:
       tags: [Discovery]
@@ -751,12 +751,12 @@ paths:
       description: Returns the service JWKS for automation workflows that cannot rely on the /.well-known path.
       operationId: getServiceJwks
       responses:
-        '200':
+        "200":
           description: JSON Web Key Set
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JWKS'
+                $ref: "#/components/schemas/JWKS"
   /v1/auth/signups:
     post:
       tags: [Auth]
@@ -784,18 +784,18 @@ paths:
                   type: string
                   enum: [password, magic_link, otp, passkey, oauth]
       responses:
-        '201':
+        "201":
           description: Signup created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Signup'
-        '400':
+                $ref: "#/components/schemas/Signup"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/auth/signups/{signup_id}/attempt:
     post:
       tags: [Auth]
@@ -825,7 +825,7 @@ paths:
                   type: object
                   additionalProperties: true
       responses:
-        '200':
+        "200":
           description: Signup completed
           content:
             application/json:
@@ -833,11 +833,11 @@ paths:
                 type: object
                 properties:
                   user:
-                    $ref: '#/components/schemas/User'
+                    $ref: "#/components/schemas/User"
                   session:
-                    $ref: '#/components/schemas/Session'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                    $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /v1/auth/signins:
     post:
       tags: [Auth]
@@ -861,14 +861,14 @@ paths:
                   type: string
                   enum: [password, magic_link, otp, passkey, oauth]
       responses:
-        '201':
+        "201":
           description: Sign-in attempt created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SigninAttempt'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: "#/components/schemas/SigninAttempt"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /v1/auth/signins/{signin_id}/attempt:
     post:
       tags: [Auth]
@@ -899,7 +899,7 @@ paths:
                   type: object
                   additionalProperties: true
       responses:
-        '200':
+        "200":
           description: Sign-in completed
           content:
             application/json:
@@ -908,11 +908,11 @@ paths:
                 required: [session, tokens]
                 properties:
                   session:
-                    $ref: '#/components/schemas/Session'
+                    $ref: "#/components/schemas/Session"
                   tokens:
-                    $ref: '#/components/schemas/TokenResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                    $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /v1/sessions/{session_id}/revoke:
     post:
       tags: [Auth]
@@ -937,10 +937,10 @@ paths:
                 reason:
                   type: string
       responses:
-        '204':
+        "204":
           description: Revoked
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /v1/tokens/refresh:
     post:
       tags: [Auth]
@@ -960,14 +960,14 @@ paths:
                 refresh_token:
                   type: string
       responses:
-        '200':
+        "200":
           description: Token response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /v1/users:
     get:
       tags: [Users]
@@ -1016,7 +1016,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Users list
           content:
             application/json:
@@ -1027,9 +1027,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/User'
+                      $ref: "#/components/schemas/User"
                   meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                    $ref: "#/components/schemas/PaginationMeta"
     post:
       tags: [Users]
       summary: Create user
@@ -1056,18 +1056,18 @@ paths:
                 password:
                   type: string
                 public_metadata:
-                  $ref: '#/components/schemas/PublicMetadata'
+                  $ref: "#/components/schemas/PublicMetadata"
                 private_metadata:
-                  $ref: '#/components/schemas/PrivateMetadata'
+                  $ref: "#/components/schemas/PrivateMetadata"
       responses:
-        '201':
+        "201":
           description: User created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /v1/users/{user_id}:
     get:
       tags: [Users]
@@ -1083,13 +1083,13 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: User details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '404':
+                $ref: "#/components/schemas/User"
+        "404":
           description: Not found
     patch:
       tags: [Users]
@@ -1112,21 +1112,21 @@ paths:
               type: object
               properties:
                 public_metadata:
-                  $ref: '#/components/schemas/PublicMetadata'
+                  $ref: "#/components/schemas/PublicMetadata"
                 private_metadata:
-                  $ref: '#/components/schemas/PrivateMetadata'
+                  $ref: "#/components/schemas/PrivateMetadata"
                 password:
                   type: string
                 status:
                   type: string
                   enum: [active, inactive, banned]
       responses:
-        '200':
+        "200":
           description: Updated user
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: "#/components/schemas/User"
     delete:
       tags: [Users]
       summary: Soft delete user
@@ -1141,7 +1141,7 @@ paths:
           schema:
             type: string
       responses:
-        '204':
+        "204":
           description: Deleted
   /v1/users/{user_id}/restore:
     post:
@@ -1158,12 +1158,12 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Restored user
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: "#/components/schemas/User"
   /v1/users/{user_id}/identities/oauth:
     post:
       tags: [Users]
@@ -1198,7 +1198,7 @@ paths:
                   type: string
                   format: date-time
       responses:
-        '200':
+        "200":
           description: Linked
   /v1/organizations:
     get:
@@ -1218,7 +1218,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Organizations list
           content:
             application/json:
@@ -1228,9 +1228,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Organization'
+                      $ref: "#/components/schemas/Organization"
                   meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                    $ref: "#/components/schemas/PaginationMeta"
     post:
       tags: [Organizations]
       summary: Create organization
@@ -1253,12 +1253,12 @@ paths:
                 slug:
                   type: string
       responses:
-        '201':
+        "201":
           description: Organization created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Organization'
+                $ref: "#/components/schemas/Organization"
   /v1/organizations/{organization_id}:
     get:
       tags: [Organizations]
@@ -1274,12 +1274,12 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Organization
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Organization'
+                $ref: "#/components/schemas/Organization"
     patch:
       tags: [Organizations]
       summary: Update organization settings
@@ -1309,12 +1309,12 @@ paths:
                 settings:
                   type: object
       responses:
-        '200':
+        "200":
           description: Updated organization
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Organization'
+                $ref: "#/components/schemas/Organization"
   /v1/organizations/{organization_id}/memberships:
     post:
       tags: [Organizations]
@@ -1342,12 +1342,12 @@ paths:
                 role:
                   type: string
       responses:
-        '201':
+        "201":
           description: Membership created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Membership'
+                $ref: "#/components/schemas/Membership"
   /v1/organizations/{organization_id}/roles:
     patch:
       tags: [Organizations]
@@ -1381,7 +1381,7 @@ paths:
                         items:
                           type: string
       responses:
-        '200':
+        "200":
           description: Updated roles
   /v1/organizations/{organization_id}/domains:
     post:
@@ -1408,7 +1408,7 @@ paths:
                 domain:
                   type: string
       responses:
-        '201':
+        "201":
           description: Domain registered
   /v1/invitations:
     get:
@@ -1443,7 +1443,7 @@ paths:
             type: integer
             default: 20
       responses:
-        '200':
+        "200":
           description: Invitations
           content:
             application/json:
@@ -1453,9 +1453,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Invitation'
+                      $ref: "#/components/schemas/Invitation"
                   meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                    $ref: "#/components/schemas/PaginationMeta"
     post:
       tags: [Invitations]
       summary: Create invitation
@@ -1489,12 +1489,12 @@ paths:
                   type: string
                   format: uri
       responses:
-        '201':
+        "201":
           description: Invitation created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Invitation'
+                $ref: "#/components/schemas/Invitation"
   /v1/invitations/{invitation_id}/revoke:
     post:
       tags: [Invitations]
@@ -1519,13 +1519,13 @@ paths:
                 reason:
                   type: string
       responses:
-        '200':
+        "200":
           description: Invitation revoked
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Invitation'
-        '404':
+                $ref: "#/components/schemas/Invitation"
+        "404":
           description: Not found
   /v1/users/{user_id}/mfa/totp:
     post:
@@ -1542,7 +1542,7 @@ paths:
           schema:
             type: string
       responses:
-        '201':
+        "201":
           description: TOTP secret created
   /v1/users/{user_id}/mfa/totp/verify:
     post:
@@ -1569,7 +1569,7 @@ paths:
                 code:
                   type: string
       responses:
-        '200':
+        "200":
           description: Verified
   /v1/users/{user_id}/mfa/backup_codes/regenerate:
     post:
@@ -1586,7 +1586,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Codes regenerated
           content:
             application/json:
@@ -1623,7 +1623,7 @@ paths:
                   type: object
                   additionalProperties: true
       responses:
-        '201':
+        "201":
           description: Device registered
   /v1/webhooks/endpoints:
     get:
@@ -1634,7 +1634,7 @@ paths:
       security:
         - SecretKey: []
       responses:
-        '200':
+        "200":
           description: Webhook endpoints
           content:
             application/json:
@@ -1644,7 +1644,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/WebhookEndpoint'
+                      $ref: "#/components/schemas/WebhookEndpoint"
     post:
       tags: [Webhooks]
       summary: Create webhook endpoint
@@ -1668,12 +1668,12 @@ paths:
                   items:
                     type: string
       responses:
-        '201':
+        "201":
           description: Endpoint created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WebhookEndpoint'
+                $ref: "#/components/schemas/WebhookEndpoint"
   /v1/webhooks/endpoints/{endpoint_id}/rotate_secret:
     post:
       tags: [Webhooks]
@@ -1689,12 +1689,12 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Secret rotated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WebhookEndpoint'
+                $ref: "#/components/schemas/WebhookEndpoint"
   /v1/audit_logs:
     get:
       tags: [Audit]
@@ -1736,7 +1736,7 @@ paths:
             type: integer
             default: 50
       responses:
-        '200':
+        "200":
           description: Audit log entries
           content:
             application/json:
@@ -1746,9 +1746,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AuditLogEntry'
+                      $ref: "#/components/schemas/AuditLogEntry"
                   meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                    $ref: "#/components/schemas/PaginationMeta"
   /v1/events:
     get:
       tags: [Webhooks]
@@ -1767,7 +1767,7 @@ paths:
           schema:
             type: integer
       responses:
-        '200':
+        "200":
           description: Events page
           content:
             application/json:
@@ -1777,9 +1777,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Event'
+                      $ref: "#/components/schemas/Event"
                   meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                    $ref: "#/components/schemas/PaginationMeta"
   /v1/config/theme:
     get:
       tags: [Config]
@@ -1789,12 +1789,12 @@ paths:
       security:
         - SecretKey: []
       responses:
-        '200':
+        "200":
           description: Theme configuration
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ThemeConfig'
+                $ref: "#/components/schemas/ThemeConfig"
     put:
       tags: [Config]
       summary: Update theme configuration
@@ -1807,14 +1807,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ThemeConfig'
+              $ref: "#/components/schemas/ThemeConfig"
       responses:
-        '200':
+        "200":
           description: Updated theme configuration
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ThemeConfig'
+                $ref: "#/components/schemas/ThemeConfig"
   /v1/projects/{project_id}:
     get:
       tags: [Projects]
@@ -1830,12 +1830,12 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Project
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Project'
+                $ref: "#/components/schemas/Project"
     put:
       tags: [Projects]
       summary: Update project configuration
@@ -1874,12 +1874,12 @@ paths:
                 branding:
                   type: object
       responses:
-        '200':
+        "200":
           description: Updated project
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Project'
+                $ref: "#/components/schemas/Project"
   /v1/projects/{project_id}/jwks:
     post:
       tags: [Projects]
@@ -1895,7 +1895,7 @@ paths:
           schema:
             type: string
       responses:
-        '201':
+        "201":
           description: JWKS rotated
           content:
             application/json:
@@ -1930,7 +1930,7 @@ paths:
             type: string
             enum: [publishable, secret]
       responses:
-        '200':
+        "200":
           description: API keys
           content:
             application/json:
@@ -1940,7 +1940,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/APIKey'
+                      $ref: "#/components/schemas/APIKey"
     post:
       tags: [Projects]
       summary: Create API key
@@ -1975,12 +1975,12 @@ paths:
                 label:
                   type: string
       responses:
-        '201':
+        "201":
           description: API key created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIKey'
+                $ref: "#/components/schemas/APIKey"
   /v1/projects/{project_id}/keys/{key_id}/rotate:
     post:
       tags: [Projects]
@@ -2010,12 +2010,12 @@ paths:
                 reason:
                   type: string
       responses:
-        '200':
+        "200":
           description: API key rotated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIKey'
+                $ref: "#/components/schemas/APIKey"
   /v1/client:
     get:
       tags: [Client]
@@ -2025,7 +2025,7 @@ paths:
       security:
         - PublishableKey: []
       responses:
-        '200':
+        "200":
           description: Client config
           content:
             application/json:
@@ -2033,7 +2033,7 @@ paths:
                 type: object
                 properties:
                   project:
-                    $ref: '#/components/schemas/Project'
+                    $ref: "#/components/schemas/Project"
                   enabled_strategies:
                     type: array
                     items:
@@ -2062,12 +2062,12 @@ paths:
                   type: string
                   format: date-time
       responses:
-        '201':
+        "201":
           description: Session created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Session'
+                $ref: "#/components/schemas/Session"
   /v1/client/user:
     get:
       tags: [Client]
@@ -2077,7 +2077,7 @@ paths:
       security:
         - SessionToken: []
       responses:
-        '200':
+        "200":
           description: Current user
           content:
             application/json:
@@ -2085,6 +2085,6 @@ paths:
                 type: object
                 properties:
                   user:
-                    $ref: '#/components/schemas/User'
+                    $ref: "#/components/schemas/User"
                   session:
-                    $ref: '#/components/schemas/Session'
+                    $ref: "#/components/schemas/Session"

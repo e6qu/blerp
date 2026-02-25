@@ -1,1 +1,1 @@
-console.log("Hello from @blerp/api");
+console.warn("Hello from @blerp/api");

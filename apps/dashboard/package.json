@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "echo 'TODO: dashboard dev'",
     "build": "echo 'TODO: dashboard build'",
-    "lint": "echo 'TODO: dashboard lint'",
+    "lint": "eslint .",
     "test": "echo 'TODO: dashboard test'"
   },
   "dependencies": {
@@ -14,5 +14,6 @@
   "devDependencies": {
     "@blerp/config": "workspace:*",
     "typescript": "^5.4.5"
-  }
+  },
+  "type": "module"
 }

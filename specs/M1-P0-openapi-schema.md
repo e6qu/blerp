@@ -6,11 +6,13 @@
 - **Engineering Standards**: Maintain strict typing (no `any`/`object` escapes), prefer shallow indentation/early exits, isolate exception-prone statements inside try blocks, keep spec tooling functional/pure where possible, and ensure lint/type/vulnerability/SAST tooling is run as part of validation.
 
 ## Scope
+
 1. Endpoints + Schemas: `/v1/auth/*`, `/v1/users`, `/v1/projects`, `/v1/jwks`, webhooks, invitations, sessions, audit logs.
 2. Security: publishable vs secret API keys, JWT bearer auth, cookie/session behaviors, RFC 7807 errors.
 3. Tooling: Spectral + Redocly lint, preview artifacts, Make/Turbo SDK generation pipeline.
 
 ## Traceability
+
 - **User Stories**: 1–10 (developer flows), 19 (RFC 7807), 26–30 (end-user auth surface).
 - **Acceptance Criteria Alignment**:
   - Spec compliance + SDK parity (AC §1).
@@ -18,6 +20,7 @@
   - Operational readiness guaranteed via automation hooks (AC §4).
 
 ## Validation Plan
+
 1. **Schema Authoring Review**
    - Confirm `openapi/blerp.v1.yaml` contains every endpoint from DESIGN_DOCUMENT.md and references accurate component schemas.
    - Ensure example payloads cover happy + error cases for each user story.
@@ -33,6 +36,7 @@
    - Checklist completed when spec version tagged, previews approved, and automation commands referenced in DO_NEXT notes.
 
 ## Evidence to Capture
+
 - Command transcripts or log excerpts in `WHAT_WE_DID.md` for lint + generation steps.
 - Link to approval note (could be PR comment or markdown entry) proving spec review.
 - Mention of spec version/commit hash inside `STATUS.md` entry when closing Phase 0 tasks.

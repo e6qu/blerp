@@ -6,6 +6,7 @@
 - **Engineering Standards**: Uphold precise typing (no `any`/`object`), minimize indentation depth via early exits and inverted conditionals, constrain try blocks to statements that may throw, favor functional/pure data utilities around an imperative shell, and ensure lint/type/vulnerability/SAST tooling is part of the workflow.
 
 ## Scope
+
 1. Drizzle schema definitions + migrations for users, sessions, projects, API keys, audit logs.
 2. Tenant database router abstraction with creation, migration orchestration, and observability hooks.
 3. Turbo-driven migration + seeding pipeline covering all tenant DBs.
@@ -13,10 +14,12 @@
 5. Automated tests verifying constraints, soft deletes, metadata, and multi-tenant isolation.
 
 ## Traceability
+
 - **User Stories**: 1–5 (backend flows), 11–18 (admin + SecOps), 25 (Redis job support).
 - **Acceptance Criteria**: AC §1 (spec consistency), AC §2 (unit/integration tests), AC §4 (Docker/Turbo tasks), AC §5 (quality + security checks).
 
 ## Validation Plan
+
 1. **Schema Review**
    - Compare Drizzle schema files to OpenAPI components; confirm field names/types align and metadata fields (JSON) have typed definitions.
    - Run `bunx turbo run drizzle:generate` or equivalent to ensure migrations compile; if a migration helper expects npm/pnpm, choose another helper or adapt it for Bun.
@@ -34,6 +37,7 @@
    - Validate concurrency/resilience by simulating parallel migrations or connections.
 
 ## Evidence to Capture
+
 - Path listing showing tenant DB files and migration versions.
 - Test output (pass/fail) recorded in WHAT_WE_DID, referencing spec sections.
 - Metrics/log screenshots stored in docs when verifying router instrumentation.

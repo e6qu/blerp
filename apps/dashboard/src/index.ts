@@ -1,1 +1,1 @@
-console.log("Hello from @blerp/dashboard");
+console.warn("Hello from @blerp/dashboard");
