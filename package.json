@@ -17,7 +17,8 @@
     "openapi:lint": "bun run openapi:lint:spectral && bun run openapi:lint:redocly",
     "openapi:build": "redocly build-docs openapi/blerp.v1.yaml -o openapi/index.html",
     "sdk:generate": "cd packages/shared && bun run generate",
-    "prepare": "husky"
+    "prepare": "husky",
+    "blerp": "bun run scripts/blerp.ts"
   },
   "keywords": [],
   "author": "",
