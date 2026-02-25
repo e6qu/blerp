@@ -1,0 +1,16 @@
+{
+  "name": "@blerp/docs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "lint": "echo 'No lint for docs yet'"
+  },
+  "devDependencies": {
+    "vitepress": "latest",
+    "vue": "latest"
+  }
+}

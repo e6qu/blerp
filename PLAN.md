@@ -91,7 +91,7 @@ Tasks:
 2. [x] Add structured logger (Pino) with correlation IDs and HTTP access logs.
 3. [x] Implement rate limiting middleware and API key auth guards (publishable vs secret).
 4. [x] Harden HTTP headers (Helmet), CSRF safeguards for dashboard.
-5. Draft initial docs: onboarding guide, API quickstart, component usage; host via VitePress/Storybook docs tab.
+5. [x] Draft initial docs: onboarding guide, API quickstart, component usage; host via VitePress/Storybook docs tab.
 
 ### Exit Criteria for Milestone 1
 
