@@ -1,0 +1,21 @@
+{
+  "name": "blerp",
+  "version": "1.0.0",
+  "description": "This repository contains the planning and specification artifacts for the Blerp Identity Service (clean-room Clerk reimplementation). Start with the overview and follow links for deeper details:",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "openapi:lint:spectral": "spectral lint openapi/blerp.v1.yaml --fail-severity=warn",
+    "openapi:lint:redocly": "redocly lint openapi/blerp.v1.yaml --config=redocly.yaml",
+    "openapi:lint": "bun run openapi:lint:spectral && bun run openapi:lint:redocly"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "packageManager": "bun@1.2.19",
+  "devDependencies": {
+    "@redocly/cli": "^2.19.2",
+    "@stoplight/spectral-cli": "^6.15.0"
+  }
+}
