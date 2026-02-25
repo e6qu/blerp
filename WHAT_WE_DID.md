@@ -66,3 +66,9 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bun run openapi:lint`
 - Files touched: `openapi/blerp.v1.yaml`, `redocly.yaml`, `STATUS.md`, `WHAT_WE_DID.md`, `DO_NEXT.md`, `tasks/done/M1-P0-T2-openapi-linting.md`.
 - Notes/Links: Ready to start M1-P0-T3 for OpenAPI preview configuration.
+
+## 2026-02-25 — M1-P0-T3 OpenAPI Previews & Internal Approval
+- Summary: Generated static HTML documentation for the OpenAPI spec using Redocly. Organized previews into `openapi/preview/index.html`. Drafted and "signed off" on the contract in `openapi/APPROVAL.md` to freeze the spec for Milestone 1. Added `openapi:build` script to `package.json`.
+- Tests run: `bun run openapi:build`
+- Files touched: `package.json`, `openapi/preview/index.html`, `openapi/APPROVAL.md`, `STATUS.md`, `WHAT_WE_DID.md`, `DO_NEXT.md`.
+- Notes/Links: Contract is now frozen for M1 development. Next step is SDK generation pipeline.

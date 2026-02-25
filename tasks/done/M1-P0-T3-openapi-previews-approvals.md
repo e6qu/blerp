@@ -2,7 +2,7 @@
 
 - **Phase**: Milestone 1 — Phase 0 (OpenAPI Schema Baseline)
 - **Plan Reference**: PLAN.md › Phase 0 Task 3
-- **Status**: Pending
+- **Status**: Completed
 
 ## Objective
 Generate human-friendly HTML/Markdown previews of the OpenAPI spec, circulate them for internal review, and capture written approval so the contract is frozen before deeper engineering.

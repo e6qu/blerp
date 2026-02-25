@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "openapi:lint:spectral": "spectral lint openapi/blerp.v1.yaml --fail-severity=warn",
     "openapi:lint:redocly": "redocly lint openapi/blerp.v1.yaml --config=redocly.yaml",
-    "openapi:lint": "bun run openapi:lint:spectral && bun run openapi:lint:redocly"
+    "openapi:lint": "bun run openapi:lint:spectral && bun run openapi:lint:redocly",
+    "openapi:build": "redocly build-docs openapi/blerp.v1.yaml -o openapi/index.html"
   },
   "keywords": [],
   "author": "",
