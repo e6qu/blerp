@@ -76,7 +76,7 @@ _Objective_: build SPA flows that hit the REST API directly and validate compati
 Tasks:
 
 1. [x] Implement Vite + React SPA flows (sign-in/up, profile, organization management) consuming the JSON API directly via OpenAPI-generated clients.
-2. Create Storybook/MSW coverage for these flows, mirroring Clerk’s documented UI behaviors.
+2. [x] Create Storybook/MSW coverage for these flows, mirroring Clerk’s documented UI behaviors.
 3. Configure automated harnesses that run the official Clerk SDKs (ClerkJS, `@clerk/clerk-react`, server SDKs) against local Blerp instances to verify schema parity.
 4. Document how to repoint the official SDKs to Blerp endpoints for validation.
 5. Provide Vite demo apps/templates (no custom SDK) that developers can extend when integrating REST endpoints.

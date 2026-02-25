@@ -10,4 +10,28 @@ export const handlers = [
       public_metadata: {},
     });
   }),
+
+  http.post("/v1/auth/signups", async ({ request }) => {
+    const { email } = (await request.json()) as { email: string };
+
+    if (email === "error@blerp.dev") {
+      return HttpResponse.json(
+        {
+          error: { message: "Simulated error for testing" },
+        },
+        { status: 400 },
+      );
+    }
+
+    return HttpResponse.json({
+      id: "sig_mock_123",
+      status: "needs_verification",
+      identifier: email,
+      strategy: "password",
+      verification: {
+        channel: "email_code",
+        expires_at: new Date(Date.now() + 15 * 60000).toISOString(),
+      },
+    });
+  }),
 ];
