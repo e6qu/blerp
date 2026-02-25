@@ -2,7 +2,7 @@
 
 - **Phase**: Milestone 1 — Phase D (Frontend Flows & SDK Compatibility)
 - **Plan Reference**: PLAN.md › Phase D Task 5
-- **Status**: Pending
+- **Status**: Completed
 
 ## Objective
 
