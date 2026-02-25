@@ -51,7 +51,7 @@ _Objective_: implement per-customer SQLite schemas, migrations, and Drizzle data
 
 Tasks:
 
-1. Define Drizzle schema per `DESIGN_DOCUMENT.md` (users, sessions, projects, API keys, audit logs) targeting SQLite 3.
+1. [x] Define Drizzle schema per `DESIGN_DOCUMENT.md` (users, sessions, projects, API keys, audit logs) targeting SQLite 3.
 2. Implement database-router abstraction that maps tenant IDs → dedicated SQLite file paths and handles creation/migrations per customer.
 3. Build migration + seeding pipeline that can run against every tenant database (turbo task iterating across DB files).
 4. Integrate Redis connection layer for optional cache/rate limit primitives plus Redis Streams-based queues.
