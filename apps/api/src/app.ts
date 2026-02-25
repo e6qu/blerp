@@ -4,6 +4,7 @@ import cors from "cors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { tenantMiddleware } from "./middleware/tenant";
+import { authRoutes } from "./v1/routes/auth.routes";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +22,7 @@ app.get("/health", (req, res) => {
 
 // API routes - all require tenant isolation
 app.use("/v1", tenantMiddleware);
+app.use("/v1", authRoutes);
 
 app.get("/v1/ping", (req, res) => {
   res.json({ message: "pong", tenantId: req.tenantId });
