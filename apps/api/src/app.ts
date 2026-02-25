@@ -3,10 +3,12 @@ import helmet from "helmet";
 import cors from "cors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import cookieParser from "cookie-parser";
 import { tenantMiddleware } from "./middleware/tenant";
 import { authRoutes } from "./v1/routes/auth.routes";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
+import { doubleCsrfProtection } from "./middleware/csrf";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,8 +16,18 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 app.use(httpLogger);
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["+'+self+'+", "+'+unsafe-inline+'+"],
+      },
+    },
+  }),
+);
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json());
 
 // Apply global rate limiting
@@ -34,6 +46,10 @@ app.get("/health", (req, res) => {
 
 // API routes - all require tenant isolation
 app.use("/v1", tenantMiddleware);
+
+// Apply CSRF protection to mutations
+app.use("/v1", doubleCsrfProtection);
+
 app.use("/v1", authRoutes);
 
 app.get("/v1/ping", (req, res) => {
