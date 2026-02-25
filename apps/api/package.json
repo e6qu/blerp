@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate-all": "bun run scripts/db-admin.ts migrate-all",
-    "db:seed": "bun run scripts/db-admin.ts seed"
+    "db:seed": "bun run scripts/db-admin.ts seed",
+    "test": "vitest run"
   },
   "dependencies": {
     "@blerp/shared": "workspace:*",
@@ -29,8 +30,10 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/ioredis": "^5.0.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "drizzle-kit": "^0.31.9",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^4.0.18"
   },
   "type": "module"
 }

@@ -55,7 +55,7 @@ Tasks:
 2. [x] Implement database-router abstraction that maps tenant IDs → dedicated SQLite file paths and handles creation/migrations per customer.
 3. [x] Build migration + seeding pipeline that can run against every tenant database (turbo task iterating across DB files).
 4. [x] Integrate Redis connection layer for optional cache/rate limit primitives plus Redis Streams-based queues.
-5. Create unit tests covering data constraints and lifecycle events (soft delete, metadata) across multiple tenant databases.
+5. [x] Create unit tests covering data constraints and lifecycle events (soft delete, metadata) across multiple tenant databases.
 
 ### Phase C — Auth & Session APIs
 
