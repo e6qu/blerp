@@ -54,7 +54,7 @@ Tasks:
 1. [x] Define Drizzle schema per `DESIGN_DOCUMENT.md` (users, sessions, projects, API keys, audit logs) targeting SQLite 3.
 2. [x] Implement database-router abstraction that maps tenant IDs → dedicated SQLite file paths and handles creation/migrations per customer.
 3. [x] Build migration + seeding pipeline that can run against every tenant database (turbo task iterating across DB files).
-4. Integrate Redis connection layer for optional cache/rate limit primitives plus Redis Streams-based queues.
+4. [x] Integrate Redis connection layer for optional cache/rate limit primitives plus Redis Streams-based queues.
 5. Create unit tests covering data constraints and lifecycle events (soft delete, metadata) across multiple tenant databases.
 
 ### Phase C — Auth & Session APIs
