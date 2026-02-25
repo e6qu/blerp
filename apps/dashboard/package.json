@@ -6,12 +6,14 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint .",
-    "test": "echo 'TODO: dashboard test'",
+    "test": "vitest run",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@blerp/shared": "workspace:*",
+    "@clerk/clerk-react": "^5.61.1",
     "@tanstack/react-query": "^5.90.21",
     "lucide-react": "^0.575.0",
     "openapi-fetch": "^0.17.0",
@@ -22,6 +24,7 @@
   "devDependencies": {
     "@blerp/config": "workspace:*",
     "@chromatic-com/storybook": "^5.0.1",
+    "@playwright/test": "^1.58.2",
     "@storybook/addon-a11y": "^10.2.12",
     "@storybook/addon-docs": "^10.2.12",
     "@storybook/addon-onboarding": "^10.2.12",
