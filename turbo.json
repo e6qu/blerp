@@ -18,6 +18,13 @@
     },
     "generate": {
       "dependsOn": ["^generate"]
+    },
+    "storybook": {
+      "cache": false,
+      "persistent": true
+    },
+    "build-storybook": {
+      "outputs": ["storybook-static/**"]
     }
   }
 }

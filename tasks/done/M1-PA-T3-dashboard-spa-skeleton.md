@@ -2,7 +2,7 @@
 
 - **Phase**: Milestone 1 — Phase A (Project Scaffolding & Tooling)
 - **Plan Reference**: PLAN.md › Phase A Task 3
-- **Status**: Pending
+- **Status**: Completed
 
 ## Objective
 

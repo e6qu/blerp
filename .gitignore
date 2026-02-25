@@ -2,3 +2,7 @@ node_modules/
 .DS_Store
 .gemini/
 fix_openapi.js
+
+*storybook.log
+storybook-static
+dist/\n.turbo/\n
