@@ -1,8 +1,8 @@
 
 [0m[2m[35m$[0m [2m[1mtsc && vite build[0m
 [36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
-[2K[1Gtransforming (1) [2msrc/main.tsx[22m[2K[1G[2K[1G[2K[1Gtransforming (22) [2m../../node_modules/react-router/dist/development/chunk-JPUPSTYD.mjs[22m[2K[1Gtransforming (1025) [2m../../node_modules/react-dom/index.js[22m[2K[1Gtransforming (1026) [2m../../node_modules/react-dom/cjs/react-dom-client.production.js[22m[2K[1Gtransforming (1735) [2m../../node_modules/lucide-react/dist/esm/shared/src/utils/toPascalCase.js[22m[2K[1G[32m✓[39m 1740 modules transformed.
+[2K[1Gtransforming (1) [2msrc/main.tsx[22m[2K[1G[2K[1G[2K[1Gtransforming (24) [2m../../node_modules/scheduler/cjs/scheduler.production.js[22m[2K[1Gtransforming (1038) [2m../../node_modules/lucide-react/dist/esm/icons/list-checks.js[22m[2K[1G[32m✓[39m 1740 modules transformed.
 [2K[1Grendering chunks (1)...[2K[1G[2K[1Gcomputing gzip size (0)...[2K[1Gcomputing gzip size (1)...[2K[1Gcomputing gzip size (2)...[2K[1Gcomputing gzip size (3)...[2K[1G[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.46 kB[22m[1m[22m[2m │ gzip:  0.30 kB[22m
 [2mdist/[22m[2massets/[22m[35mindex-Dyz6jw_n.css  [39m[1m[2m 21.23 kB[22m[1m[22m[2m │ gzip:  5.85 kB[22m
 [2mdist/[22m[2massets/[22m[36mindex-BLejzw82.js   [39m[1m[2m233.91 kB[22m[1m[22m[2m │ gzip: 75.04 kB[22m
-[32m✓ built in 726ms[39m
+[32m✓ built in 718ms[39m

@@ -3,6 +3,7 @@ import helmet from "helmet";
 import cors from "cors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { tenantMiddleware } from "./middleware/tenant";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,9 +19,11 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-// API routes
+// API routes - all require tenant isolation
+app.use("/v1", tenantMiddleware);
+
 app.get("/v1/ping", (req, res) => {
-  res.json({ message: "pong" });
+  res.json({ message: "pong", tenantId: req.tenantId });
 });
 
 // Serve dashboard static assets in production
