@@ -256,8 +256,8 @@ _Objective_: validate parity with the Monite SDK integration patterns.
 
 Tasks:
 
-1. Implement `blerp-webhook-handler` middleware for Next.js.
-2. Build `examples/monite-sdk-parity` mirroring the Monite SDK Next.js demo.
+1. [x] Implement `blerp-webhook-handler` middleware for Next.js.
+2. [x] Build `examples/monite-sdk-parity` mirroring the Monite SDK Next.js demo.
 3. Configure Terraform/DNS logic placeholders for custom domains.
 
 ### Phase D — E2E Testing Helpers
