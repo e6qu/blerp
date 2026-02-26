@@ -3,6 +3,9 @@ WORKDIR /app
 
 # Install dependencies
 FROM base AS install
+# better-sqlite3 needs build tools
+RUN apk add --no-cache python3 make g++
+
 COPY package.json bun.lock turbo.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/dashboard/package.json ./apps/dashboard/
