@@ -157,8 +157,8 @@ _Objective_: optimize hot paths and ensure database efficiency for multi-tenant 
 
 Tasks:
 
-1. Implement Redis-based caching for frequent API lookups (public JWKS, organization metadata).
-2. Optimize Drizzle queries and add necessary SQLite indexes for high-volume tables (audit logs, sessions).
+1. [x] Implement Redis-based caching for frequent API lookups (public JWKS, organization metadata).
+2. [x] Optimize Drizzle queries and add necessary SQLite indexes for high-volume tables (audit logs, sessions).
 3. Implement connection pooling and lifecycle management for tenant databases.
 
 ### Phase B — Developer Tooling & CLI

@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from "express";
 import { OrganizationService } from "../services/organization.service";
+import { cache } from "../../lib/redis";
 
 export async function createOrganization(req: Request, res: Response) {
   const { name, slug, project_id } = req.body;
@@ -7,6 +9,8 @@ export async function createOrganization(req: Request, res: Response) {
 
   try {
     const org = await service.create({ name, slug, projectId: project_id });
+    // Invalidate list cache
+    await cache.del(`blerp:orgs:${req.tenantId}`);
     res.status(201).json(org);
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
@@ -14,11 +18,20 @@ export async function createOrganization(req: Request, res: Response) {
 }
 
 export async function listOrganizations(req: Request, res: Response) {
+  const cacheKey = `blerp:orgs:${req.tenantId}`;
+  const cached = await cache.get<{ data: any[] }>(cacheKey);
+
+  if (cached) {
+    return res.status(200).json(cached);
+  }
+
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
   try {
     const orgs = await service.list();
-    res.status(200).json({ data: orgs });
+    const response = { data: orgs };
+    await cache.set(cacheKey, response, 300); // Cache for 5 mins
+    res.status(200).json(response);
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
@@ -47,6 +60,7 @@ export async function updateOrganization(req: Request, res: Response) {
 
   try {
     const org = await service.update(id, data);
+    await cache.del(`blerp:orgs:${req.tenantId}`);
     res.status(200).json(org);
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
@@ -59,6 +73,7 @@ export async function deleteOrganization(req: Request, res: Response) {
 
   try {
     await service.delete(id);
+    await cache.del(`blerp:orgs:${req.tenantId}`);
     res.status(204).send();
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });

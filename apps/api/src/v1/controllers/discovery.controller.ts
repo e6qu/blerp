@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from "express";
 import { jwt } from "../../lib/jwt";
+import { cache } from "../../lib/redis";
 
 let mockKeyPair: Awaited<ReturnType<typeof jwt.generateKeyPair>> | null = null;
 
@@ -11,12 +13,21 @@ async function getMockKeyPair() {
 }
 
 export async function getJWKS(req: Request, res: Response) {
+  const cacheKey = "blerp:jwks:v1";
+  const cached = await cache.get<{ keys: any[] }>(cacheKey);
+
+  if (cached) {
+    return res.json(cached);
+  }
+
   const { publicKey } = await getMockKeyPair();
   const jwk = await jwt.exportJWK(publicKey, "default-kid");
-
-  res.json({
+  const response = {
     keys: [jwk],
-  });
+  };
+
+  await cache.set(cacheKey, response, 3600); // Cache for 1 hour
+  res.json(response);
 }
 
 export async function getOIDCConfig(req: Request, res: Response) {

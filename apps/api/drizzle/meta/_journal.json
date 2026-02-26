@@ -57,6 +57,13 @@
       "when": 1772066162291,
       "tag": "0007_flowery_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1772066394606,
+      "tag": "0008_hard_sway",
+      "breakpoints": true
     }
   ]
 }

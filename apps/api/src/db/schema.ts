@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { relations, sql } from "drizzle-orm";
 
 // --- Projects & Environments ---
@@ -103,27 +103,33 @@ export const oauthAccounts = sqliteTable("oauth_accounts", {
 
 // --- Sessions ---
 
-export const sessions = sqliteTable("sessions", {
-  id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  organizationId: text("organization_id"),
-  status: text("status", { enum: ["active", "revoked", "ended", "expired"] })
-    .notNull()
-    .default("active"),
-  lastActiveAt: integer("last_active_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  expireAt: integer("expire_at", { mode: "timestamp" }).notNull(),
-  abandonAt: integer("abandon_at", { mode: "timestamp" }).notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id"),
+    status: text("status", { enum: ["active", "revoked", "ended", "expired"] })
+      .notNull()
+      .default("active"),
+    lastActiveAt: integer("last_active_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    expireAt: integer("expire_at", { mode: "timestamp" }).notNull(),
+    abandonAt: integer("abandon_at", { mode: "timestamp" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    userIdIdx: index("sessions_user_id_idx").on(table.userId),
+  }),
+);
 
 // --- Organizations ---
 
@@ -145,22 +151,28 @@ export const organizations = sqliteTable("organizations", {
     .default(sql`(unixepoch())`),
 });
 
-export const memberships = sqliteTable("memberships", {
-  id: text("id").primaryKey(),
-  organizationId: text("organization_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  role: text("role").notNull().default("member"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
+export const memberships = sqliteTable(
+  "memberships",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role").notNull().default("member"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    orgUserIdx: index("memberships_org_user_idx").on(table.organizationId, table.userId),
+  }),
+);
 
 export const invitations = sqliteTable("invitations", {
   id: text("id").primaryKey(),
@@ -201,19 +213,26 @@ export const apiKeys = sqliteTable("api_keys", {
 
 // --- Audit Logs ---
 
-export const auditLogs = sqliteTable("audit_logs", {
-  id: text("id").primaryKey(),
-  userId: text("user_id"),
-  organizationId: text("organization_id"),
-  action: text("action").notNull(),
-  actor: text("actor", { mode: "json" }).notNull(),
-  payload: text("payload", { mode: "json" }).notNull().default("{}"),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
+export const auditLogs = sqliteTable(
+  "audit_logs",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id"),
+    organizationId: text("organization_id"),
+    action: text("action").notNull(),
+    actor: text("actor", { mode: "json" }).notNull(),
+    payload: text("payload", { mode: "json" }).notNull().default("{}"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    userIdIdx: index("audit_logs_user_id_idx").on(table.userId),
+    organizationIdIdx: index("audit_logs_org_id_idx").on(table.organizationId),
+  }),
+);
 
 export const webhookEndpoints = sqliteTable("webhook_endpoints", {
   id: text("id").primaryKey(),
