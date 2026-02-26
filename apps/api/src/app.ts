@@ -9,9 +9,11 @@ import { authRoutes } from "./v1/routes/auth.routes";
 import { organizationRoutes } from "./v1/routes/organization.routes";
 import { webhookRoutes } from "./v1/routes/webhook.routes";
 import { scimRoutes } from "./v1/routes/scim.routes";
+import * as auditController from "./v1/controllers/audit.controller";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
+import { authMiddleware } from "./middleware/auth";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,6 +55,9 @@ app.use("/v1", doubleCsrfProtection);
 app.use("/v1", authRoutes);
 app.use("/v1", organizationRoutes);
 app.use("/v1", webhookRoutes);
+
+// Audit Logs
+app.get("/v1/audit_logs", authMiddleware, auditController.listAuditLogs);
 
 // SCIM v2
 app.use("/scim/v2", scimRoutes);

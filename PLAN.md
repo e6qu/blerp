@@ -134,7 +134,7 @@ _Objective_: support enterprise-grade provisioning and audit features.
 Tasks:
 
 1. [x] Implement SCIM 2.0 provisioning endpoints for automated user/group management.
-2. Build Audit Log streaming service to export events to external sinks (S3, Datadog).
+2. [x] Build Audit Log streaming service to export events to external sinks (S3, Datadog).
 3. Implement verified domain logic for automatic organization discovery and joining.
 
 ### Phase E — Security Polish & Expansion
