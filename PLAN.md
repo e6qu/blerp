@@ -247,7 +247,7 @@ _Objective_: deliver high-level components and hooks for complex organization/pe
 Tasks:
 
 1. [x] Implement `Protect` component and `has` permission helper for Next.js (Clerk RBAC parity).
-2. Implement `OrganizationProfile` and `CreateOrganization` components.
+2. [x] Implement `OrganizationProfile` and `CreateOrganization` components.
 3. Implement `OrganizationSwitcher` with active organization state management.
 
 ### Phase C — Webhook Handlers \& monite-sdk Parity
