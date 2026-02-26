@@ -81,3 +81,10 @@
 - Vitest/Jest for Express services and React hooks; Playwright for SPA flows; MSW for mocking.
 - Contract tests based on OpenAPI; integration tests via docker-compose (SQLite volumes, Redis).
 - k6 load tests (nightly) and security scans (OWASP ZAP baseline, dependency audit).
+
+### 2.5 Monite SDK Specifics (Milestone 6)
+
+- Deep-merge updates for `private_metadata`.
+- Organization Domains management (REST + UI).
+- Domain-based auto-enrollment and discovery flows.
+- Multi-entity user mapping support.

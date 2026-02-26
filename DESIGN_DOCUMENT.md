@@ -328,3 +328,9 @@ All references are used solely for high-level feature parity; no proprietary ass
 - Coverage: includes every endpoint described above (auth flows, users, organizations, MFA, webhooks, projects, client helpers) with schemas, examples, and RFC 7807-compliant errors.
 - Distribution: served via the documentation site, bundled with the repo, and used for SDK generation (React, Node, Go). Stored artifacts are versioned and tagged alongside application releases.
 - Tooling: CI validates spec with `@redocly/cli` + Spectral; Make targets emit TypeScript types, server stubs, and Markdown reference tables consumed by docs.
+
+### 5.7 Monite SDK Parity (Milestone 6)
+
+- **Deep Metadata Merging**: Support for nested objects (e.g., `entities`) in user/org metadata.
+- **Organization Domains**: Enterprise routing based on email domains, auto-enrollment, and domain discovery.
+- **Multi-entity Mapping**: Ability to associate a single Clerk user with multiple Monite `entity_user_id`s across organizations.

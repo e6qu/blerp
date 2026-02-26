@@ -3,20 +3,29 @@
 This repository contains the planning and specification artifacts for the Blerp Identity Service (clean-room Clerk reimplementation). Start with the overview and follow links for deeper details:
 
 - `DESIGN_DOCUMENT.md` — architecture, API surface, data models, security posture.
-- `PLAN.md` — milestone/phase breakdown with the current execution order.
+- `PLAN.md` — milestone/phase breakdown with the current execution order (including Milestone 6 — Monite SDK Full Parity).
 - `FEATURES.md` — canonical feature list covering backend, frontend flows, security, DevEx.
-- `USER_STORIES.md` — persona-based requirements.
+- `USER_STORIES.md` — persona-based requirements (including Milestone 6 stories).
 - `ACCEPTANCE_CRITERIA.md` — definition of “acceptable” outcomes per task.
 - `DEFINITION_OF_DONE.md` — checklist every deliverable must satisfy before completion.
 - `STATUS.md` — rolling status log (update as work progresses).
 - `WHAT_WE_DID.md` — chronological notes about completed work.
-- `DO_NEXT.md` — queued follow-up actions.
+- `DO_NEXT.md` — prioritized roadmap for next actions.
+- `MONITE_SDK_CLERK_DATA.md` — detailed mapping of Monite metadata in Clerk.
+- `MONITE_SDK_CLERK_LIVE_DEPENDENCIES.md` — specific Clerk features used by Monite.
 - `AGENTS.md` — instructions for any automation/agent picking up the work.
 - `openapi/blerp.v1.yaml` — authoritative REST contract.
 
 _After each milestone, compress older entries in `PLAN.md`, `STATUS.md`, and `WHAT_WE_DID.md` so the history stays readable (retain only essential context)._
 
 For quick navigation, `CLAUDE.md` points to `PLAN.md`, and the developer CLI/docs will reference these files to keep implementation aligned with the plan.
+
+## Project Status
+
+- **Current Goal**: Achieving 100% feature parity with the Monite SDK's integration of Clerk (Milestone 6).
+- **Core Platform**: Milestone 1-3 complete. Foundations for multi-tenancy, auth, and dashboard are solid.
+- **Frameworks**: Milestone 4-5 complete. `@blerp/nextjs` and `@blerp/backend` packages are operational.
+- **Documentation**: Comprehensive guides for SDK repointing and Monite metadata mapping are available.
 
 ## Repository & Contact
 
