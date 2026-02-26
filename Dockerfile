@@ -8,6 +8,7 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/dashboard/package.json ./apps/dashboard/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/config/package.json ./packages/config/
+COPY packages/nextjs/package.json ./packages/nextjs/
 RUN bun install --frozen-lockfile
 
 # Build dashboard
@@ -32,7 +33,7 @@ COPY --from=build-dashboard /app/apps/dashboard/dist ./apps/dashboard/dist
 COPY --from=install /app/node_modules ./node_modules
 COPY --from=install /app/apps/api/node_modules ./apps/api/node_modules
 
-# We need the shared package as well if it's not bundled
+# We need the shared package as well if it s not bundled
 COPY --from=install /app/packages/shared ./packages/shared
 
 EXPOSE 3000
