@@ -3,7 +3,6 @@ WORKDIR /app
 
 # Install dependencies
 FROM base AS install
-# better-sqlite3 needs build tools
 RUN apk add --no-cache python3 make g++
 
 COPY package.json bun.lock turbo.json ./
@@ -17,17 +16,19 @@ COPY examples/nextjs-quickstart/package.json ./examples/nextjs-quickstart/
 COPY examples/vite-react-simple/package.json ./examples/vite-react-simple/
 RUN bun install --frozen-lockfile
 
-# Build dashboard
-FROM install AS build-dashboard
+# Build shared packages first
+FROM install AS build-shared
 COPY packages/shared ./packages/shared
 COPY packages/config ./packages/config
+RUN bun run build --filter @blerp/shared
+
+# Build dashboard
+FROM build-shared AS build-dashboard
 COPY apps/dashboard ./apps/dashboard
 RUN bun run build --filter @blerp/dashboard
 
 # Build API
-FROM install AS build-api
-COPY packages/shared ./packages/shared
-COPY packages/config ./packages/config
+FROM build-shared AS build-api
 COPY apps/api ./apps/api
 RUN bun run build --filter @blerp/api
 
@@ -37,10 +38,9 @@ COPY --from=build-api /app/apps/api/dist ./apps/api/dist
 COPY --from=build-api /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build-dashboard /app/apps/dashboard/dist ./apps/dashboard/dist
 COPY --from=install /app/node_modules ./node_modules
-COPY --from=install /app/apps/api/node_modules ./apps/api/node_modules
 
-# We need the shared package as well if it s not bundled
-COPY --from=install /app/packages/shared ./packages/shared
+# We need the shared package source if it is not bundled by tsc
+COPY --from=build-shared /app/packages/shared ./packages/shared
 
 EXPOSE 3000
 WORKDIR /app/apps/api
