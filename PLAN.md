@@ -213,7 +213,7 @@ _Objective_: provide polished, zero-config React components matching Clerk DX.
 
 Tasks:
 
-1. Extract `SignUp`, `SignIn`, `UserButton`, and `OrganizationSwitcher` from the Dashboard into a reusable UI package or export them from `@blerp/nextjs`.
+1. [x] Extract `SignUp`, `SignIn`, `UserButton`, and `OrganizationSwitcher` from the Dashboard into a reusable UI package or export them from `@blerp/nextjs`.
 2. Ensure components support customization via a `appearance` prop.
 
 ### Phase C — Next.js Quickstart Testing

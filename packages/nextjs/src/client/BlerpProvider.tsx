@@ -1,11 +1,17 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useMemo } from "react";
+import createClient from "openapi-fetch";
+import type { paths } from "@blerp/shared";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 interface BlerpContextType {
   userId: string | null;
   isLoaded: boolean;
   isSignedIn: boolean;
+  client: ReturnType<typeof createClient<paths>>;
 }
 
 const BlerpContext = createContext<BlerpContextType | undefined>(undefined);
@@ -17,23 +23,30 @@ export function BlerpProvider({
   children: React.ReactNode;
   publishableKey: string;
 }) {
-  const [state, setState] = useState<BlerpContextType>({
-    userId: null,
-    isLoaded: false,
-    isSignedIn: false,
-  });
-
-  useEffect(() => {
-    // In a real implementation, this would fetch the session from the Blerp API
-    // or parse it from a cookie.
-    setState({
-      userId: null, // Placeholder
-      isLoaded: true,
-      isSignedIn: false,
+  const apiClient = useMemo(() => {
+    return createClient<paths>({
+      baseUrl: "/",
+      headers: {
+        Authorization: `Bearer ${publishableKey}`,
+      },
     });
   }, [publishableKey]);
 
-  return <BlerpContext.Provider value={state}>{children}</BlerpContext.Provider>;
+  const state = useMemo(
+    () => ({
+      userId: null,
+      isLoaded: true,
+      isSignedIn: false,
+      client: apiClient,
+    }),
+    [apiClient],
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BlerpContext.Provider value={state}>{children}</BlerpContext.Provider>
+    </QueryClientProvider>
+  );
 }
 
 export function useAuth() {
@@ -41,5 +54,14 @@ export function useAuth() {
   if (context === undefined) {
     throw new Error("useAuth must be used within a BlerpProvider");
   }
-  return context;
+  const { userId, isLoaded, isSignedIn } = context;
+  return { userId, isLoaded, isSignedIn };
+}
+
+export function useBlerpClient() {
+  const context = useContext(BlerpContext);
+  if (context === undefined) {
+    throw new Error("useBlerpClient must be used within a BlerpProvider");
+  }
+  return context.client;
 }
