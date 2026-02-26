@@ -14,7 +14,7 @@ declare global {
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const userId = req.header("X-User-Id");
-  const organizationId = req.params.organization_id;
+  const organizationId = req.params.organization_id as string;
 
   if (!userId) {
     res.status(401).json({ error: "X-User-Id header is required" });

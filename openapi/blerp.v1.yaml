@@ -1316,6 +1316,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Organization"
   /v1/organizations/{organization_id}/memberships:
+    get:
+      tags: [Organizations]
+      summary: List memberships
+      description: Returns a list of memberships for the specified organization.
+      operationId: listMemberships
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of memberships
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Membership"
     post:
       tags: [Organizations]
       summary: Create membership

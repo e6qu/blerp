@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, Settings, Users, Shield, LogOut } from "lucide-react";
+import { OrganizationSwitcher } from "./auth/OrganizationSwitcher";
 
 export function Layout() {
   const location = useLocation();
@@ -18,7 +19,12 @@ export function Layout() {
         <div className="flex h-16 items-center border-b px-6">
           <span className="text-xl font-bold tracking-tight text-blue-600">Blerp</span>
         </div>
-        <nav className="mt-6 space-y-1 px-3">
+
+        <div className="border-b p-4">
+          <OrganizationSwitcher />
+        </div>
+
+        <nav className="mt-2 space-y-1 px-3">
           {navItems.map((item) => (
             <Link
               key={item.name}

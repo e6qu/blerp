@@ -25,7 +25,7 @@ export async function listOrganizations(req: Request, res: Response) {
 }
 
 export async function getOrganization(req: Request, res: Response) {
-  const id = req.params.organization_id || req.params.id;
+  const id = (req.params.organization_id || req.params.id) as string;
   const service = new OrganizationService(req.tenantDb!);
 
   try {
@@ -41,7 +41,7 @@ export async function getOrganization(req: Request, res: Response) {
 }
 
 export async function updateOrganization(req: Request, res: Response) {
-  const id = req.params.organization_id || req.params.id;
+  const id = (req.params.organization_id || req.params.id) as string;
   const data = req.body;
   const service = new OrganizationService(req.tenantDb!);
 
@@ -54,7 +54,7 @@ export async function updateOrganization(req: Request, res: Response) {
 }
 
 export async function deleteOrganization(req: Request, res: Response) {
-  const id = req.params.organization_id || req.params.id;
+  const id = (req.params.organization_id || req.params.id) as string;
   const service = new OrganizationService(req.tenantDb!);
 
   try {

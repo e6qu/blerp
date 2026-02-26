@@ -136,6 +136,11 @@ export interface paths {
   };
   "/v1/organizations/{organization_id}/memberships": {
     /**
+     * List memberships
+     * @description Returns a list of memberships for the specified organization.
+     */
+    get: operations["listMemberships"];
+    /**
      * Create membership
      * @description Adds a user to an organization with the provided roles.
      */
@@ -1167,6 +1172,27 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["Organization"];
+        };
+      };
+    };
+  };
+  /**
+   * List memberships
+   * @description Returns a list of memberships for the specified organization.
+   */
+  listMemberships: {
+    parameters: {
+      path: {
+        organization_id: string;
+      };
+    };
+    responses: {
+      /** @description List of memberships */
+      200: {
+        content: {
+          "application/json": {
+            data?: components["schemas"]["Membership"][];
+          };
         };
       };
     };

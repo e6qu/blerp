@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { InvitationService } from "../services/invitation.service";
 
 export async function createInvitation(req: Request, res: Response) {
-  const { organization_id } = req.params;
+  const organization_id = req.params.organization_id as string;
   const { email_address, role } = req.body;
   const service = new InvitationService(req.tenantDb!);
 
@@ -15,7 +15,7 @@ export async function createInvitation(req: Request, res: Response) {
 }
 
 export async function listInvitations(req: Request, res: Response) {
-  const { organization_id } = req.params;
+  const organization_id = req.params.organization_id as string;
   const service = new InvitationService(req.tenantDb!);
 
   try {
@@ -27,7 +27,7 @@ export async function listInvitations(req: Request, res: Response) {
 }
 
 export async function revokeInvitation(req: Request, res: Response) {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const service = new InvitationService(req.tenantDb!);
 
   try {

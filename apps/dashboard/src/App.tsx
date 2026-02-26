@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { SignUp } from "./components/auth/SignUp";
+import { OrganizationsPage } from "./components/auth/OrganizationsPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
+          <Route path="users" element={<OrganizationsPage />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
