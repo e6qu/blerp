@@ -1,9 +1,13 @@
 import { nanoid } from "nanoid";
+import { eventBus } from "../../lib/events";
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
 
 export class AuthService {
-  constructor(private db: BetterSQLite3Database<typeof schema>) {}
+  constructor(
+    private db: BetterSQLite3Database<typeof schema>,
+    private tenantId: string,
+  ) {}
 
   async createSignup(data: { email: string; strategy: string }) {
     const signupId = `sig_${nanoid()}`;
@@ -43,6 +47,7 @@ export class AuthService {
       verificationStatus: "verified",
     });
 
+    await eventBus.emit("user.created", this.tenantId, { userId });
     return { userId };
   }
 }

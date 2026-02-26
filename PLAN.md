@@ -112,7 +112,7 @@ _Objective_: enable real-time event delivery to customer applications via Redis 
 
 Tasks:
 
-1. Implement Redis Streams-based event bus emitting user, organization, and session events.
+1. [x] Implement Redis Streams-based event bus emitting user, organization, and session events.
 2. Build Webhook Endpoint management (URLs, secrets, event filtering) in API and DB.
 3. Author Webhook delivery worker with HMAC signing, retries, and backoff.
 4. Create Webhook monitoring and log viewer in the Dashboard SPA.

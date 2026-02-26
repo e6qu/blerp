@@ -3,7 +3,7 @@ import { OrganizationService } from "../services/organization.service";
 
 export async function createOrganization(req: Request, res: Response) {
   const { name, slug, project_id } = req.body;
-  const service = new OrganizationService(req.tenantDb!);
+  const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
   try {
     const org = await service.create({ name, slug, projectId: project_id });
@@ -14,7 +14,7 @@ export async function createOrganization(req: Request, res: Response) {
 }
 
 export async function listOrganizations(req: Request, res: Response) {
-  const service = new OrganizationService(req.tenantDb!);
+  const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
   try {
     const orgs = await service.list();
@@ -26,7 +26,7 @@ export async function listOrganizations(req: Request, res: Response) {
 
 export async function getOrganization(req: Request, res: Response) {
   const id = (req.params.organization_id || req.params.id) as string;
-  const service = new OrganizationService(req.tenantDb!);
+  const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
   try {
     const org = await service.get(id);
@@ -43,7 +43,7 @@ export async function getOrganization(req: Request, res: Response) {
 export async function updateOrganization(req: Request, res: Response) {
   const id = (req.params.organization_id || req.params.id) as string;
   const data = req.body;
-  const service = new OrganizationService(req.tenantDb!);
+  const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
   try {
     const org = await service.update(id, data);
@@ -55,7 +55,7 @@ export async function updateOrganization(req: Request, res: Response) {
 
 export async function deleteOrganization(req: Request, res: Response) {
   const id = (req.params.organization_id || req.params.id) as string;
-  const service = new OrganizationService(req.tenantDb!);
+  const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
   try {
     await service.delete(id);

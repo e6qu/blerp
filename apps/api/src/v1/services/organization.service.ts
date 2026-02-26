@@ -1,10 +1,14 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { eventBus } from "../../lib/events";
 import * as schema from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export class OrganizationService {
-  constructor(private db: BetterSQLite3Database<typeof schema>) {}
+  constructor(
+    private db: BetterSQLite3Database<typeof schema>,
+    private tenantId: string,
+  ) {}
 
   async create(data: { name: string; slug?: string; projectId: string }) {
     const id = `org_${nanoid()}`;
@@ -17,6 +21,7 @@ export class OrganizationService {
       slug,
     });
 
+    await eventBus.emit("organization.created", this.tenantId, { organizationId: id });
     return this.get(id);
   }
 

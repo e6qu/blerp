@@ -3,7 +3,7 @@ import { AuthService } from "../services/auth.service";
 
 export async function createSignup(req: Request, res: Response) {
   const { email, strategy } = req.body;
-  const authService = new AuthService(req.tenantDb!);
+  const authService = new AuthService(req.tenantDb!, req.tenantId!);
 
   try {
     const signup = await authService.createSignup({ email, strategy });
@@ -16,7 +16,7 @@ export async function createSignup(req: Request, res: Response) {
 export async function attemptSignup(req: Request, res: Response) {
   const id = req.params.id as string;
   const code = req.body.code as string;
-  const authService = new AuthService(req.tenantDb!);
+  const authService = new AuthService(req.tenantDb!, req.tenantId!);
 
   try {
     const result = await authService.attemptSignup(id, String(code));
