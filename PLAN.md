@@ -144,5 +144,5 @@ _Objective_: finalize advanced security features and documentation for GA.
 Tasks:
 
 1. [x] Implement Session introspection and multi-device revocation UI in Dashboard.
-2. Harden WebAuthn/Passkey registration and login flows with full attestation.
-3. Finalize Enterprise onboarding guides, API reference updates, and deployment blueprints.
+2. [x] Harden WebAuthn/Passkey registration and login flows with full attestation.
+3. [x] Finalize Enterprise onboarding guides, API reference updates, and deployment blueprints.

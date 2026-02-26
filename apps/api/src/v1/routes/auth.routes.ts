@@ -5,6 +5,7 @@ import * as oauthController from "../controllers/oauth.controller";
 import * as userinfoController from "../controllers/userinfo.controller";
 import * as identityController from "../controllers/identity.controller";
 import * as sessionController from "../controllers/session.controller";
+import * as webauthnController from "../controllers/webauthn.controller";
 import { authMiddleware } from "../../middleware/auth";
 
 const router = Router();
@@ -36,5 +37,18 @@ router.delete(
 // Sessions
 router.get("/sessions", authMiddleware, sessionController.listSessions);
 router.delete("/sessions/:session_id", authMiddleware, sessionController.revokeSession);
+
+// WebAuthn
+router.get(
+  "/auth/webauthn/registration/options",
+  authMiddleware,
+  webauthnController.getRegistrationOptions,
+);
+router.post(
+  "/auth/webauthn/registration/verify",
+  authMiddleware,
+  webauthnController.verifyRegistration,
+);
+router.get("/auth/webauthn/passkeys", authMiddleware, webauthnController.listPasskeys);
 
 export { router as authRoutes };

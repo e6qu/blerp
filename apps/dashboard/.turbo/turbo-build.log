@@ -1,8 +1,8 @@
 
 [0m[2m[35m$[0m [2m[1mtsc && vite build[0m
 [36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
-[2K[1Gtransforming (1) [2msrc/main.tsx[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (43) [2m../../node_modules/@tanstack/query-core/build/modern/infiniteQueryObserver.js[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (1057) [2m../../node_modules/lucide-react/dist/esm/icons/layout-panel-top.js[22m[2K[1Gtransforming (1785) [2m../../node_modules/lucide-react/dist/esm/shared/src/utils/hasA11yProp.js[22m[2K[1G[32m✓[39m 1796 modules transformed.
+[2K[1Gtransforming (1) [2msrc/main.tsx[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (44) [2m../../node_modules/@tanstack/react-query/build/modern/errorBoundaryUtils.js[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (1051) [2m../../node_modules/lucide-react/dist/esm/icons/layout-dashboard.js[22m[2K[1Gtransforming (1784) [2m../../node_modules/react-dom/cjs/react-dom-client.production.js[22m[2K[1G[32m✓[39m 1798 modules transformed.
 [2K[1Grendering chunks (1)...[2K[1G[2K[1Gcomputing gzip size (0)...[2K[1Gcomputing gzip size (1)...[2K[1Gcomputing gzip size (2)...[2K[1Gcomputing gzip size (3)...[2K[1G[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.46 kB[22m[1m[22m[2m │ gzip:  0.30 kB[22m
 [2mdist/[22m[2massets/[22m[35mindex-Dyz6jw_n.css  [39m[1m[2m 21.23 kB[22m[1m[22m[2m │ gzip:  5.85 kB[22m
-[2mdist/[22m[2massets/[22m[36mindex-Cg20cJpk.js   [39m[1m[2m290.31 kB[22m[1m[22m[2m │ gzip: 90.62 kB[22m
-[32m✓ built in 791ms[39m
+[2mdist/[22m[2massets/[22m[36mindex-CTqCc6w6.js   [39m[1m[2m292.85 kB[22m[1m[22m[2m │ gzip: 91.14 kB[22m
+[32m✓ built in 798ms[39m

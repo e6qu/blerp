@@ -43,6 +43,13 @@
       "when": 1772065436379,
       "tag": "0005_wooden_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1772065727247,
+      "tag": "0006_large_wendell_rand",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { SignUp } from "./components/auth/SignUp";
 import { OrganizationsPage } from "./components/auth/OrganizationsPage";
+import { SecurityPage } from "./components/auth/SecurityPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="users" element={<OrganizationsPage />} />
+          <Route path="auth" element={<SecurityPage />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
