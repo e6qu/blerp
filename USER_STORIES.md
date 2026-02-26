@@ -57,3 +57,10 @@
 28. As **EndUser**, I want to switch organizations, view my sessions/devices, and revoke them when needed.
 29. As **EndUser**, I want branded hosted components (SignIn/SignUp/UserButton) that feel native to the app I’m using.
 30. As **EndUser**, I want magic links or passkeys for passwordless access so I can authenticate quickly on any device.
+
+### Dev — Monite SDK Full Parity
+
+31. As **Dev**, I want to store complex nested metadata (like Monite's `entities` mapping) and perform deep updates so I can model multi-entity relationships securely.
+32. As **Dev**, I want to query users by private metadata values (like `monite_user_id`) so I can efficiently resolve identity mapping from external systems.
+33. As **Admin**, I want to manage and verify organization domains (DNS/Email) so that users from specific companies can automatically join their organization.
+34. As **EndUser**, I want to automatically discover and join my company's organization based on my email domain.

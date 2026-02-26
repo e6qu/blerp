@@ -165,3 +165,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 ## 2026-02-25 — Milestone 4 & Project Completion\n- Summary: Finalized the framework parity milestone. Delivered the @blerp/nextjs SDK with full App Router support. Built and verified compliance examples mirroring official Clerk documentation. Optimized the production Docker build and resolved all CI/CD bottlenecks. The Blerp Identity Service is now fully operational and compliant with the targeted industry standards.\n- Tests run: bun run build, docker build, CI passed.\n- Files touched: PLAN.md, STATUS.md, Dockerfile, packages/nextjs/_, examples/_.\n- Notes/Links: Project ready for V1.0.0 release.
 
 > > > > > > > feature/v1-full-implementation
+
+## 2026-02-26 — Milestone 6 Backlog Setup
+
+- Summary: Established the complete backlog for Milestone 6 (Monite SDK Full Feature Parity). Created 11 new task briefs covering advanced metadata hardening, organization domains, enhanced UI components, and real-world SDK validation. Updated USER_STORIES.md and DO_NEXT.md to reflect the expanded scope.
+- Tests run: Not applicable (documentation-only change).
+- Files touched: tasks/to-do/M6-\*.md, USER_STORIES.md, DO_NEXT.md, STATUS.md, WHAT_WE_DID.md.
+- Notes/Links: Backlog is now ready for implementation of M6-PA-T1.
