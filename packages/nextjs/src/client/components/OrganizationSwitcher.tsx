@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useOrganizations } from "../hooks";
+import { useAuth } from "../BlerpProvider";
 import { ChevronDown, Plus, Check } from "lucide-react";
 import type { components } from "@blerp/shared";
 
@@ -9,7 +10,7 @@ type Organization = components["schemas"]["Organization"];
 
 export function OrganizationSwitcher() {
   const { data: organizations, isLoading } = useOrganizations();
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const { orgId: selectedOrgId, setActive } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const selectedOrg = organizations?.find((o: Organization) => o.id === selectedOrgId);
@@ -33,7 +34,7 @@ export function OrganizationSwitcher() {
               <button
                 key={org.id}
                 onClick={() => {
-                  setSelectedOrgId(org.id);
+                  setActive({ organization: org.id });
                   setIsOpen(false);
                 }}
                 className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -42,6 +43,15 @@ export function OrganizationSwitcher() {
                 {org.id === selectedOrgId && <Check className="h-4 w-4 text-blue-600" />}
               </button>
             ))}
+            <button
+              onClick={() => {
+                setActive({ organization: null });
+                setIsOpen(false);
+              }}
+              className="flex w-full items-center px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t"
+            >
+              Personal Account
+            </button>
             <button className="flex w-full items-center border-t px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
               <Plus className="mr-2 h-4 w-4" />
               Create Organization
