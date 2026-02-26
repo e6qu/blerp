@@ -4,6 +4,8 @@ import * as discoveryController from "../controllers/discovery.controller";
 import * as oauthController from "../controllers/oauth.controller";
 import * as userinfoController from "../controllers/userinfo.controller";
 import * as identityController from "../controllers/identity.controller";
+import * as sessionController from "../controllers/session.controller";
+import { authMiddleware } from "../../middleware/auth";
 
 const router = Router();
 
@@ -19,11 +21,20 @@ router.get("/auth/oauth/:provider/callback", oauthController.callback);
 router.get("/userinfo", userinfoController.getUserInfo);
 
 // User Identities
-router.get("/users/:user_id/identities", identityController.listIdentities);
-router.post("/users/:user_id/identities/oauth", identityController.linkOAuthIdentity);
+router.get("/users/:user_id/identities", authMiddleware, identityController.listIdentities);
+router.post(
+  "/users/:user_id/identities/oauth",
+  authMiddleware,
+  identityController.linkOAuthIdentity,
+);
 router.delete(
   "/users/:user_id/identities/oauth/:oauth_account_id",
+  authMiddleware,
   identityController.unlinkOAuthIdentity,
 );
+
+// Sessions
+router.get("/sessions", authMiddleware, sessionController.listSessions);
+router.delete("/sessions/:session_id", authMiddleware, sessionController.revokeSession);
 
 export { router as authRoutes };
