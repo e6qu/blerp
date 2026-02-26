@@ -1605,7 +1605,7 @@ See more info here: https://nextjs.org/docs/messages/large-page-data`)),
         return JSON.stringify({ message: e.message, stack: e.stack });
       }
     },
-    7925: (e) => {
+    306: (e) => {
       (() => {
         "use strict";
         var t = {
@@ -3215,7 +3215,7 @@ See more info here: https://nextjs.org/docs/messages/large-page-data`)),
       try {
         n = r(6472);
       } catch (e) {
-        n = r(7925);
+        n = r(306);
       }
       let {
         context: a,
