@@ -1,0 +1,15 @@
+{
+  "name": "@blerp/config",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    "./base.json": "./base.json",
+    "./eslint-base": "./eslint-base.js",
+    "./eslint-react": "./eslint-react.js",
+    "./prettier-base": "./prettier-base.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "type": "module"
+}

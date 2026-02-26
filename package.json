@@ -1,0 +1,57 @@
+{
+  "name": "blerp",
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "examples/*"
+  ],
+  "description": "This repository contains the planning and specification artifacts for the Blerp Identity Service (clean-room Clerk reimplementation). Start with the overview and follow links for deeper details:",
+  "main": "index.js",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "openapi:lint:spectral": "spectral lint openapi/blerp.v1.yaml --fail-severity=warn",
+    "openapi:lint:redocly": "redocly lint openapi/blerp.v1.yaml --config=redocly.yaml",
+    "openapi:lint": "bun run openapi:lint:spectral && bun run openapi:lint:redocly",
+    "openapi:build": "redocly build-docs openapi/blerp.v1.yaml -o openapi/index.html",
+    "sdk:generate": "cd packages/shared && bun run generate",
+    "prepare": "husky",
+    "blerp": "bun run scripts/blerp.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "packageManager": "bun@1.2.19",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@redocly/cli": "^2.19.2",
+    "@stoplight/spectral-cli": "^6.15.0",
+    "@types/node": "^25.3.0",
+    "eslint": "9",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.3.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "turbo": "^2.8.11",
+    "typescript-eslint": "^8.56.1"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "commander": "^14.0.3"
+  }
+}

@@ -1,0 +1,9 @@
+# Compiled output
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Optional: if we don't want to track the generated schema (though usually helpful to track for PR diffs)
+# src/schema.ts

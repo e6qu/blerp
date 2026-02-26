@@ -1,0 +1,2245 @@
+openapi: 3.1.0
+info:
+  title: Blerp Identity Service API
+  version: 1.0.0-draft
+  contact:
+    name: Blerp Support
+    url: https://github.com/e6qu/blerp
+    email: adi11235@gmail.com
+  summary: REST + JSON interface for Blerp Identity Service
+  description: >
+    Clean-room OpenAPI contract describing the public REST API for user, session,
+    organization, and webhook management. This specification is the authoritative
+    contract for backend/frontend work and must exist locally before any detailed
+    implementation plan is executed.
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: https://api.blerp.dev
+    description: Production
+  - url: https://staging-api.blerp.dev
+    description: Staging
+  - url: http://localhost:4000
+    description: Local development (docker-compose)
+security:
+  - SecretKey: []
+tags:
+  - name: Auth
+    description: Authentication and token lifecycle
+  - name: Users
+  - name: Organizations
+  - name: Invitations
+    description: Organization invitation lifecycle
+  - name: MFA
+  - name: Webhooks
+  - name: Projects
+  - name: Config
+    description: Tenant-wide configuration endpoints
+  - name: Audit
+    description: Audit log queries
+  - name: Client
+  - name: Discovery
+    description: OpenID Connect discovery metadata
+components:
+  securitySchemes:
+    SecretKey:
+      type: http
+      scheme: bearer
+      bearerFormat: secret-key
+      description: Server-to-server secret API key (sk_live_* / sk_test_*).
+    PublishableKey:
+      type: http
+      scheme: bearer
+      bearerFormat: publishable-key
+      description: Client-side publishable API key (pk_live_* / pk_test_*).
+    SessionToken:
+      type: http
+      scheme: bearer
+      bearerFormat: session-token
+      description: Session token returned after sign-in/up (`sess_*`).
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            doc_url:
+              type: string
+              format: uri
+            request_id:
+              type: string
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        next_cursor:
+          type: ["string", "null"]
+        previous_cursor:
+          type: ["string", "null"]
+    EmailAddress:
+      type: object
+      required: [id, email, verification]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        verification:
+          type: object
+          required: [status]
+          properties:
+            status:
+              type: string
+              enum: [unverified, pending, verified, failed]
+            strategy:
+              type: string
+              enum: [email_code, email_link]
+            attempts:
+              type: integer
+              minimum: 0
+            last_attempted_at:
+              type: string
+              format: date-time
+    PhoneNumber:
+      type: object
+      required: [id, number, verification]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        verification:
+          $ref: "#/components/schemas/EmailAddress/properties/verification"
+    PasskeyCredential:
+      type: object
+      required: [id, friendly_name, transports]
+      properties:
+        id:
+          type: string
+        friendly_name:
+          type: string
+        transports:
+          type: array
+          items:
+            type: string
+    PublicMetadata:
+      type: object
+      additionalProperties: true
+    PrivateMetadata:
+      type: object
+      additionalProperties: true
+    User:
+      type: object
+      required:
+        - id
+        - status
+        - created_at
+        - email_addresses
+      properties:
+        id:
+          type: string
+          format: uuid
+        external_id:
+          type: ["string", "null"]
+        username:
+          type: ["string", "null"]
+        primary_email_id:
+          type: ["string", "null"]
+          format: uuid
+        email_addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAddress"
+        phone_numbers:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhoneNumber"
+        passkeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/PasskeyCredential"
+        public_metadata:
+          $ref: "#/components/schemas/PublicMetadata"
+        private_metadata:
+          $ref: "#/components/schemas/PrivateMetadata"
+        unsafe_metadata:
+          $ref: "#/components/schemas/PublicMetadata"
+        status:
+          type: string
+          enum: [active, inactive, banned]
+        last_sign_in_at:
+          type: ["string", "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: ["string", "null"]
+          format: date-time
+    Session:
+      type: object
+      required:
+        - id
+        - user_id
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: ["string", "null"]
+          format: uuid
+        status:
+          type: string
+          enum: [active, revoked, expired]
+        active_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        abandoned_at:
+          type: ["string", "null"]
+          format: date-time
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+        latest_activity:
+          type: string
+          format: date-time
+        actor:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [user, api_key]
+            id:
+              type: string
+        first_factor:
+          type: string
+        second_factor:
+          type: ["string", "null"]
+        last_rotated_at:
+          type: ["string", "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    ThemeConfig:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [light, dark, system]
+        primary_color:
+          type: string
+        accent_color:
+          type: string
+        logo_url:
+          type: string
+          format: uri
+        favicon_url:
+          type: ["string", "null"]
+          format: uri
+        font_family:
+          type: string
+        button_shape:
+          type: string
+          enum: [rounded, pill, sharp]
+    Project:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        environments:
+          type: array
+          items:
+            type: string
+            enum: [development, staging, production]
+        default_auth_strategies:
+          type: array
+          items:
+            type: string
+        allowed_origins:
+          type: array
+          items:
+            type: string
+        jwt_template:
+          type: object
+          properties:
+            ttl_seconds:
+              type: integer
+            custom_claims:
+              type: object
+              additionalProperties: true
+        branding:
+          type: object
+          properties:
+            logo_url:
+              type: string
+              format: uri
+            accent_color:
+              type: string
+        theme:
+          $ref: "#/components/schemas/ThemeConfig"
+        rate_limit_policy:
+          type: object
+          properties:
+            requests_per_minute:
+              type: integer
+            burst_size:
+              type: integer
+        feature_flags:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    APIKey:
+      type: object
+      required:
+        - id
+        - project_id
+        - environment
+        - type
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        environment:
+          type: string
+          enum: [development, staging, production]
+        type:
+          type: string
+          enum: [publishable, secret]
+        scopes:
+          type: array
+          items:
+            type: string
+        prefix:
+          type: string
+        label:
+          type: ["string", "null"]
+        secret:
+          type: ["string", "null"]
+          description: Only returned when the key is generated or rotated.
+        status:
+          type: string
+          enum: [active, revoked]
+        last_used_at:
+          type: ["string", "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        rotated_at:
+          type: ["string", "null"]
+          format: date-time
+    Organization:
+      type: object
+      required: [id, project_id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        metadata_public:
+          type: object
+          additionalProperties: true
+        metadata_private:
+          type: object
+          additionalProperties: true
+        domains:
+          type: array
+          items:
+            type: object
+            properties:
+              domain:
+                type: string
+              status:
+                type: string
+                enum: [pending, verified, rejected]
+              verified_at:
+                type: ["string", "null"]
+                format: date-time
+        settings:
+          type: object
+          properties:
+            allow_invites:
+              type: boolean
+            default_role:
+              type: string
+            mfa_policy:
+              type: string
+              enum: [optional, required, disabled]
+        created_at:
+          type: string
+          format: date-time
+    Membership:
+      type: object
+      required: [id, organization_id, user_id, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        invited_by:
+          type: ["string", "null"]
+          format: uuid
+        status:
+          type: string
+          enum: [active, revoked, pending_invite]
+        last_active_at:
+          type: ["string", "null"]
+          format: date-time
+    Invitation:
+      type: object
+      required:
+        - id
+        - email
+        - organization_id
+        - role
+        - status
+        - created_at
+        - expires_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        organization_id:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        inviter_user_id:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, accepted, revoked, expired]
+        redirect_url:
+          type: ["string", "null"]
+          format: uri
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        accepted_at:
+          type: ["string", "null"]
+          format: date-time
+    Signup:
+      type: object
+      required: [id, strategy, status]
+      properties:
+        id:
+          type: string
+        identifier:
+          type: string
+        strategy:
+          type: string
+          enum: [password, magic_link, otp, passkey, oauth]
+        status:
+          type: string
+          enum: [needs_identifier, needs_verification, complete, abandoned]
+        verification:
+          type: object
+          properties:
+            channel:
+              type: string
+              enum: [email_code, email_link, sms]
+            code:
+              type: string
+            expires_at:
+              type: string
+              format: date-time
+        created_session_id:
+          type: ["string", "null"]
+        expires_at:
+          type: string
+          format: date-time
+    SigninAttempt:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: string
+        identifier:
+          type: string
+        status:
+          type: string
+          enum: [needs_first_factor, needs_second_factor, complete, locked]
+        strategy:
+          type: string
+        mfa_required:
+          type: boolean
+        available_strategies:
+          type: array
+          items:
+            type: string
+        created_session_id:
+          type: ["string", "null"]
+    TokenResponse:
+      type: object
+      required: [access_token, expires_in, session_id]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        session_id:
+          type: string
+        issued_at:
+          type: string
+          format: date-time
+    WebhookEndpoint:
+      type: object
+      required: [id, url, events]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        secret:
+          type: string
+        status:
+          type: string
+          enum: [active, paused, failed]
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        delivery_stats:
+          type: object
+          properties:
+            success:
+              type: integer
+            failure:
+              type: integer
+            last_failure:
+              type: ["string", "null"]
+              format: date-time
+        created_at:
+          type: string
+          format: date-time
+    Event:
+      type: object
+      required: [id, type, data]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        version:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+        project_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    AuditLogEntry:
+      type: object
+      required: [id, project_id, actor, action, resource, created_at]
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        actor:
+          type: object
+          required: [type, id]
+          properties:
+            type:
+              type: string
+              enum: [user, api_key, system]
+            id:
+              type: string
+            email:
+              type: ["string", "null"]
+              format: email
+        action:
+          type: string
+        resource:
+          type: object
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+            display:
+              type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    JWK:
+      type: object
+      required: [kty, kid, use, alg]
+      properties:
+        kty:
+          type: string
+        kid:
+          type: string
+        use:
+          type: string
+        alg:
+          type: string
+        n:
+          type: ["string", "null"]
+        e:
+          type: ["string", "null"]
+        crv:
+          type: ["string", "null"]
+        x:
+          type: ["string", "null"]
+        y:
+          type: ["string", "null"]
+    JWKS:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/JWK"
+    OpenIDConfiguration:
+      type: object
+      properties:
+        issuer:
+          type: string
+          format: uri
+        authorization_endpoint:
+          type: string
+          format: uri
+        token_endpoint:
+          type: string
+          format: uri
+        userinfo_endpoint:
+          type: string
+          format: uri
+        jwks_uri:
+          type: string
+          format: uri
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+paths:
+  /.well-known/openid-configuration:
+    get:
+      tags: [Discovery]
+      summary: Retrieve OpenID Connect discovery metadata
+      description: Exposes the OpenID Connect discovery document so clients can locate Blerp endpoints automatically.
+      operationId: getOpenIdConfiguration
+      responses:
+        "200":
+          description: Discovery metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenIDConfiguration"
+  /.well-known/jwks.json:
+    get:
+      tags: [Discovery]
+      summary: Retrieve JWKS (well-known)
+      description: Returns the JSON Web Key Set under the /.well-known path for standards-compliant OIDC verification.
+      operationId: getWellKnownJwks
+      responses:
+        "200":
+          description: JSON Web Key Set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JWKS"
+  /v1/jwks:
+    get:
+      tags: [Discovery]
+      summary: Retrieve JWKS
+      description: Returns the service JWKS for automation workflows that cannot rely on the /.well-known path.
+      operationId: getServiceJwks
+      responses:
+        "200":
+          description: JSON Web Key Set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JWKS"
+  /v1/auth/signups:
+    post:
+      tags: [Auth]
+      summary: Create pending signup
+      description: Creates a signup intent and dispatches verification challenges for a new end user.
+      operationId: createSignup
+      security:
+        - SecretKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [strategy]
+              properties:
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                password:
+                  type: string
+                strategy:
+                  type: string
+                  enum: [password, magic_link, otp, passkey, oauth]
+      responses:
+        "201":
+          description: Signup created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signup"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/auth/signups/{signup_id}/attempt:
+    post:
+      tags: [Auth]
+      summary: Complete verification for signup
+      description: Finalizes a pending signup by validating submitted verification factors.
+      operationId: completeSignupVerification
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: signup_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                token:
+                  type: string
+                webauthn_response:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Signup completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+  /v1/auth/oauth/{provider}:
+    get:
+      tags: [Auth]
+      summary: Initiate OAuth flow
+      description: Returns the authorization URL for the specified OAuth provider.
+      operationId: initiateOAuth
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [github, google, discord]
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+      responses:
+        "200":
+          description: Authorization URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+  /v1/auth/oauth/{provider}/callback:
+    get:
+      tags: [Auth]
+      summary: OAuth callback
+      description: Handles the callback from an OAuth provider.
+      operationId: oauthCallback
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OAuth login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+          $ref: "#/components/responses/BadRequest"
+  /v1/auth/signins:
+    post:
+      tags: [Auth]
+      summary: Begin sign-in flow
+      description: Starts a sign-in attempt using the configured primary factor (password, OTP, or WebAuthn).
+      operationId: beginSignin
+      security:
+        - SecretKey: []
+        - PublishableKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, strategy]
+              properties:
+                identifier:
+                  type: string
+                strategy:
+                  type: string
+                  enum: [password, magic_link, otp, passkey, oauth]
+      responses:
+        "201":
+          description: Sign-in attempt created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SigninAttempt"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/auth/signins/{signin_id}/attempt:
+    post:
+      tags: [Auth]
+      summary: Complete sign-in attempt
+      description: Validates a pending sign-in challenge and issues new session tokens on success.
+      operationId: completeSignin
+      security:
+        - SecretKey: []
+        - PublishableKey: []
+      parameters:
+        - in: path
+          name: signin_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                code:
+                  type: string
+                webauthn_response:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Sign-in completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [session, tokens]
+                properties:
+                  session:
+                    $ref: "#/components/schemas/Session"
+                  tokens:
+                    $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/sessions/{session_id}/revoke:
+    post:
+      tags: [Auth]
+      summary: Revoke a session
+      description: Immediately revokes a session so the associated devices must reauthenticate.
+      operationId: revokeSession
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: session_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "204":
+          description: Revoked
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/tokens/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange refresh token for access token
+      description: Trades a refresh token for a new pair of access/refresh tokens using the rotation policy.
+      operationId: refreshSessionToken
+      security:
+        - SecretKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: Token response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/users:
+    get:
+      tags: [Users]
+      summary: List users
+      description: Returns a paginated, filterable list of users for the active project.
+      operationId: listUsers
+      security:
+        - SecretKey: []
+      parameters:
+        - in: query
+          name: email
+          schema:
+            type: string
+        - in: query
+          name: created_before
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: created_after
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, inactive, banned]
+        - in: query
+          name: metadata_key
+          description: JSON pointer style path under public/private metadata.
+          schema:
+            type: string
+        - in: query
+          name: metadata_value
+          description: Value to match for the provided metadata_key.
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: cursor
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Users]
+      summary: Create user
+      description: Creates a user with initial profile data and credential state.
+      operationId: createUser
+      security:
+        - SecretKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_addresses:
+                  type: array
+                  items:
+                    type: string
+                    format: email
+                phone_numbers:
+                  type: array
+                  items:
+                    type: string
+                password:
+                  type: string
+                public_metadata:
+                  $ref: "#/components/schemas/PublicMetadata"
+                private_metadata:
+                  $ref: "#/components/schemas/PrivateMetadata"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/users/{user_id}:
+    get:
+      tags: [Users]
+      summary: Retrieve user
+      description: Fetches a single user record including profile metadata and identities.
+      operationId: getUser
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+    patch:
+      tags: [Users]
+      summary: Update user
+      description: Applies partial profile or metadata updates to a user.
+      operationId: updateUser
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                public_metadata:
+                  $ref: "#/components/schemas/PublicMetadata"
+                private_metadata:
+                  $ref: "#/components/schemas/PrivateMetadata"
+                password:
+                  type: string
+                status:
+                  type: string
+                  enum: [active, inactive, banned]
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      tags: [Users]
+      summary: Soft delete user
+      description: Soft deletes a user so they can be restored later but cannot authenticate.
+      operationId: deleteUser
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /v1/users/{user_id}/restore:
+    post:
+      tags: [Users]
+      summary: Restore soft-deleted user
+      description: Restores a previously soft-deleted user and re-enables access.
+      operationId: restoreUser
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Restored user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /v1/users/{user_id}/identities/oauth:
+    post:
+      tags: [Users]
+      summary: Link OAuth identity
+      description: Associates an external OAuth identity with the specified user for future logins.
+      operationId: linkUserIdentity
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, provider_user_id]
+              properties:
+                provider:
+                  type: string
+                provider_user_id:
+                  type: string
+                access_token:
+                  type: string
+                refresh_token:
+                  type: string
+                expires_at:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Linked
+  /v1/organizations:
+    get:
+      tags: [Organizations]
+      summary: List organizations
+      description: Returns a paginated list of organizations in the current project.
+      operationId: listOrganizations
+      security:
+        - SecretKey: []
+      parameters:
+        - in: query
+          name: project_id
+          schema:
+            type: string
+        - in: query
+          name: cursor
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Organizations list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Organization"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Organizations]
+      summary: Create organization
+      description: Creates a new organization along with optional role defaults.
+      operationId: createOrganization
+      security:
+        - SecretKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                slug:
+                  type: string
+      responses:
+        "201":
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+  /v1/organizations/{organization_id}:
+    get:
+      tags: [Organizations]
+      summary: Retrieve organization
+      description: Fetches a single organization including metadata and member counts.
+      operationId: getOrganization
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+    patch:
+      tags: [Organizations]
+      summary: Update organization settings
+      description: Updates organization metadata, membership requirements, or billing settings.
+      operationId: updateOrganization
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metadata_public:
+                  type: object
+                  additionalProperties: true
+                metadata_private:
+                  type: object
+                  additionalProperties: true
+                settings:
+                  type: object
+      responses:
+        "200":
+          description: Updated organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+  /v1/organizations/{organization_id}/memberships:
+    get:
+      tags: [Organizations]
+      summary: List memberships
+      description: Returns a list of memberships for the specified organization.
+      operationId: listMemberships
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of memberships
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Membership"
+    post:
+      tags: [Organizations]
+      summary: Create membership
+      description: Adds a user to an organization with the provided roles.
+      operationId: createMembership
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, role]
+              properties:
+                user_id:
+                  type: string
+                role:
+                  type: string
+      responses:
+        "201":
+          description: Membership created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+  /v1/organizations/{organization_id}/roles:
+    patch:
+      tags: [Organizations]
+      summary: Update custom roles
+      description: Replaces the custom role definitions for an organization.
+      operationId: updateOrganizationRoles
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+      responses:
+        "200":
+          description: Updated roles
+  /v1/organizations/{organization_id}/domains:
+    post:
+      tags: [Organizations]
+      summary: Register organization domain
+      description: Registers or verifies a domain for automatic organization assignment.
+      operationId: registerOrganizationDomain
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [domain]
+              properties:
+                domain:
+                  type: string
+      responses:
+        "201":
+          description: Domain registered
+  /v1/invitations:
+    get:
+      tags: [Invitations]
+      summary: List invitations
+      description: Lists project invitations including pending, accepted, and expired states.
+      operationId: listInvitations
+      security:
+        - SecretKey: []
+      parameters:
+        - in: query
+          name: email
+          schema:
+            type: string
+            format: email
+        - in: query
+          name: organization_id
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, accepted, revoked, expired]
+        - in: query
+          name: cursor
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Invitations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Invitation"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Invitations]
+      summary: Create invitation
+      description: Creates a new invitation for a user to join the project or organization.
+      operationId: createInvitation
+      security:
+        - SecretKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, organization_id, role]
+              properties:
+                email:
+                  type: string
+                  format: email
+                organization_id:
+                  type: string
+                role:
+                  type: string
+                permissions:
+                  type: array
+                  items:
+                    type: string
+                expires_at:
+                  type: string
+                  format: date-time
+                redirect_url:
+                  type: string
+                  format: uri
+      responses:
+        "201":
+          description: Invitation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+  /v1/invitations/{invitation_id}/revoke:
+    post:
+      tags: [Invitations]
+      summary: Revoke invitation
+      description: Revokes an existing invitation so it can no longer be used.
+      operationId: revokeInvitation
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: invitation_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Invitation revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "404":
+          description: Not found
+  /v1/users/{user_id}/mfa/totp:
+    post:
+      tags: [MFA]
+      summary: Enroll TOTP factor
+      description: Creates a TOTP factor for the user and returns shared secrets for enrollment.
+      operationId: enrollTotp
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: TOTP secret created
+  /v1/users/{user_id}/mfa/totp/verify:
+    post:
+      tags: [MFA]
+      summary: Verify TOTP enrollment
+      description: Verifies a pending TOTP enrollment by checking a generated passcode.
+      operationId: verifyTotpEnrollment
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        "200":
+          description: Verified
+  /v1/users/{user_id}/mfa/backup_codes/regenerate:
+    post:
+      tags: [MFA]
+      summary: Regenerate backup codes
+      description: Creates a new set of single-use backup codes for the user.
+      operationId: regenerateBackupCodes
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Codes regenerated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  codes:
+                    type: array
+                    items:
+                      type: string
+  /v1/users/{user_id}/mfa/webauthn:
+    post:
+      tags: [MFA]
+      summary: Register WebAuthn device
+      description: Starts a WebAuthn registration ceremony for the user.
+      operationId: registerWebauthnDevice
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attestation]
+              properties:
+                attestation:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "201":
+          description: Device registered
+  /v1/webhooks/endpoints:
+    get:
+      tags: [Webhooks]
+      summary: List webhook endpoints
+      description: Returns configured webhook endpoints for the project.
+      operationId: listWebhookEndpoints
+      security:
+        - SecretKey: []
+      responses:
+        "200":
+          description: Webhook endpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WebhookEndpoint"
+    post:
+      tags: [Webhooks]
+      summary: Create webhook endpoint
+      description: Creates a webhook endpoint and returns the signing secret.
+      operationId: createWebhookEndpoint
+      security:
+        - SecretKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, events]
+              properties:
+                url:
+                  type: string
+                  format: uri
+                events:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Endpoint created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+  /v1/webhooks/endpoints/{endpoint_id}:
+    get:
+      tags: [Webhooks]
+      summary: Get webhook endpoint
+      description: Returns details for a specific webhook endpoint.
+      operationId: getWebhookEndpoint
+      security:
+        - SecretKey: []
+      parameters:
+        - name: endpoint_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Webhook endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+    patch:
+      tags: [Webhooks]
+      summary: Update webhook endpoint
+      description: Updates the configuration for an existing webhook endpoint.
+      operationId: updateWebhookEndpoint
+      security:
+        - SecretKey: []
+      parameters:
+        - name: endpoint_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+                events:
+                  type: array
+                  items:
+                    type: string
+                enabled:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+    delete:
+      tags: [Webhooks]
+      summary: Delete webhook endpoint
+      description: Permanently removes a webhook endpoint.
+      operationId: deleteWebhookEndpoint
+      security:
+        - SecretKey: []
+      parameters:
+        - name: endpoint_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /v1/webhooks/endpoints/{endpoint_id}/rotate_secret:
+    post:
+      tags: [Webhooks]
+      summary: Rotate webhook endpoint secret
+      description: Rotates the signing secret for a webhook endpoint while preserving its id.
+      operationId: rotateWebhookSecret
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: endpoint_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Secret rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+  /v1/audit_logs:
+    get:
+      tags: [Audit]
+      summary: List audit log entries
+      description: Returns paginated audit log entries for compliance and monitoring.
+      operationId: listAuditLogs
+      security:
+        - SecretKey: []
+      parameters:
+        - in: query
+          name: actor_id
+          schema:
+            type: string
+        - in: query
+          name: resource_type
+          schema:
+            type: string
+        - in: query
+          name: resource_id
+          schema:
+            type: string
+        - in: query
+          name: created_before
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: created_after
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: cursor
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLogEntry"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+  /v1/events:
+    get:
+      tags: [Webhooks]
+      summary: List recent events
+      description: Lists recent event payloads for dashboards or streaming.
+      operationId: listEvents
+      security:
+        - SecretKey: []
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Events page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Event"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+  /v1/config/theme:
+    get:
+      tags: [Config]
+      summary: Retrieve theme configuration
+      description: Returns the hosted component theme configuration assigned to the project.
+      operationId: getThemeConfig
+      security:
+        - SecretKey: []
+      responses:
+        "200":
+          description: Theme configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThemeConfig"
+    put:
+      tags: [Config]
+      summary: Update theme configuration
+      description: Updates the theme configuration that powers hosted components.
+      operationId: updateThemeConfig
+      security:
+        - SecretKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ThemeConfig"
+      responses:
+        "200":
+          description: Updated theme configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThemeConfig"
+  /v1/projects/{project_id}:
+    get:
+      tags: [Projects]
+      summary: Retrieve project configuration
+      description: Returns the project configuration used by APIs and dashboard flows.
+      operationId: getProjectConfig
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    put:
+      tags: [Projects]
+      summary: Update project configuration
+      description: Updates project-level configuration values and secrets.
+      operationId: updateProjectConfig
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                default_auth_strategies:
+                  type: array
+                  items:
+                    type: string
+                allowed_origins:
+                  type: array
+                  items:
+                    type: string
+                jwt_template:
+                  type: object
+                  properties:
+                    ttl_seconds:
+                      type: integer
+                    custom_claims:
+                      type: object
+                branding:
+                  type: object
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+  /v1/projects/{project_id}/jwks:
+    post:
+      tags: [Projects]
+      summary: Rotate signing keys
+      description: Rotates the signing keys and returns updated JWKS metadata.
+      operationId: rotateSigningKeys
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: JWKS rotated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jwks_uri:
+                    type: string
+                    format: uri
+  /v1/projects/{project_id}/keys:
+    get:
+      tags: [Projects]
+      summary: List API keys
+      description: Lists publishable and secret API keys scoped to the project.
+      operationId: listApiKeys
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: environment
+          in: query
+          schema:
+            type: string
+            enum: [development, staging, production]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [publishable, secret]
+      responses:
+        "200":
+          description: API keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/APIKey"
+    post:
+      tags: [Projects]
+      summary: Create API key
+      description: Creates an API key scoped to the requested permissions and environment.
+      operationId: createApiKey
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [environment, type]
+              properties:
+                environment:
+                  type: string
+                  enum: [development, staging, production]
+                type:
+                  type: string
+                  enum: [publishable, secret]
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                label:
+                  type: string
+      responses:
+        "201":
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKey"
+  /v1/projects/{project_id}/keys/{key_id}/rotate:
+    post:
+      tags: [Projects]
+      summary: Rotate API key secret
+      description: Rotates the secret for an existing API key without changing the identifier.
+      operationId: rotateApiKeySecret
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: API key rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKey"
+  /v1/client:
+    get:
+      tags: [Client]
+      summary: Retrieve publishable configuration
+      description: Returns the publishable configuration consumed directly by browser-based clients.
+      operationId: getClientConfig
+      security:
+        - PublishableKey: []
+      responses:
+        "200":
+          description: Client config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    $ref: "#/components/schemas/Project"
+                  enabled_strategies:
+                    type: array
+                    items:
+                      type: string
+  /v1/client/sessions:
+    post:
+      tags: [Client]
+      summary: Create session during SSR
+      description: Creates a session while rendering on the server and returns the cookie payload.
+      operationId: createClientSession
+      security:
+        - PublishableKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: string
+                organization_id:
+                  type: string
+                expires_at:
+                  type: string
+                  format: date-time
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+  /v1/client/user:
+    get:
+      tags: [Client]
+      summary: Retrieve current session user
+      description: Returns the current session's user to light-weight server actions or clients.
+      operationId: getClientUser
+      security:
+        - SessionToken: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  session:
+                    $ref: "#/components/schemas/Session"

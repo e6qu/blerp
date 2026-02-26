@@ -1,0 +1,69 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1772055128604,
+      "tag": "0000_elite_zaladane",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1772063547171,
+      "tag": "0001_good_pestilence",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1772063647669,
+      "tag": "0002_large_exiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1772063992595,
+      "tag": "0003_thankful_wasp",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1772064556244,
+      "tag": "0004_rapid_zodiak",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1772065436379,
+      "tag": "0005_wooden_king_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1772065727247,
+      "tag": "0006_large_wendell_rand",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1772066162291,
+      "tag": "0007_flowery_sugar_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1772066394606,
+      "tag": "0008_hard_sway",
+      "breakpoints": true
+    }
+  ]
+}

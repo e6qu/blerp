@@ -1,0 +1,122 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { redis } from "../lib/redis";
+import { logger } from "../lib/logger";
+import { getTenantDb } from "../db/router";
+import * as schema from "../db/schema";
+import { eq } from "drizzle-orm";
+import crypto from "node:crypto";
+
+const STREAM_NAME = "blerp_events";
+const CONSUMER_GROUP = "webhook_worker_group";
+const CONSUMER_NAME = `worker_${process.pid}`;
+
+export async function initWorker() {
+  try {
+    await redis.xgroup("CREATE", STREAM_NAME, CONSUMER_GROUP, "0", "MKSTREAM");
+  } catch (err: any) {
+    if (!err.message.includes("BUSYGROUP")) {
+      throw err;
+    }
+  }
+}
+
+export async function processEvents() {
+  while (true) {
+    try {
+      const response = await (redis.xreadgroup as any)(
+        "GROUP",
+        CONSUMER_GROUP,
+        CONSUMER_NAME,
+        "COUNT",
+        "10",
+        "BLOCK",
+        "1000",
+        "STREAMS",
+        STREAM_NAME,
+        ">",
+      );
+
+      if (!response) continue;
+
+      for (const [, messages] of response) {
+        for (const [messageId, fields] of messages) {
+          const event = parseEvent(fields);
+          if (event) {
+            await deliverEvent(event);
+          }
+          await redis.xack(STREAM_NAME, CONSUMER_GROUP, messageId);
+        }
+      }
+    } catch (error) {
+      logger.error({ error }, "Error processing events in webhook worker");
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
+}
+
+function parseEvent(fields: string[]) {
+  const data: Record<string, string> = {};
+  for (let i = 0; i < fields.length; i += 2) {
+    data[fields[i]] = fields[i + 1];
+  }
+
+  return {
+    id: data.id,
+    type: data.type,
+    tenantId: data.tenantId,
+    timestamp: parseInt(data.timestamp),
+    payload: JSON.parse(data.data),
+  };
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+async function deliverEvent(event: any) {
+  const db = await getTenantDb(event.tenantId);
+  const endpoints = await db
+    .select()
+    .from(schema.webhookEndpoints)
+    .where(eq(schema.webhookEndpoints.enabled, true));
+
+  for (const endpoint of endpoints) {
+    const eventTypes = endpoint.eventTypes as string[];
+    if (eventTypes.length > 0 && !eventTypes.includes(event.type)) {
+      continue;
+    }
+
+    await attemptDelivery(endpoint, event);
+  }
+}
+
+async function attemptDelivery(endpoint: any, event: any) {
+  const payload = JSON.stringify({
+    id: event.id,
+    type: event.type,
+    created_at: event.timestamp,
+    data: event.payload,
+  });
+
+  const signature = crypto.createHmac("sha256", endpoint.secret).update(payload).digest("hex");
+
+  try {
+    const response = await fetch(endpoint.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Blerp-Signature": signature,
+        "X-Tenant-Id": event.tenantId,
+      },
+      body: payload,
+    });
+
+    if (response.ok) {
+      logger.info({ endpointId: endpoint.id, eventId: event.id }, "Webhook delivered");
+    } else {
+      logger.warn(
+        { endpointId: endpoint.id, eventId: event.id, status: response.status },
+        "Webhook delivery failed",
+      );
+    }
+  } catch (error) {
+    logger.error({ error, endpointId: endpoint.id, eventId: event.id }, "Webhook delivery error");
+  }
+}

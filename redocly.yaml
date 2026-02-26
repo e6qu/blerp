@@ -1,0 +1,13 @@
+apis:
+  blerp:
+    root: openapi/blerp.v1.yaml
+
+extends:
+  - recommended
+rules:
+  no-unused-components: error
+  # Suppress pedantic rules for the draft spec
+  operation-4xx-response: off # We rely on a global standard error format or will add later
+  no-server-example.com: off # Localhost is required for docker-compose environment
+  tag-description: off # Tags are self-explanatory; no need for verbose descriptions
+  info-license: off # Repo-level license handles this for now

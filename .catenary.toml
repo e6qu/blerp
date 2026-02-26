@@ -1,0 +1,23 @@
+[server.typescript]
+command = "typescript-language-server"
+args = ["--stdio"]
+
+[server.javascript]
+command = "typescript-language-server"
+args = ["--stdio"]
+
+[server.yaml]
+command = "yaml-language-server"
+args = ["--stdio"]
+
+[server.json]
+command = "vscode-json-language-server"
+args = ["--stdio"]
+
+[server.markdown]
+command = "marksman"
+args = ["server"]
+
+[server.shellscript]
+command = "bash-language-server"
+args = ["start"]

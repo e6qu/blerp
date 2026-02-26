@@ -1,0 +1,1583 @@
+[
+  {
+    "code": "info-contact",
+    "path": ["info"],
+    "message": "Info object must have \"contact\" object.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1,
+        "character": 5
+      },
+      "end": {
+        "line": 9,
+        "character": 36
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/.well-known/openid-configuration", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 748,
+        "character": 8
+      },
+      "end": {
+        "line": 757,
+        "character": 64
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/.well-known/openid-configuration", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 748,
+        "character": 8
+      },
+      "end": {
+        "line": 757,
+        "character": 64
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/.well-known/jwks.json", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 759,
+        "character": 8
+      },
+      "end": {
+        "line": 768,
+        "character": 49
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/.well-known/jwks.json", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 759,
+        "character": 8
+      },
+      "end": {
+        "line": 768,
+        "character": 49
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/jwks", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 770,
+        "character": 8
+      },
+      "end": {
+        "line": 779,
+        "character": 49
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/jwks", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 770,
+        "character": 8
+      },
+      "end": {
+        "line": 779,
+        "character": 49
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/auth/signups", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 781,
+        "character": 9
+      },
+      "end": {
+        "line": 816,
+        "character": 58
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/auth/signups", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 781,
+        "character": 9
+      },
+      "end": {
+        "line": 816,
+        "character": 58
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/auth/signups/{signup_id}/attempt", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 818,
+        "character": 9
+      },
+      "end": {
+        "line": 856,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/auth/signups/{signup_id}/attempt", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 818,
+        "character": 9
+      },
+      "end": {
+        "line": 856,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/auth/signins", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 858,
+        "character": 9
+      },
+      "end": {
+        "line": 885,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/auth/signins", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 858,
+        "character": 9
+      },
+      "end": {
+        "line": 885,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/auth/signins/{signin_id}/attempt", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 887,
+        "character": 9
+      },
+      "end": {
+        "line": 927,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/auth/signins/{signin_id}/attempt", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 887,
+        "character": 9
+      },
+      "end": {
+        "line": 927,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/sessions/{session_id}/revoke", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 929,
+        "character": 9
+      },
+      "end": {
+        "line": 953,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/sessions/{session_id}/revoke", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 929,
+        "character": 9
+      },
+      "end": {
+        "line": 953,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/tokens/refresh", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 955,
+        "character": 9
+      },
+      "end": {
+        "line": 978,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/tokens/refresh", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 955,
+        "character": 9
+      },
+      "end": {
+        "line": 978,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 980,
+        "character": 8
+      },
+      "end": {
+        "line": 1038,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 980,
+        "character": 8
+      },
+      "end": {
+        "line": 1038,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1039,
+        "character": 9
+      },
+      "end": {
+        "line": 1074,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1039,
+        "character": 9
+      },
+      "end": {
+        "line": 1074,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users/{user_id}", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1076,
+        "character": 8
+      },
+      "end": {
+        "line": 1095,
+        "character": 32
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users/{user_id}", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1076,
+        "character": 8
+      },
+      "end": {
+        "line": 1095,
+        "character": 32
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users/{user_id}", "patch"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1096,
+        "character": 10
+      },
+      "end": {
+        "line": 1129,
+        "character": 49
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users/{user_id}", "patch"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1096,
+        "character": 10
+      },
+      "end": {
+        "line": 1129,
+        "character": 49
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users/{user_id}", "delete"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1130,
+        "character": 11
+      },
+      "end": {
+        "line": 1143,
+        "character": 30
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users/{user_id}", "delete"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1130,
+        "character": 11
+      },
+      "end": {
+        "line": 1143,
+        "character": 30
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users/{user_id}/restore", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1145,
+        "character": 9
+      },
+      "end": {
+        "line": 1162,
+        "character": 49
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users/{user_id}/restore", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1145,
+        "character": 9
+      },
+      "end": {
+        "line": 1162,
+        "character": 49
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users/{user_id}/identities/oauth", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1164,
+        "character": 9
+      },
+      "end": {
+        "line": 1196,
+        "character": 29
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users/{user_id}/identities/oauth", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1164,
+        "character": 9
+      },
+      "end": {
+        "line": 1196,
+        "character": 29
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/organizations", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1198,
+        "character": 8
+      },
+      "end": {
+        "line": 1225,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/organizations", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1198,
+        "character": 8
+      },
+      "end": {
+        "line": 1225,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/organizations", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1226,
+        "character": 9
+      },
+      "end": {
+        "line": 1251,
+        "character": 57
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/organizations", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1226,
+        "character": 9
+      },
+      "end": {
+        "line": 1251,
+        "character": 57
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/organizations/{organization_id}", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1253,
+        "character": 8
+      },
+      "end": {
+        "line": 1270,
+        "character": 57
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/organizations/{organization_id}", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1253,
+        "character": 8
+      },
+      "end": {
+        "line": 1270,
+        "character": 57
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/organizations/{organization_id}", "patch"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1271,
+        "character": 10
+      },
+      "end": {
+        "line": 1303,
+        "character": 57
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/organizations/{organization_id}", "patch"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1271,
+        "character": 10
+      },
+      "end": {
+        "line": 1303,
+        "character": 57
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/organizations/{organization_id}/memberships", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1305,
+        "character": 9
+      },
+      "end": {
+        "line": 1334,
+        "character": 55
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/organizations/{organization_id}/memberships", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1305,
+        "character": 9
+      },
+      "end": {
+        "line": 1334,
+        "character": 55
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/organizations/{organization_id}/roles", "patch"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1336,
+        "character": 10
+      },
+      "end": {
+        "line": 1367,
+        "character": 36
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/organizations/{organization_id}/roles", "patch"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1336,
+        "character": 10
+      },
+      "end": {
+        "line": 1367,
+        "character": 36
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/organizations/{organization_id}/domains", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1369,
+        "character": 9
+      },
+      "end": {
+        "line": 1392,
+        "character": 40
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/organizations/{organization_id}/domains", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1369,
+        "character": 9
+      },
+      "end": {
+        "line": 1392,
+        "character": 40
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/invitations", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1394,
+        "character": 8
+      },
+      "end": {
+        "line": 1436,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/invitations", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1394,
+        "character": 8
+      },
+      "end": {
+        "line": 1436,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/invitations", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1437,
+        "character": 9
+      },
+      "end": {
+        "line": 1473,
+        "character": 55
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/invitations", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1437,
+        "character": 9
+      },
+      "end": {
+        "line": 1473,
+        "character": 55
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/invitations/{invitation_id}/revoke", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1475,
+        "character": 9
+      },
+      "end": {
+        "line": 1503,
+        "character": 32
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/invitations/{invitation_id}/revoke", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1475,
+        "character": 9
+      },
+      "end": {
+        "line": 1503,
+        "character": 32
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users/{user_id}/mfa/totp", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1505,
+        "character": 9
+      },
+      "end": {
+        "line": 1518,
+        "character": 42
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users/{user_id}/mfa/totp", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1505,
+        "character": 9
+      },
+      "end": {
+        "line": 1518,
+        "character": 42
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users/{user_id}/mfa/totp/verify", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1520,
+        "character": 9
+      },
+      "end": {
+        "line": 1543,
+        "character": 31
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users/{user_id}/mfa/totp/verify", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1520,
+        "character": 9
+      },
+      "end": {
+        "line": 1543,
+        "character": 31
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users/{user_id}/mfa/backup_codes/regenerate", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1545,
+        "character": 9
+      },
+      "end": {
+        "line": 1567,
+        "character": 34
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users/{user_id}/mfa/backup_codes/regenerate", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1545,
+        "character": 9
+      },
+      "end": {
+        "line": 1567,
+        "character": 34
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/users/{user_id}/mfa/webauthn", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1569,
+        "character": 9
+      },
+      "end": {
+        "line": 1593,
+        "character": 40
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/users/{user_id}/mfa/webauthn", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1569,
+        "character": 9
+      },
+      "end": {
+        "line": 1593,
+        "character": 40
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/webhooks/endpoints", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1595,
+        "character": 8
+      },
+      "end": {
+        "line": 1611,
+        "character": 66
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/webhooks/endpoints", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1595,
+        "character": 8
+      },
+      "end": {
+        "line": 1611,
+        "character": 66
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/webhooks/endpoints", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1612,
+        "character": 9
+      },
+      "end": {
+        "line": 1638,
+        "character": 60
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/webhooks/endpoints", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1612,
+        "character": 9
+      },
+      "end": {
+        "line": 1638,
+        "character": 60
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/webhooks/endpoints/{endpoint_id}/rotate_secret", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1640,
+        "character": 9
+      },
+      "end": {
+        "line": 1657,
+        "character": 60
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/webhooks/endpoints/{endpoint_id}/rotate_secret", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1640,
+        "character": 9
+      },
+      "end": {
+        "line": 1657,
+        "character": 60
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/audit_logs", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1659,
+        "character": 8
+      },
+      "end": {
+        "line": 1709,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/audit_logs", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1659,
+        "character": 8
+      },
+      "end": {
+        "line": 1709,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/events", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1711,
+        "character": 8
+      },
+      "end": {
+        "line": 1738,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/events", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1711,
+        "character": 8
+      },
+      "end": {
+        "line": 1738,
+        "character": 63
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/config/theme", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1740,
+        "character": 8
+      },
+      "end": {
+        "line": 1751,
+        "character": 56
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/config/theme", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1740,
+        "character": 8
+      },
+      "end": {
+        "line": 1751,
+        "character": 56
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/config/theme", "put"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1752,
+        "character": 8
+      },
+      "end": {
+        "line": 1769,
+        "character": 56
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/config/theme", "put"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1752,
+        "character": 8
+      },
+      "end": {
+        "line": 1769,
+        "character": 56
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/projects/{project_id}", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1771,
+        "character": 8
+      },
+      "end": {
+        "line": 1788,
+        "character": 52
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/projects/{project_id}", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1771,
+        "character": 8
+      },
+      "end": {
+        "line": 1788,
+        "character": 52
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/projects/{project_id}", "put"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1789,
+        "character": 8
+      },
+      "end": {
+        "line": 1830,
+        "character": 52
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/projects/{project_id}", "put"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1789,
+        "character": 8
+      },
+      "end": {
+        "line": 1830,
+        "character": 52
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/projects/{project_id}/jwks", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1832,
+        "character": 9
+      },
+      "end": {
+        "line": 1853,
+        "character": 31
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/projects/{project_id}/jwks", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1832,
+        "character": 9
+      },
+      "end": {
+        "line": 1853,
+        "character": 31
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/projects/{project_id}/keys", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1855,
+        "character": 8
+      },
+      "end": {
+        "line": 1887,
+        "character": 57
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/projects/{project_id}/keys", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1855,
+        "character": 8
+      },
+      "end": {
+        "line": 1887,
+        "character": 57
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/projects/{project_id}/keys", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1888,
+        "character": 9
+      },
+      "end": {
+        "line": 1925,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/projects/{project_id}/keys", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1888,
+        "character": 9
+      },
+      "end": {
+        "line": 1925,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/projects/{project_id}/keys/{key_id}/rotate", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1927,
+        "character": 9
+      },
+      "end": {
+        "line": 1958,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/projects/{project_id}/keys/{key_id}/rotate", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1927,
+        "character": 9
+      },
+      "end": {
+        "line": 1958,
+        "character": 51
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/client", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1960,
+        "character": 8
+      },
+      "end": {
+        "line": 1978,
+        "character": 34
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/client", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1960,
+        "character": 8
+      },
+      "end": {
+        "line": 1978,
+        "character": 34
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/client/sessions", "post"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1980,
+        "character": 9
+      },
+      "end": {
+        "line": 2006,
+        "character": 52
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/client/sessions", "post"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 1980,
+        "character": 9
+      },
+      "end": {
+        "line": 2006,
+        "character": 52
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-description",
+    "path": ["paths", "/v1/client/user", "get"],
+    "message": "Operation \"description\" must be present and non-empty string.",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 2008,
+        "character": 8
+      },
+      "end": {
+        "line": 2024,
+        "character": 56
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  },
+  {
+    "code": "operation-operationId",
+    "path": ["paths", "/v1/client/user", "get"],
+    "message": "Operation must have \"operationId\".",
+    "severity": 1,
+    "range": {
+      "start": {
+        "line": 2008,
+        "character": 8
+      },
+      "end": {
+        "line": 2024,
+        "character": 56
+      }
+    },
+    "source": "/Users/zardoz/projects/blerp/openapi/blerp.v1.yaml"
+  }
+]
