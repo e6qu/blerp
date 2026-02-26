@@ -1,6 +1,6 @@
 # Monite SDK Clerk Live Dependencies
 
-This document outlines the specific Clerk features and services that the Monite SDK integration relies on for operation, as identified in the `monite-sdk-parity` reference implementation.
+This document outlines the specific Clerk features and services that the Monite SDK integration relies on for operation, as identified from the official `monite-sdk` source code.
 
 ## 1. Authentication & Session Management
 
@@ -22,14 +22,19 @@ This document outlines the specific Clerk features and services that the Monite 
 
 ## 4. Metadata API
 
-- **Server-side Management**: Requires the `organizations.updateOrganizationMetadata` and `users.updateUserMetadata` API endpoints.
-- **Private Metadata**: Specifically depends on the availability of a "private" metadata tier for secure storage of Monite IDs (`entity_id`).
+- **Server-side Management**: Requires the `organizations.getOrganization`, `organizations.updateOrganizationMetadata` and `users.updateUserMetadata` API endpoints.
+- **Private Metadata**: Specifically depends on the availability of a "private" metadata tier for secure storage of Monite IDs (`entity_id`, `entities`).
 
 ## 5. Webhook System
 
 - **Event-Driven Sync**: Relies on `organization.created` and `user.created` events to trigger background synchronization tasks.
 - **Signature Verification**: Requires HMAC-SHA256 (or similar) signature verification to ensure the integrity of webhook payloads.
 
-## 6. Frontend UI Components
+## 6. Organization Domains
 
-- **Drop-in UI**: Uses Clerk's pre-built components (`<SignIn />`, `<SignUp />`, `<UserButton />`, `<OrganizationSwitcher />`) to maintain a consistent user experience while managing complex auth/org flows.
+- **Domain Management**: Relies on Clerk's Organization Domains feature to manage and verify domains for auto-enrollment and email-based routing.
+- **Verified Domains**: Uses `verified_domains` in Organization metadata to store domain verification status and enrollment modes.
+
+## 7. Frontend UI Components
+
+- **Drop-in UI**: Uses Clerk's pre-built components (`<SignIn />`, `<SignUp />`, `<UserButton />`, `<OrganizationSwitcher />`, `<OrganizationProfile />`, `<CreateOrganization />`) to maintain a consistent user experience while managing complex auth/org flows.
