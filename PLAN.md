@@ -191,3 +191,37 @@ Tasks:
 2. [x] Perform a final security audit focusing on session hijacking and IDOR prevention.
 3. [x] Finalize all public documentation, including migration guides from Clerk.
 4. [x] Ship the first "v1.0.0" release candidate containers to ECR.
+
+---
+
+## Milestone 4 — Framework Adapters (Next.js Parity)
+
+### Phase A — `@blerp/nextjs` Package
+
+_Objective_: implement a drop-in Next.js SDK that achieves feature parity with `@clerk/nextjs`.
+
+Tasks:
+
+1. Initialize `packages/nextjs` workspace.
+2. Implement `blerpMiddleware` for Edge-compatible route protection, session verification, and automatic token refresh.
+3. Implement `BlerpProvider` context wrapper for the React tree.
+4. Implement `auth()` and `currentUser()` server-side helpers leveraging Next.js App Router cookies.
+
+### Phase B — Pre-built UI Components
+
+_Objective_: provide polished, zero-config React components matching Clerk DX.
+
+Tasks:
+
+1. Extract `SignUp`, `SignIn`, `UserButton`, and `OrganizationSwitcher` from the Dashboard into a reusable UI package or export them from `@blerp/nextjs`.
+2. Ensure components support customization via a `appearance` prop.
+
+### Phase C — Next.js Quickstart Testing
+
+_Objective_: validate 100ompliance with Clerk Next.js tutorials.
+
+Tasks:
+
+1. Create `examples/nextjs-quickstart` following the exact steps in the Clerk tutorial.
+2. Configure Playwright to run against this example, verifying routing, redirects, and rendering.
+3. Create `examples/nextjs-custom-sign-in` following the custom sign-in page guide.
