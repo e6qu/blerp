@@ -187,7 +187,7 @@ _Objective_: finalize security, stability, and documentation for General Availab
 
 Tasks:
 
-1. Conduct automated load testing and benchmarking for core auth and organization flows.
-2. Perform a final security audit focusing on session hijacking and IDOR prevention.
-3. Finalize all public documentation, including migration guides from Clerk.
-4. Ship the first "v1.0.0" release candidate containers to ECR.
+1. [x] Conduct automated load testing and benchmarking for core auth and organization flows.
+2. [x] Perform a final security audit focusing on session hijacking and IDOR prevention.
+3. [x] Finalize all public documentation, including migration guides from Clerk.
+4. [x] Ship the first "v1.0.0" release candidate containers to ECR.
