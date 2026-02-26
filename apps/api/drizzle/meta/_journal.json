@@ -22,6 +22,13 @@
       "when": 1772063647669,
       "tag": "0002_large_exiles",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1772063992595,
+      "tag": "0003_thankful_wasp",
+      "breakpoints": true
     }
   ]
 }

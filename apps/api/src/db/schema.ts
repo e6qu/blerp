@@ -149,7 +149,7 @@ export const memberships = sqliteTable("memberships", {
   id: text("id").primaryKey(),
   organizationId: text("organization_id")
     .notNull()
-    .references(() => organizations.id),
+    .references(() => organizations.id, { onDelete: "cascade" }),
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
@@ -166,7 +166,7 @@ export const invitations = sqliteTable("invitations", {
   id: text("id").primaryKey(),
   organizationId: text("organization_id")
     .notNull()
-    .references(() => organizations.id),
+    .references(() => organizations.id, { onDelete: "cascade" }),
   emailAddress: text("email_address").notNull(),
   role: text("role").notNull().default("member"),
   status: text("status", { enum: ["pending", "accepted", "revoked"] })

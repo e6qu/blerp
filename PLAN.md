@@ -103,7 +103,7 @@ Tasks:
 
 1. [x] Implement Organization CRUD, slug management, and per-tenant isolation in API.
 2. [x] Build Membership management service (roles: owner, admin, member) and invitation flows.
-3. Define custom RBAC permissions engine mapping capability keys to roles.
+3. [x] Define custom RBAC permissions engine mapping capability keys to roles.
 4. Update Dashboard SPA with Organization switcher, member lists, and role management UIs.
 
 ### Phase B — Webhooks & Event System

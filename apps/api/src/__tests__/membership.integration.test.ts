@@ -30,6 +30,7 @@ describe("Membership & Invitation Integration", () => {
   const projectId = "proj_mem_123";
   const orgId = "org_mem_123";
   const userId = "user_mem_123";
+  const otherUserId = "user_other_123";
 
   beforeAll(async () => {
     clearDbCache();
@@ -45,17 +46,24 @@ describe("Membership & Invitation Integration", () => {
       ownerUserId: userId,
     });
 
-    await db.insert(schema.users).values({
-      id: userId,
-      firstName: "Test",
-      lastName: "User",
-    });
+    await db.insert(schema.users).values([
+      { id: userId, firstName: "Test", lastName: "User" },
+      { id: otherUserId, firstName: "Other", lastName: "User" },
+    ]);
 
     await db.insert(schema.organizations).values({
       id: orgId,
       projectId,
       name: "Mem Org",
       slug: "mem-org",
+    });
+
+    // Seed initial membership for the actor
+    await db.insert(schema.memberships).values({
+      id: "mem_initial",
+      organizationId: orgId,
+      userId: userId,
+      role: "owner",
     });
   });
 
@@ -70,7 +78,8 @@ describe("Membership & Invitation Integration", () => {
     const res = await request(app)
       .post(`/v1/organizations/${orgId}/memberships`)
       .set("X-Tenant-Id", tenantId)
-      .send({ user_id: userId, role: "admin" });
+      .set("X-User-Id", userId)
+      .send({ user_id: otherUserId, role: "admin" });
 
     expect(res.status).toBe(201);
     const memId = res.body.id;
@@ -78,15 +87,16 @@ describe("Membership & Invitation Integration", () => {
     // 2. List Memberships
     const list = await request(app)
       .get(`/v1/organizations/${orgId}/memberships`)
-      .set("X-Tenant-Id", tenantId);
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId);
 
-    expect(list.body.data).toHaveLength(1);
-    expect(list.body.data[0].id).toBe(memId);
+    expect(list.body.data).toHaveLength(2); // Initial owner + newly created admin
 
     // 3. Update Membership
     const update = await request(app)
       .patch(`/v1/organizations/${orgId}/memberships/${memId}`)
       .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId)
       .send({ role: "owner" });
 
     expect(update.status).toBe(200);
@@ -95,7 +105,8 @@ describe("Membership & Invitation Integration", () => {
     // 4. Delete Membership
     const del = await request(app)
       .delete(`/v1/organizations/${orgId}/memberships/${memId}`)
-      .set("X-Tenant-Id", tenantId);
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId);
 
     expect(del.status).toBe(204);
   });
@@ -105,6 +116,7 @@ describe("Membership & Invitation Integration", () => {
     const res = await request(app)
       .post(`/v1/organizations/${orgId}/invitations`)
       .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId)
       .send({ email_address: "invite@example.com", role: "member" });
 
     expect(res.status).toBe(201);
@@ -113,7 +125,8 @@ describe("Membership & Invitation Integration", () => {
     // 2. List Invitations
     const list = await request(app)
       .get(`/v1/organizations/${orgId}/invitations`)
-      .set("X-Tenant-Id", tenantId);
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId);
 
     expect(list.body.data).toHaveLength(1);
     expect(list.body.data[0].id).toBe(invId);
@@ -121,7 +134,8 @@ describe("Membership & Invitation Integration", () => {
     // 3. Revoke Invitation
     const revoke = await request(app)
       .post(`/v1/organizations/${orgId}/invitations/${invId}/revoke`)
-      .set("X-Tenant-Id", tenantId);
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId);
 
     expect(revoke.status).toBe(200);
     expect(revoke.body.status).toBe("revoked");
