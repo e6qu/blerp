@@ -6,5 +6,6 @@ fix_openapi.js
 *storybook.log
 storybook-static
 
-dist/
-.turbo/
+**/dist/
+**/.turbo/
+**/.next/
