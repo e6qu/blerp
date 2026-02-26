@@ -159,7 +159,7 @@ Tasks:
 
 1. [x] Implement Redis-based caching for frequent API lookups (public JWKS, organization metadata).
 2. [x] Optimize Drizzle queries and add necessary SQLite indexes for high-volume tables (audit logs, sessions).
-3. Implement connection pooling and lifecycle management for tenant databases.
+3. [x] Implement connection pooling and lifecycle management for tenant databases.
 
 ### Phase B — Developer Tooling & CLI
 
@@ -168,8 +168,8 @@ _Objective_: enhance the `blerp` CLI to improve local development and management
 Tasks:
 
 1. [x] Expand `scripts/blerp.ts` into a full-featured CLI with commands for tenant management, key rotation, and log tailing.
-2. Build an "API Playground" in the Dashboard SPA or integrated into the documentation.
-3. Automate SDK generation and distribution for multiple languages (Node, Go, Python).
+2. [x] Build an "API Playground" in the Dashboard SPA or integrated into the documentation.
+3. [x] Automate SDK generation and distribution for multiple languages (Node, Go, Python).
 
 ### Phase C — Billing & Monetization Primitives
 
@@ -178,8 +178,8 @@ _Objective_: establish hooks for pricing, quotas, and billing integration.
 Tasks:
 
 1. [x] Define a Quota management system (users per organization, rate limits per project).
-2. Implement Stripe integration placeholders for subscription and usage-based billing.
-3. Build a "Usage" dashboard view for customers to monitor their consumption.
+2. [x] Implement Stripe integration placeholders for subscription and usage-based billing.
+3. [x] Build a "Usage" dashboard view for customers to monitor their consumption.
 
 ### Phase D — Production Readiness & GA
 
@@ -214,7 +214,7 @@ _Objective_: provide polished, zero-config React components matching Clerk DX.
 Tasks:
 
 1. [x] Extract `SignUp`, `SignIn`, `UserButton`, and `OrganizationSwitcher` from the Dashboard into a reusable UI package or export them from `@blerp/nextjs`.
-2. Ensure components support customization via a `appearance` prop.
+2. [x] Ensure components support customization via a `appearance` prop.
 
 ### Phase C — Next.js Quickstart Testing
 
