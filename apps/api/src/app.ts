@@ -8,6 +8,7 @@ import { tenantMiddleware } from "./middleware/tenant";
 import { authRoutes } from "./v1/routes/auth.routes";
 import { organizationRoutes } from "./v1/routes/organization.routes";
 import { webhookRoutes } from "./v1/routes/webhook.routes";
+import { scimRoutes } from "./v1/routes/scim.routes";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
@@ -48,13 +49,13 @@ app.get("/health", (req, res) => {
 
 // API routes - all require tenant isolation
 app.use("/v1", tenantMiddleware);
-
-// Apply CSRF protection to mutations
 app.use("/v1", doubleCsrfProtection);
-
 app.use("/v1", authRoutes);
 app.use("/v1", organizationRoutes);
 app.use("/v1", webhookRoutes);
+
+// SCIM v2
+app.use("/scim/v2", scimRoutes);
 
 app.get("/v1/ping", (req, res) => {
   res.json({ message: "pong", tenantId: req.tenantId });

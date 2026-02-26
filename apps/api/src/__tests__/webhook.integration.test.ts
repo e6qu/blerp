@@ -43,7 +43,7 @@ describe("Webhook Integration", () => {
   it("should manage webhook endpoints", async () => {
     // 1. Create Webhook
     const res = await request(app)
-      .post("/v1/webhooks")
+      .post("/v1/webhooks/endpoints")
       .set("X-Tenant-Id", tenantId)
       .set("X-User-Id", userId)
       .send({ url: "https://example.com/webhook", event_types: ["user.created"] });
@@ -55,7 +55,7 @@ describe("Webhook Integration", () => {
 
     // 2. List Webhooks
     const list = await request(app)
-      .get("/v1/webhooks")
+      .get("/v1/webhooks/endpoints")
       .set("X-Tenant-Id", tenantId)
       .set("X-User-Id", userId);
 
@@ -64,7 +64,7 @@ describe("Webhook Integration", () => {
 
     // 3. Update Webhook
     const update = await request(app)
-      .patch(`/v1/webhooks/${whId}`)
+      .patch(`/v1/webhooks/endpoints/${whId}`)
       .set("X-Tenant-Id", tenantId)
       .set("X-User-Id", userId)
       .send({ enabled: false });
@@ -74,7 +74,7 @@ describe("Webhook Integration", () => {
 
     // 4. Delete Webhook
     const del = await request(app)
-      .delete(`/v1/webhooks/${whId}`)
+      .delete(`/v1/webhooks/endpoints/${whId}`)
       .set("X-Tenant-Id", tenantId)
       .set("X-User-Id", userId);
 

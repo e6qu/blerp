@@ -47,7 +47,7 @@ export const emailAddresses = sqliteTable("email_addresses", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   emailAddress: text("email_address").notNull().unique(),
   verificationStatus: text("verification_status", { enum: ["verified", "unverified"] })
     .notNull()
@@ -65,7 +65,7 @@ export const phoneNumbers = sqliteTable("phone_numbers", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   phoneNumber: text("phone_number").notNull().unique(),
   verificationStatus: text("verification_status", { enum: ["verified", "unverified"] })
     .notNull()
@@ -82,7 +82,7 @@ export const oauthAccounts = sqliteTable("oauth_accounts", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   provider: text("provider").notNull(),
   providerUserId: text("provider_user_id").notNull(),
   emailAddress: text("email_address").notNull(),
@@ -107,7 +107,7 @@ export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   organizationId: text("organization_id"),
   status: text("status", { enum: ["active", "revoked", "ended", "expired"] })
     .notNull()
@@ -152,7 +152,7 @@ export const memberships = sqliteTable("memberships", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   role: text("role").notNull().default("member"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
@@ -215,6 +215,20 @@ export const auditLogs = sqliteTable("audit_logs", {
     .default(sql`(unixepoch())`),
 });
 
+export const webhookEndpoints = sqliteTable("webhook_endpoints", {
+  id: text("id").primaryKey(),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  eventTypes: text("event_types", { mode: "json" }).notNull().default("[]"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
 // --- Relations ---
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -264,17 +278,3 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
     references: [organizations.id],
   }),
 }));
-
-export const webhookEndpoints = sqliteTable("webhook_endpoints", {
-  id: text("id").primaryKey(),
-  url: text("url").notNull(),
-  secret: text("secret").notNull(),
-  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
-  eventTypes: text("event_types", { mode: "json" }).notNull().default("[]"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
