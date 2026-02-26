@@ -222,6 +222,6 @@ _Objective_: validate 100ompliance with Clerk Next.js tutorials.
 
 Tasks:
 
-1. Create `examples/nextjs-quickstart` following the exact steps in the Clerk tutorial.
-2. Configure Playwright to run against this example, verifying routing, redirects, and rendering.
-3. Create `examples/nextjs-custom-sign-in` following the custom sign-in page guide.
+1. [x] Create `examples/nextjs-quickstart` following the exact steps in the Clerk tutorial.
+2. [x] Configure Playwright to run against this example, verifying routing, redirects, and rendering.
+3. [x] Create `examples/nextjs-custom-sign-in` following the custom sign-in page guide.
