@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import { tenantMiddleware } from "./middleware/tenant";
 import { authRoutes } from "./v1/routes/auth.routes";
 import { organizationRoutes } from "./v1/routes/organization.routes";
+import { webhookRoutes } from "./v1/routes/webhook.routes";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
@@ -22,7 +23,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "script-src": ["'self'", "'unsafe-inline'"],
+        "script-src": ["+'+self+'+", "+'+unsafe-inline+'+"],
       },
     },
   }),
@@ -53,6 +54,7 @@ app.use("/v1", doubleCsrfProtection);
 
 app.use("/v1", authRoutes);
 app.use("/v1", organizationRoutes);
+app.use("/v1", webhookRoutes);
 
 app.get("/v1/ping", (req, res) => {
   res.json({ message: "pong", tenantId: req.tenantId });

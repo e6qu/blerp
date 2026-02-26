@@ -29,6 +29,13 @@
       "when": 1772063992595,
       "tag": "0003_thankful_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1772064556244,
+      "tag": "0004_rapid_zodiak",
+      "breakpoints": true
     }
   ]
 }

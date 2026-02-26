@@ -264,3 +264,17 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
     references: [organizations.id],
   }),
 }));
+
+export const webhookEndpoints = sqliteTable("webhook_endpoints", {
+  id: text("id").primaryKey(),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  eventTypes: text("event_types", { mode: "json" }).notNull().default("[]"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
