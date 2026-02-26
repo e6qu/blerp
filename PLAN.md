@@ -114,7 +114,7 @@ Tasks:
 
 1. [x] Implement Redis Streams-based event bus emitting user, organization, and session events.
 2. [x] Build Webhook Endpoint management (URLs, secrets, event filtering) in API and DB.
-3. Author Webhook delivery worker with HMAC signing, retries, and backoff.
+3. [x] Author Webhook delivery worker with HMAC signing, retries, and backoff.
 4. Create Webhook monitoring and log viewer in the Dashboard SPA.
 
 ### Phase C — Social Auth & OIDC
