@@ -202,10 +202,10 @@ _Objective_: implement a drop-in Next.js SDK that achieves feature parity with `
 
 Tasks:
 
-1. Initialize `packages/nextjs` workspace.
-2. Implement `blerpMiddleware` for Edge-compatible route protection, session verification, and automatic token refresh.
-3. Implement `BlerpProvider` context wrapper for the React tree.
-4. Implement `auth()` and `currentUser()` server-side helpers leveraging Next.js App Router cookies.
+1. [x] Initialize `packages/nextjs` workspace.
+2. [x] Implement `blerpMiddleware` for Edge-compatible route protection, session verification, and automatic token refresh.
+3. [x] Implement `BlerpProvider` context wrapper for the React tree.
+4. [x] Implement `auth()` and `currentUser()` server-side helpers leveraging Next.js App Router cookies.
 
 ### Phase B — Pre-built UI Components
 

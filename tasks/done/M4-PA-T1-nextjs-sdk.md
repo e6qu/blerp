@@ -2,7 +2,7 @@
 
 - **Phase**: Milestone 4 — Framework Adapters (Next.js Parity)
 - **Plan Reference**: PLAN.md › Phase A Task 1, 2, 3, 4
-- **Status**: Pending
+- **Status**: Completed
 
 ## Objective
 
