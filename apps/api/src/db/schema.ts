@@ -293,3 +293,21 @@ export const passkeys = sqliteTable("passkeys", {
     .default(sql`(unixepoch())`),
   lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
 });
+
+export const organizationDomains = sqliteTable("organization_domains", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  domain: text("domain").notNull().unique(),
+  verificationStatus: text("verification_status", { enum: ["verified", "unverified"] })
+    .notNull()
+    .default("unverified"),
+  verificationToken: text("verification_token").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});

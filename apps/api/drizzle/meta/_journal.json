@@ -50,6 +50,13 @@
       "when": 1772065727247,
       "tag": "0006_large_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1772066162291,
+      "tag": "0007_flowery_sugar_man",
+      "breakpoints": true
     }
   ]
 }

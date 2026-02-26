@@ -10,7 +10,7 @@
    Ship the initial backend, SPA flows, and infrastructure scaffolding with working authentication/user flows as defined in `DESIGN_DOCUMENT.md`.
 2. **Milestone 2 — Enterprise & Ecosystem Expansion**  
    Deliver advanced features: organizations, RBAC customization, audit log streaming, inbound webhooks, and SCIM/OIDC enhancements.
-3. **Milestone 4 — Experience & Scale**  
+3. **Milestone 3 — Experience & Scale**  
    Focus on performance tuning, observability automation, developer tooling polish, pricing/billing hooks, and readiness for GA launch.
 
 ---
@@ -135,7 +135,7 @@ Tasks:
 
 1. [x] Implement SCIM 2.0 provisioning endpoints for automated user/group management.
 2. [x] Build Audit Log streaming service to export events to external sinks (S3, Datadog).
-3. Implement verified domain logic for automatic organization discovery and joining.
+3. [x] Implement verified domain logic for automatic organization discovery and joining.
 
 ### Phase E — Security Polish & Expansion
 
@@ -146,3 +146,48 @@ Tasks:
 1. [x] Implement Session introspection and multi-device revocation UI in Dashboard.
 2. [x] Harden WebAuthn/Passkey registration and login flows with full attestation.
 3. [x] Finalize Enterprise onboarding guides, API reference updates, and deployment blueprints.
+
+---
+
+## Milestone 3 — Experience & Scale
+
+### Phase A — Performance & Optimization
+
+_Objective_: optimize hot paths and ensure database efficiency for multi-tenant workloads.
+
+Tasks:
+
+1. Implement Redis-based caching for frequent API lookups (public JWKS, organization metadata).
+2. Optimize Drizzle queries and add necessary SQLite indexes for high-volume tables (audit logs, sessions).
+3. Implement connection pooling and lifecycle management for tenant databases.
+
+### Phase B — Developer Tooling & CLI
+
+_Objective_: enhance the `blerp` CLI to improve local development and management workflows.
+
+Tasks:
+
+1. Expand `scripts/blerp.ts` into a full-featured CLI with commands for tenant management, key rotation, and log tailing.
+2. Build an "API Playground" in the Dashboard SPA or integrated into the documentation.
+3. Automate SDK generation and distribution for multiple languages (Node, Go, Python).
+
+### Phase C — Billing & Monetization Primitives
+
+_Objective_: establish hooks for pricing, quotas, and billing integration.
+
+Tasks:
+
+1. Define a Quota management system (users per organization, rate limits per project).
+2. Implement Stripe integration placeholders for subscription and usage-based billing.
+3. Build a "Usage" dashboard view for customers to monitor their consumption.
+
+### Phase D — Production Readiness & GA
+
+_Objective_: finalize security, stability, and documentation for General Availability.
+
+Tasks:
+
+1. Conduct automated load testing and benchmarking for core auth and organization flows.
+2. Perform a final security audit focusing on session hijacking and IDOR prevention.
+3. Finalize all public documentation, including migration guides from Clerk.
+4. Ship the first "v1.0.0" release candidate containers to ECR.

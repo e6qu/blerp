@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as organizationController from "../controllers/organization.controller";
 import * as membershipController from "../controllers/membership.controller";
 import * as invitationController from "../controllers/invitation.controller";
+import * as domainController from "../controllers/domain.controller";
 import { authMiddleware } from "../../middleware/auth";
 import { requirePermission } from "../../middleware/rbac";
 
@@ -75,6 +76,26 @@ router.post(
   authMiddleware,
   requirePermission("invitations:write"),
   invitationController.revokeInvitation,
+);
+
+// Domains
+router.post(
+  "/organizations/:organization_id/domains",
+  authMiddleware,
+  requirePermission("org:write"),
+  domainController.addDomain,
+);
+router.get(
+  "/organizations/:organization_id/domains",
+  authMiddleware,
+  requirePermission("org:read"),
+  domainController.listDomains,
+);
+router.post(
+  "/organizations/:organization_id/domains/:domain_id/verify",
+  authMiddleware,
+  requirePermission("org:write"),
+  domainController.verifyDomain,
 );
 
 export { router as organizationRoutes };
