@@ -9,6 +9,9 @@ const queryClient = new QueryClient();
 
 interface BlerpContextType {
   userId: string | null;
+  orgId: string | null;
+  orgRole: string | null;
+  orgPermissions: string[];
   isLoaded: boolean;
   isSignedIn: boolean;
   client: ReturnType<typeof createClient<paths>>;
@@ -35,6 +38,9 @@ export function BlerpProvider({
   const state = useMemo(
     () => ({
       userId: null,
+      orgId: null,
+      orgRole: null,
+      orgPermissions: [],
       isLoaded: true,
       isSignedIn: false,
       client: apiClient,
@@ -54,8 +60,20 @@ export function useAuth() {
   if (context === undefined) {
     throw new Error("useAuth must be used within a BlerpProvider");
   }
-  const { userId, isLoaded, isSignedIn } = context;
-  return { userId, isLoaded, isSignedIn };
+  const { userId, orgId, orgRole, orgPermissions, isLoaded, isSignedIn } = context;
+  return {
+    userId,
+    orgId,
+    orgRole,
+    orgPermissions,
+    isLoaded,
+    isSignedIn,
+    has: (check: { permission?: string; role?: string }) => {
+      if (check.role && orgRole !== check.role) return false;
+      if (check.permission && !orgPermissions.includes(check.permission)) return false;
+      return true;
+    },
+  };
 }
 
 export function useBlerpClient() {

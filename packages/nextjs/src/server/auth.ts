@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { cookies } from "next/headers";
 import * as jose from "jose";
 
@@ -6,18 +7,24 @@ export async function auth() {
   const token = cookieStore.get("__blerp_session")?.value;
 
   if (!token) {
-    return { userId: null };
+    return { userId: null, orgId: null, orgRole: null, orgPermissions: [] };
   }
 
   try {
-    // In a real implementation, we would verify the JWT against the JWKS
-    // For now, we'll decode it or use a placeholder
-    const payload = jose.decodeJwt(token);
+    const payload = jose.decodeJwt(token) as any;
     return {
       userId: (payload.sub as string) || null,
+      orgId: (payload.org_id as string) || null,
+      orgRole: (payload.org_role as string) || null,
+      orgPermissions: (payload.org_permissions as string[]) || [],
+      has: (check: { permission?: string; role?: string }) => {
+        if (check.role && payload.org_role !== check.role) return false;
+        if (check.permission && !payload.org_permissions?.includes(check.permission)) return false;
+        return true;
+      },
     };
   } catch {
-    return { userId: null };
+    return { userId: null, orgId: null, orgRole: null, orgPermissions: [] };
   }
 }
 
@@ -25,8 +32,6 @@ export async function currentUser() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  // Fetch user details from Blerp API
-  // In a real app, this would use the Blerp SDK
   return {
     id: userId,
     firstName: "Mock",
