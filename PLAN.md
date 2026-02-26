@@ -177,7 +177,7 @@ _Objective_: establish hooks for pricing, quotas, and billing integration.
 
 Tasks:
 
-1. Define a Quota management system (users per organization, rate limits per project).
+1. [x] Define a Quota management system (users per organization, rate limits per project).
 2. Implement Stripe integration placeholders for subscription and usage-based billing.
 3. Build a "Usage" dashboard view for customers to monitor their consumption.
 

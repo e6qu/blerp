@@ -10,6 +10,7 @@ import { organizationRoutes } from "./v1/routes/organization.routes";
 import { webhookRoutes } from "./v1/routes/webhook.routes";
 import { scimRoutes } from "./v1/routes/scim.routes";
 import * as auditController from "./v1/controllers/audit.controller";
+import * as quotaController from "./v1/controllers/quota.controller";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
@@ -58,6 +59,9 @@ app.use("/v1", webhookRoutes);
 
 // Audit Logs
 app.get("/v1/audit_logs", authMiddleware, auditController.listAuditLogs);
+
+// Quotas & Usage
+app.get("/v1/usage", authMiddleware, quotaController.getUsage);
 
 // SCIM v2
 app.use("/scim/v2", scimRoutes);
