@@ -1201,6 +1201,43 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /v1/users/{user_id}/metadata:
+    patch:
+      tags: [Users]
+      summary: Update user metadata
+      description: Updates the public, private, or unsafe metadata for a user.
+      operationId: updateUserMetadata
+      security:
+        - SecretKey: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                public_metadata:
+                  type: object
+                  additionalProperties: true
+                private_metadata:
+                  type: object
+                  additionalProperties: true
+                unsafe_metadata:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
   /v1/users/{user_id}/restore:
     post:
       tags: [Users]
@@ -1366,6 +1403,40 @@ paths:
                   additionalProperties: true
                 settings:
                   type: object
+      responses:
+        "200":
+          description: Updated organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+
+  /v1/organizations/{organization_id}/metadata:
+    patch:
+      tags: [Organizations]
+      summary: Update organization metadata
+      description: Updates the public or private metadata for an organization.
+      operationId: updateOrganizationMetadata
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                public_metadata:
+                  type: object
+                  additionalProperties: true
+                private_metadata:
+                  type: object
+                  additionalProperties: true
       responses:
         "200":
           description: Updated organization

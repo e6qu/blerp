@@ -225,3 +225,46 @@ Tasks:
 1. [x] Create `examples/nextjs-quickstart` following the exact steps in the Clerk tutorial.
 2. [x] Configure Playwright to run against this example, verifying routing, redirects, and rendering.
 3. [x] Create `examples/nextjs-custom-sign-in` following the custom sign-in page guide.
+
+---
+
+## Milestone 5 — Monite SDK Parity \& Advanced Metadata
+
+### Phase A — Server-side Client \& Metadata API
+
+_Objective_: implement a robust server-side client and metadata management matching Clerk APIs.
+
+Tasks:
+
+1. [x] Implement `blerpClient` for Node.js (parity with `clerkClient`) with `organizations.getOrganization`, `users.getUser`, etc.
+2. [x] Implement `privateMetadata` read/write endpoints for users and organizations in the API.
+3. [x] Add support for `publicMetadata` and `unsafeMetadata` updates via the API.
+
+### Phase B — Advanced Next.js Integration
+
+_Objective_: deliver high-level components and hooks for complex organization/permission flows.
+
+Tasks:
+
+1. Implement `Protect` component and `has` permission helper for Next.js (Clerk RBAC parity).
+2. Implement `OrganizationProfile` and `CreateOrganization` components.
+3. Implement `OrganizationSwitcher` with active organization state management.
+
+### Phase C — Webhook Handlers \& monite-sdk Parity
+
+_Objective_: validate parity with the Monite SDK integration patterns.
+
+Tasks:
+
+1. Implement `blerp-webhook-handler` middleware for Next.js.
+2. Build `examples/monite-sdk-parity` mirroring the Monite SDK Next.js demo.
+3. Configure Terraform/DNS logic placeholders for custom domains.
+
+### Phase D — E2E Testing Helpers
+
+_Objective_: provide testing utilities for seamless E2E automation.
+
+Tasks:
+
+1. Implement `@blerp/testing` package with token minting helpers for Playwright.
+2. Implement `global.setup.ts` pattern for monorepo E2E tests.

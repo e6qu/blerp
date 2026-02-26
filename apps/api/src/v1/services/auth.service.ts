@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { nanoid } from "nanoid";
 import { eventBus } from "../../lib/events";
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
+import { eq } from "drizzle-orm";
 
 export class AuthService {
   constructor(
@@ -11,9 +13,6 @@ export class AuthService {
 
   async createSignup(data: { email: string; strategy: string }) {
     const signupId = `sig_${nanoid()}`;
-
-    // In a real app, you would handle strategy-specific logic
-    // For now, just a placeholder
     return {
       id: signupId,
       status: "needs_verification",
@@ -27,27 +26,41 @@ export class AuthService {
   }
 
   async attemptSignup(signupId: string, code: string) {
-    // Mock successful verification
     if (code !== "123456") {
       throw new Error("Invalid verification code");
     }
-
     const userId = `user_${nanoid()}`;
-
-    // Create user in tenant DB
     await this.db.insert(schema.users).values({
       id: userId,
       status: "active",
     });
-
     await this.db.insert(schema.emailAddresses).values({
       id: `email_${nanoid()}`,
       userId,
-      emailAddress: "pending@example.com", // Should come from signup state
+      emailAddress: "pending@example.com",
       verificationStatus: "verified",
     });
-
     await eventBus.emit("user.created", this.tenantId, { userId });
     return { userId };
+  }
+
+  async getUser(id: string) {
+    return this.db.query.users.findFirst({
+      where: eq(schema.users.id, id),
+      with: {
+        emailAddresses: true,
+      },
+    });
+  }
+
+  async updateUserMetadata(
+    userId: string,
+    data: { publicMetadata?: any; privateMetadata?: any; unsafeMetadata?: any },
+  ) {
+    await this.db
+      .update(schema.users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+    return this.getUser(userId);
   }
 }

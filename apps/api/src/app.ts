@@ -11,6 +11,8 @@ import { webhookRoutes } from "./v1/routes/webhook.routes";
 import { scimRoutes } from "./v1/routes/scim.routes";
 import * as auditController from "./v1/controllers/audit.controller";
 import * as quotaController from "./v1/controllers/quota.controller";
+import * as userMetadataController from "./v1/controllers/user-metadata.controller";
+import * as organizationMetadataController from "./v1/controllers/organization-metadata.controller";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
@@ -56,6 +58,14 @@ app.use("/v1", doubleCsrfProtection);
 app.use("/v1", authRoutes);
 app.use("/v1", organizationRoutes);
 app.use("/v1", webhookRoutes);
+
+// Metadata
+app.patch("/v1/users/:user_id/metadata", authMiddleware, userMetadataController.updateMetadata);
+app.patch(
+  "/v1/organizations/:organization_id/metadata",
+  authMiddleware,
+  organizationMetadataController.updateMetadata,
+);
 
 // Audit Logs
 app.get("/v1/audit_logs", authMiddleware, auditController.listAuditLogs);

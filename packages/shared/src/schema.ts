@@ -110,6 +110,13 @@ export interface paths {
      */
     patch: operations["updateUser"];
   };
+  "/v1/users/{user_id}/metadata": {
+    /**
+     * Update user metadata
+     * @description Updates the public, private, or unsafe metadata for a user.
+     */
+    patch: operations["updateUserMetadata"];
+  };
   "/v1/users/{user_id}/restore": {
     /**
      * Restore soft-deleted user
@@ -147,6 +154,13 @@ export interface paths {
      * @description Updates organization metadata, membership requirements, or billing settings.
      */
     patch: operations["updateOrganization"];
+  };
+  "/v1/organizations/{organization_id}/metadata": {
+    /**
+     * Update organization metadata
+     * @description Updates the public or private metadata for an organization.
+     */
+    patch: operations["updateOrganizationMetadata"];
   };
   "/v1/organizations/{organization_id}/memberships": {
     /**
@@ -1105,6 +1119,40 @@ export interface operations {
     };
   };
   /**
+   * Update user metadata
+   * @description Updates the public, private, or unsafe metadata for a user.
+   */
+  updateUserMetadata: {
+    parameters: {
+      path: {
+        user_id: string;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          public_metadata?: {
+            [key: string]: unknown;
+          };
+          private_metadata?: {
+            [key: string]: unknown;
+          };
+          unsafe_metadata?: {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+    responses: {
+      /** @description Updated user */
+      200: {
+        content: {
+          "application/json": components["schemas"]["User"];
+        };
+      };
+    };
+  };
+  /**
    * Restore soft-deleted user
    * @description Restores a previously soft-deleted user and re-enables access.
    */
@@ -1237,6 +1285,37 @@ export interface operations {
             [key: string]: unknown;
           };
           settings?: Record<string, never>;
+        };
+      };
+    };
+    responses: {
+      /** @description Updated organization */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Organization"];
+        };
+      };
+    };
+  };
+  /**
+   * Update organization metadata
+   * @description Updates the public or private metadata for an organization.
+   */
+  updateOrganizationMetadata: {
+    parameters: {
+      path: {
+        organization_id: string;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          public_metadata?: {
+            [key: string]: unknown;
+          };
+          private_metadata?: {
+            [key: string]: unknown;
+          };
         };
       };
     };
