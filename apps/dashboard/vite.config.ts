@@ -13,6 +13,9 @@ const dirname =
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: ["react-dom/client", "lucide-react", "@tanstack/react-query"],
+  },
   server: {
     port: 3001,
   },
