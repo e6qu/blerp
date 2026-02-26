@@ -820,7 +820,11 @@ export interface operations {
     responses: {
       /** @description Signup completed */
       200: {
-        content: never;
+        content: {
+          "application/json": {
+            user_id?: string;
+          };
+        };
       };
     };
   };

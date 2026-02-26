@@ -828,9 +828,15 @@ paths:
         "200":
           description: Signup completed
           content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
   /v1/auth/oauth/{provider}:
     get:
-      tags: [Authentication]
+      tags: [Auth]
       summary: Initiate OAuth flow
       description: Returns the authorization URL for the specified OAuth provider.
       operationId: initiateOAuth
@@ -860,7 +866,7 @@ paths:
                     format: uri
   /v1/auth/oauth/{provider}/callback:
     get:
-      tags: [Authentication]
+      tags: [Auth]
       summary: OAuth callback
       description: Handles the callback from an OAuth provider.
       operationId: oauthCallback
