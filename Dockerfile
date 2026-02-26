@@ -6,9 +6,12 @@ FROM base AS install
 COPY package.json bun.lock turbo.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/dashboard/package.json ./apps/dashboard/
+COPY apps/docs/package.json ./apps/docs/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/config/package.json ./packages/config/
 COPY packages/nextjs/package.json ./packages/nextjs/
+COPY examples/nextjs-quickstart/package.json ./examples/nextjs-quickstart/
+COPY examples/vite-react-simple/package.json ./examples/vite-react-simple/
 RUN bun install --frozen-lockfile
 
 # Build dashboard
