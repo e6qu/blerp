@@ -39,6 +39,20 @@ export interface paths {
      */
     post: operations["completeSignupVerification"];
   };
+  "/v1/auth/oauth/{provider}": {
+    /**
+     * Initiate OAuth flow
+     * @description Returns the authorization URL for the specified OAuth provider.
+     */
+    get: operations["initiateOAuth"];
+  };
+  "/v1/auth/oauth/{provider}/callback": {
+    /**
+     * OAuth callback
+     * @description Handles the callback from an OAuth provider.
+     */
+    get: operations["oauthCallback"];
+  };
   "/v1/auth/signins": {
     /**
      * Begin sign-in flow
@@ -806,14 +820,52 @@ export interface operations {
     responses: {
       /** @description Signup completed */
       200: {
+        content: never;
+      };
+    };
+  };
+  /**
+   * Initiate OAuth flow
+   * @description Returns the authorization URL for the specified OAuth provider.
+   */
+  initiateOAuth: {
+    parameters: {
+      query: {
+        redirect_uri: string;
+      };
+      path: {
+        provider: "github" | "google" | "discord";
+      };
+    };
+    responses: {
+      /** @description Authorization URL */
+      200: {
         content: {
           "application/json": {
-            user?: components["schemas"]["User"];
-            session?: components["schemas"]["Session"];
+            /** Format: uri */
+            url?: string;
           };
         };
       };
-      400: components["responses"]["BadRequest"];
+    };
+  };
+  /**
+   * OAuth callback
+   * @description Handles the callback from an OAuth provider.
+   */
+  oauthCallback: {
+    parameters: {
+      query: {
+        code: string;
+        state?: string;
+      };
+      path: {
+        provider: string;
+      };
+    };
+    responses: {
+      /** @description OAuth login successful */
+      200: components["responses"]["BadRequest"];
     };
   };
   /**

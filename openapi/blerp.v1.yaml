@@ -828,15 +828,67 @@ paths:
         "200":
           description: Signup completed
           content:
+  /v1/auth/oauth/{provider}:
+    get:
+      tags: [Authentication]
+      summary: Initiate OAuth flow
+      description: Returns the authorization URL for the specified OAuth provider.
+      operationId: initiateOAuth
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [github, google, discord]
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+      responses:
+        "200":
+          description: Authorization URL
+          content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user:
-                    $ref: "#/components/schemas/User"
-                  session:
-                    $ref: "#/components/schemas/Session"
-        "400":
+                  url:
+                    type: string
+                    format: uri
+  /v1/auth/oauth/{provider}/callback:
+    get:
+      tags: [Authentication]
+      summary: OAuth callback
+      description: Handles the callback from an OAuth provider.
+      operationId: oauthCallback
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OAuth login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
           $ref: "#/components/responses/BadRequest"
   /v1/auth/signins:
     post:
