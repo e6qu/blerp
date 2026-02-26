@@ -2,4 +2,4 @@
 
 Maintain a prioritized list of upcoming actions. Update this file whenever new follow-ups are identified or existing ones are completed.
 
-1. All Framework Adapters complete. Final system verification passed. Ready for release. to verify Clerk parity with a Next.js app. to extract UI components into @blerp/nextjs. to start building the Next.js SDK adapter.
+1. All Milestone 5 tasks complete. BIS has achieved functional parity with the Monite SDK Clerk integration. Ready for final release orchestrations. to finalize Milestone 5 with full tutorial validation. to finalize organization switcher behavior. to implement Organization management components. to implement RBAC helpers for Next.js.

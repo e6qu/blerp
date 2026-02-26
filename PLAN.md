@@ -159,7 +159,7 @@ Tasks:
 
 1. [x] Implement Redis-based caching for frequent API lookups (public JWKS, organization metadata).
 2. [x] Optimize Drizzle queries and add necessary SQLite indexes for high-volume tables (audit logs, sessions).
-3. Implement connection pooling and lifecycle management for tenant databases.
+3. [x] Implement connection pooling and lifecycle management for tenant databases.
 
 ### Phase B — Developer Tooling & CLI
 
@@ -168,8 +168,8 @@ _Objective_: enhance the `blerp` CLI to improve local development and management
 Tasks:
 
 1. [x] Expand `scripts/blerp.ts` into a full-featured CLI with commands for tenant management, key rotation, and log tailing.
-2. Build an "API Playground" in the Dashboard SPA or integrated into the documentation.
-3. Automate SDK generation and distribution for multiple languages (Node, Go, Python).
+2. [x] Build an "API Playground" in the Dashboard SPA or integrated into the documentation.
+3. [x] Automate SDK generation and distribution for multiple languages (Node, Go, Python).
 
 ### Phase C — Billing & Monetization Primitives
 
@@ -178,8 +178,8 @@ _Objective_: establish hooks for pricing, quotas, and billing integration.
 Tasks:
 
 1. [x] Define a Quota management system (users per organization, rate limits per project).
-2. Implement Stripe integration placeholders for subscription and usage-based billing.
-3. Build a "Usage" dashboard view for customers to monitor their consumption.
+2. [x] Implement Stripe integration placeholders for subscription and usage-based billing.
+3. [x] Build a "Usage" dashboard view for customers to monitor their consumption.
 
 ### Phase D — Production Readiness & GA
 
@@ -214,7 +214,7 @@ _Objective_: provide polished, zero-config React components matching Clerk DX.
 Tasks:
 
 1. [x] Extract `SignUp`, `SignIn`, `UserButton`, and `OrganizationSwitcher` from the Dashboard into a reusable UI package or export them from `@blerp/nextjs`.
-2. Ensure components support customization via a `appearance` prop.
+2. [x] Ensure components support customization via a `appearance` prop.
 
 ### Phase C — Next.js Quickstart Testing
 
@@ -225,3 +225,46 @@ Tasks:
 1. [x] Create `examples/nextjs-quickstart` following the exact steps in the Clerk tutorial.
 2. [x] Configure Playwright to run against this example, verifying routing, redirects, and rendering.
 3. [x] Create `examples/nextjs-custom-sign-in` following the custom sign-in page guide.
+
+---
+
+## Milestone 5 — Monite SDK Parity \& Advanced Metadata
+
+### Phase A — Server-side Client \& Metadata API
+
+_Objective_: implement a robust server-side client and metadata management matching Clerk APIs.
+
+Tasks:
+
+1. [x] Implement `blerpClient` for Node.js (parity with `clerkClient`) with `organizations.getOrganization`, `users.getUser`, etc.
+2. [x] Implement `privateMetadata` read/write endpoints for users and organizations in the API.
+3. [x] Add support for `publicMetadata` and `unsafeMetadata` updates via the API.
+
+### Phase B — Advanced Next.js Integration
+
+_Objective_: deliver high-level components and hooks for complex organization/permission flows.
+
+Tasks:
+
+1. [x] Implement `Protect` component and `has` permission helper for Next.js (Clerk RBAC parity).
+2. [x] Implement `OrganizationProfile` and `CreateOrganization` components.
+3. [x] Implement `OrganizationSwitcher` with active organization state management.
+
+### Phase C — Webhook Handlers \& monite-sdk Parity
+
+_Objective_: validate parity with the Monite SDK integration patterns.
+
+Tasks:
+
+1. [x] Implement `blerp-webhook-handler` middleware for Next.js.
+2. [x] Build `examples/monite-sdk-parity` mirroring the Monite SDK Next.js demo.
+3. Configure Terraform/DNS logic placeholders for custom domains.
+
+### Phase D — E2E Testing Helpers
+
+_Objective_: provide testing utilities for seamless E2E automation.
+
+Tasks:
+
+1. Implement `@blerp/testing` package with token minting helpers for Playwright.
+2. Implement `global.setup.ts` pattern for monorepo E2E tests.

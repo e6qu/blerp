@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { eventBus } from "../../lib/events";
 import * as schema from "../../db/schema";
@@ -35,7 +36,10 @@ export class OrganizationService {
     });
   }
 
-  async update(id: string, data: Partial<{ name: string; slug: string }>) {
+  async update(
+    id: string,
+    data: Partial<{ name: string; slug: string; publicMetadata: any; privateMetadata: any }>,
+  ) {
     await this.db
       .update(schema.organizations)
       .set({ ...data, updatedAt: new Date() })
