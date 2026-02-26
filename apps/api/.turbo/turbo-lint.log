@@ -1,8 +1,2 @@
 
 [0m[2m[35m$[0m [2m[1meslint .[0m
-[0m[0m
-[0m[4m/Users/zardoz/projects/blerp/apps/api/src/index.ts[24m[0m
-[0m  [2m1:1[22m  [33mwarning[39m  Unexpected console statement. Only these console methods are allowed: warn, error  [2mno-console[22m[0m
-[0m[0m
-[0m[33m[1m✖ 1 problem (0 errors, 1 warning)[22m[39m[0m
-[0m[33m[1m[22m[39m[0m

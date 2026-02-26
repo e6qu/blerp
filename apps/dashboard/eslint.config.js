@@ -9,4 +9,9 @@ export default [
     ignores: ["dist/**"],
   },
   ...storybook.configs["flat/recommended"],
+  {
+    rules: {
+      "storybook/no-renderer-packages": "off",
+    },
+  },
 ];
