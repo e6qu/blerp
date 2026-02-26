@@ -25,7 +25,7 @@ export async function listWebhooks(req: Request, res: Response) {
 }
 
 export async function getWebhook(req: Request, res: Response) {
-  const id = (req.params.webhook_id || req.params.id) as string;
+  const id = (req.params.endpoint_id || req.params.id) as string;
   const service = new WebhookService(req.tenantDb!);
 
   try {
@@ -41,7 +41,7 @@ export async function getWebhook(req: Request, res: Response) {
 }
 
 export async function updateWebhook(req: Request, res: Response) {
-  const id = (req.params.webhook_id || req.params.id) as string;
+  const id = (req.params.endpoint_id || req.params.id) as string;
   const data = req.body;
   const service = new WebhookService(req.tenantDb!);
 
@@ -54,7 +54,7 @@ export async function updateWebhook(req: Request, res: Response) {
 }
 
 export async function deleteWebhook(req: Request, res: Response) {
-  const id = (req.params.webhook_id || req.params.id) as string;
+  const id = (req.params.endpoint_id || req.params.id) as string;
   const service = new WebhookService(req.tenantDb!);
 
   try {

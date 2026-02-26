@@ -219,6 +219,23 @@ export interface paths {
      */
     post: operations["createWebhookEndpoint"];
   };
+  "/v1/webhooks/endpoints/{endpoint_id}": {
+    /**
+     * Get webhook endpoint
+     * @description Returns details for a specific webhook endpoint.
+     */
+    get: operations["getWebhookEndpoint"];
+    /**
+     * Delete webhook endpoint
+     * @description Permanently removes a webhook endpoint.
+     */
+    delete: operations["deleteWebhookEndpoint"];
+    /**
+     * Update webhook endpoint
+     * @description Updates the configuration for an existing webhook endpoint.
+     */
+    patch: operations["updateWebhookEndpoint"];
+  };
   "/v1/webhooks/endpoints/{endpoint_id}/rotate_secret": {
     /**
      * Rotate webhook endpoint secret
@@ -1481,6 +1498,71 @@ export interface operations {
     responses: {
       /** @description Endpoint created */
       201: {
+        content: {
+          "application/json": components["schemas"]["WebhookEndpoint"];
+        };
+      };
+    };
+  };
+  /**
+   * Get webhook endpoint
+   * @description Returns details for a specific webhook endpoint.
+   */
+  getWebhookEndpoint: {
+    parameters: {
+      path: {
+        endpoint_id: string;
+      };
+    };
+    responses: {
+      /** @description Webhook endpoint */
+      200: {
+        content: {
+          "application/json": components["schemas"]["WebhookEndpoint"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete webhook endpoint
+   * @description Permanently removes a webhook endpoint.
+   */
+  deleteWebhookEndpoint: {
+    parameters: {
+      path: {
+        endpoint_id: string;
+      };
+    };
+    responses: {
+      /** @description Deleted */
+      204: {
+        content: never;
+      };
+    };
+  };
+  /**
+   * Update webhook endpoint
+   * @description Updates the configuration for an existing webhook endpoint.
+   */
+  updateWebhookEndpoint: {
+    parameters: {
+      path: {
+        endpoint_id: string;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          /** Format: uri */
+          url?: string;
+          events?: string[];
+          enabled?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Updated endpoint */
+      200: {
         content: {
           "application/json": components["schemas"]["WebhookEndpoint"];
         };

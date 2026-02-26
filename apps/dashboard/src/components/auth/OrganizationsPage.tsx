@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { OrganizationMembers } from "./OrganizationMembers";
 import { OrganizationInvitations } from "./OrganizationInvitations";
+import { WebhookList } from "./WebhookList";
 import type { components } from "@blerp/shared";
 
 type Organization = components["schemas"]["Organization"];
@@ -10,7 +11,7 @@ type Organization = components["schemas"]["Organization"];
 export function OrganizationsPage() {
   const { data: organizations, isLoading } = useOrganizations();
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"members" | "invitations">("members");
+  const [activeTab, setActiveTab] = useState<"members" | "invitations" | "webhooks">("members");
 
   if (isLoading) return <div className="p-8">Loading organizations...</div>;
 
@@ -68,18 +69,28 @@ export function OrganizationsPage() {
                   >
                     Invitations
                   </button>
+                  <button
+                    onClick={() => setActiveTab("webhooks")}
+                    className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+                      activeTab === "webhooks"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    }`}
+                  >
+                    Webhooks
+                  </button>
                 </nav>
               </div>
 
-              {activeTab === "members" ? (
-                <OrganizationMembers organizationId={selectedOrgId} />
-              ) : (
+              {activeTab === "members" && <OrganizationMembers organizationId={selectedOrgId} />}
+              {activeTab === "invitations" && (
                 <OrganizationInvitations organizationId={selectedOrgId} />
               )}
+              {activeTab === "webhooks" && <WebhookList />}
             </div>
           ) : (
             <div className="flex h-64 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-500">
-              Select an organization to manage its members and invitations.
+              Select an organization to manage its members, invitations, and webhooks.
             </div>
           )}
         </div>

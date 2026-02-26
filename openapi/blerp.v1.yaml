@@ -1699,6 +1699,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WebhookEndpoint"
+  /v1/webhooks/endpoints/{endpoint_id}:
+    get:
+      tags: [Webhooks]
+      summary: Get webhook endpoint
+      description: Returns details for a specific webhook endpoint.
+      operationId: getWebhookEndpoint
+      security:
+        - SecretKey: []
+      parameters:
+        - name: endpoint_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Webhook endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+    patch:
+      tags: [Webhooks]
+      summary: Update webhook endpoint
+      description: Updates the configuration for an existing webhook endpoint.
+      operationId: updateWebhookEndpoint
+      security:
+        - SecretKey: []
+      parameters:
+        - name: endpoint_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+                events:
+                  type: array
+                  items:
+                    type: string
+                enabled:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+    delete:
+      tags: [Webhooks]
+      summary: Delete webhook endpoint
+      description: Permanently removes a webhook endpoint.
+      operationId: deleteWebhookEndpoint
+      security:
+        - SecretKey: []
+      parameters:
+        - name: endpoint_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
   /v1/webhooks/endpoints/{endpoint_id}/rotate_secret:
     post:
       tags: [Webhooks]
