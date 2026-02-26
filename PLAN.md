@@ -167,7 +167,7 @@ _Objective_: enhance the `blerp` CLI to improve local development and management
 
 Tasks:
 
-1. Expand `scripts/blerp.ts` into a full-featured CLI with commands for tenant management, key rotation, and log tailing.
+1. [x] Expand `scripts/blerp.ts` into a full-featured CLI with commands for tenant management, key rotation, and log tailing.
 2. Build an "API Playground" in the Dashboard SPA or integrated into the documentation.
 3. Automate SDK generation and distribution for multiple languages (Node, Go, Python).
 

@@ -29,6 +29,7 @@
     "@eslint/js": "^10.0.1",
     "@redocly/cli": "^2.19.2",
     "@stoplight/spectral-cli": "^6.15.0",
+    "@types/node": "^25.3.0",
     "eslint": "9",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
@@ -48,5 +49,8 @@
     "*.{json,md}": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "commander": "^14.0.3"
   }
 }
