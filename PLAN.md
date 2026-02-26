@@ -125,7 +125,7 @@ Tasks:
 
 1. [x] Integrate OAuth 2.0 social providers (GitHub, Google) into the auth flow.
 2. [x] Implement OIDC Discovery and Provider configuration for BIS.
-3. Support linking/unlinking multiple identities and verification states per user.
+3. [x] Support linking/unlinking multiple identities and verification states per user.
 
 ### Phase D — Enterprise Connectivity
 
