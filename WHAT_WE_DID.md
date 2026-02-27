@@ -244,3 +244,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: Not applicable (documentation change).
 - Files touched: `apps/docs/guide/monite-integration.md`.
 - Notes/Links: Milestone 6 (Monite SDK Full Feature Parity) is 100omplete.
+
+## 2026-02-27 — OpenAPI Spec Fix (PR #12)
+
+- Summary: Fixed OpenAPI spec validation errors discovered after Phase F type hardening commits were pushed to main. The direct push bypassed CI and broke the build. Created PR #12 with fixes: renamed duplicate `revokeSession` operationId to `deleteSession`, added missing descriptions to all operations, defined missing global tags (Sessions, System), and added missing `@blerp/shared` dependency to `examples/vite-react-simple`.
+- Tests run: `bun run openapi:lint`, `bun run lint`, `bun run build`
+- Files touched: `openapi/blerp.v1.yaml`, `examples/vite-react-simple/package.json`.
+- Notes/Links: PR #12 merged. CI now passes.
