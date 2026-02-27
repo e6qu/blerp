@@ -1,5 +1,24 @@
 import createClient from "openapi-fetch";
 import type { paths } from "@blerp/shared";
+import {
+  getApiUrl,
+  getSecretKeyOrThrow,
+  getSecretKey,
+  getPublishableKey,
+  getPublishableKeyOrThrow,
+  getWebhookSecret,
+  getWebhookSecretOrThrow,
+} from "./env.js";
+
+export {
+  getSecretKey,
+  getSecretKeyOrThrow,
+  getPublishableKey,
+  getPublishableKeyOrThrow,
+  getApiUrl,
+  getWebhookSecret,
+  getWebhookSecretOrThrow,
+};
 
 type Metadata = Record<string, unknown>;
 
@@ -85,4 +104,11 @@ export class BlerpClient {
 
 export function createBlerpClient(options: { baseUrl: string; secretKey: string }) {
   return new BlerpClient(options);
+}
+
+export function createBlerpClientFromEnv(): BlerpClient {
+  return createBlerpClient({
+    baseUrl: getApiUrl(),
+    secretKey: getSecretKeyOrThrow(),
+  });
 }

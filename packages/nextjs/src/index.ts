@@ -1,4 +1,9 @@
 export { BlerpProvider, useAuth } from "./client/BlerpProvider";
+export {
+  getPublishableKey,
+  getPublishableKeyOrThrow,
+  getPublishableKeyOrBuildPlaceholder,
+} from "./client/env";
 export * from "./client/components/SignUp";
 export * from "./client/components/Auth";
 export * from "./client/components/OrganizationSwitcher";

@@ -5,6 +5,7 @@ import createClient from "openapi-fetch";
 import type { paths } from "@blerp/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Cookies from "js-cookie";
+import { getPublishableKeyOrBuildPlaceholder } from "./env.js";
 
 const queryClient = new QueryClient();
 
@@ -27,8 +28,10 @@ export function BlerpProvider({
   publishableKey,
 }: {
   children: React.ReactNode;
-  publishableKey: string;
+  publishableKey?: string;
 }) {
+  const key = publishableKey ?? getPublishableKeyOrBuildPlaceholder();
+
   const [activeOrgId, setActiveOrgId] = useState<string | null>(
     () => Cookies.get("__blerp_org") || null,
   );
@@ -37,11 +40,11 @@ export function BlerpProvider({
     return createClient<paths>({
       baseUrl: "/",
       headers: {
-        Authorization: `Bearer ${publishableKey}`,
+        Authorization: `Bearer ${key}`,
         "X-Tenant-Id": activeOrgId || "default",
       },
     });
-  }, [publishableKey, activeOrgId]);
+  }, [key, activeOrgId]);
 
   const setActive = async (options: { organization?: string | null }) => {
     if (options.organization === undefined) return;
@@ -55,7 +58,6 @@ export function BlerpProvider({
   };
 
   const has = (_check: { permission?: string; role?: string }) => {
-    // Mock RBAC logic for now
     return true;
   };
 

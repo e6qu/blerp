@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Webhook } from "@blerp/nextjs/server";
-import { createBlerpClient } from "@blerp/backend";
+import { createBlerpClientFromEnv, getWebhookSecretOrThrow } from "@blerp/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -11,14 +11,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
 
-  const wh = new Webhook(process.env.BLERP_WEBHOOK_SECRET!);
+  const wh = new Webhook(getWebhookSecretOrThrow());
 
   try {
     const event = wh.verify(payload, signature);
-    const blerp = createBlerpClient({
-      baseUrl: process.env.BLERP_API_URL || "http://localhost:3000",
-      secretKey: process.env.BLERP_SECRET_KEY!,
-    });
+    const blerp = createBlerpClientFromEnv();
 
     if (event.type === "organization.created") {
       const { organizationId } = event.data as { organizationId: string };

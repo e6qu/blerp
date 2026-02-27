@@ -4,7 +4,7 @@ import React from "react";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <BlerpProvider publishableKey="pk_test_123">
+    <BlerpProvider>
       <html lang="en">
         <body>
           <header className="p-4 border-b flex justify-between items-center">
