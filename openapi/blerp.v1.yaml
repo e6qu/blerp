@@ -26,19 +26,29 @@ tags:
   - name: Auth
     description: Authentication and token lifecycle
   - name: Users
+    description: User management endpoints
   - name: Organizations
+    description: Organization management endpoints
   - name: Invitations
     description: Organization invitation lifecycle
   - name: MFA
+    description: Multi-factor authentication
   - name: Webhooks
+    description: Webhook endpoint management
   - name: Projects
+    description: Project management endpoints
   - name: Config
     description: Tenant-wide configuration endpoints
   - name: Audit
     description: Audit log queries
   - name: Client
+    description: Client-facing endpoints
   - name: Discovery
     description: OpenID Connect discovery metadata
+  - name: Sessions
+    description: Session management endpoints
+  - name: System
+    description: System-level endpoints
 components:
   securitySchemes:
     SecretKey:
@@ -1565,6 +1575,7 @@ paths:
     get:
       tags: [Organizations]
       summary: List organization domains
+      description: Retrieve all domains associated with an organization.
       operationId: listOrganizationDomains
       security:
         - SecretKey: []
@@ -1589,6 +1600,7 @@ paths:
     post:
       tags: [Organizations]
       summary: Register organization domain
+      description: Register a new domain for an organization.
       operationId: registerOrganizationDomain
       security:
         - SecretKey: []
@@ -1620,6 +1632,7 @@ paths:
     delete:
       tags: [Organizations]
       summary: Delete organization domain
+      description: Remove a domain from an organization.
       operationId: deleteOrganizationDomain
       security:
         - SecretKey: []
@@ -1642,6 +1655,7 @@ paths:
     post:
       tags: [Organizations]
       summary: Verify organization domain
+      description: Trigger verification of a domain ownership.
       operationId: verifyOrganizationDomain
       security:
         - SecretKey: []
@@ -2464,6 +2478,7 @@ paths:
     get:
       tags: [Sessions]
       summary: List sessions
+      description: Retrieve all active sessions for the authenticated user.
       operationId: listSessions
       security:
         - SecretKey: []
@@ -2483,8 +2498,9 @@ paths:
   /v1/sessions/{session_id}:
     delete:
       tags: [Sessions]
-      summary: Revoke session
-      operationId: revokeSession
+      summary: Delete a session
+      description: Immediately revokes and deletes a session by ID.
+      operationId: deleteSession
       security:
         - SecretKey: []
       parameters:
@@ -2500,6 +2516,8 @@ paths:
   /v1/usage:
     get:
       tags: [System]
+      summary: Get usage statistics
+      description: Retrieve resource usage and quota consumption for the tenant.
       operationId: getUsage
       security:
         - SecretKey: []
@@ -2515,6 +2533,8 @@ paths:
   /v1/auth/webauthn/passkeys:
     get:
       tags: [Auth]
+      summary: List passkeys
+      description: Retrieve all registered passkeys for the authenticated user.
       operationId: listPasskeys
       responses:
         "200":
@@ -2532,6 +2552,8 @@ paths:
   /v1/auth/webauthn/registration/options:
     get:
       tags: [Auth]
+      summary: Get WebAuthn registration options
+      description: Retrieve the options needed to register a new passkey.
       operationId: getWebauthnRegistrationOptions
       responses:
         "200":
@@ -2545,6 +2567,8 @@ paths:
   /v1/auth/webauthn/registration/verify:
     post:
       tags: [Auth]
+      summary: Verify WebAuthn registration
+      description: Complete passkey registration by verifying the attestation.
       operationId: verifyWebauthnRegistration
       requestBody:
         content:
@@ -2564,6 +2588,8 @@ paths:
   /v1/users/{user_id}/identities:
     get:
       tags: [Users]
+      summary: List user identities
+      description: Retrieve all OAuth and email identities linked to a user.
       operationId: listUserIdentities
       parameters:
         - name: user_id
@@ -2583,6 +2609,8 @@ paths:
   /v1/users/{user_id}/identities/oauth/{oauth_account_id}:
     delete:
       tags: [Users]
+      summary: Delete OAuth identity
+      description: Unlink an OAuth identity from a user account.
       operationId: deleteUserOAuthIdentity
       parameters:
         - name: user_id
