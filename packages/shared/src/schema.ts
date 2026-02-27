@@ -513,6 +513,12 @@ export interface components {
       /** @enum {string} */
       status: "active" | "inactive" | "banned";
       locked?: boolean;
+      /** @description Whether TOTP (authenticator app) is enabled for this user. */
+      totp_enabled?: boolean;
+      /** @description Whether backup codes are available for account recovery. */
+      backup_code_enabled?: boolean;
+      /** @description Whether any form of two-factor authentication is enabled. */
+      two_factor_enabled?: boolean;
       /** Format: date-time */
       last_sign_in_at?: string;
       /** Format: date-time */

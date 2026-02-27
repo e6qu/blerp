@@ -17,13 +17,13 @@ Prioritized list of upcoming actions based on Clerk parity gap analysis.
 6. ~~**`<ClerkLoaded />` / `<ClerkLoading />`**~~ — ✅ PR #19 merged
 7. ~~**Redirect components**~~ — ✅ PR #19 merged
 
-#### Phase C — Auth Flow (Current)
+#### Phase C — Auth Flow ✅ COMPLETE
 
-8. **`useSignIn()` / `useSignUp()`** hooks — Full auth flow control.
-9. **`<TaskResetPassword />`** — Password reset flow component.
-10. **`<TaskSetupMFA />`** — MFA setup component.
+8. ~~**`useSignIn()` / `useSignUp()`** hooks~~ — ✅ PR #20 merged
+9. ~~**`<TaskResetPassword />`**~~ — ✅ PR #20 merged
+10. ~~**`<TaskSetupMFA />`**~~ — ✅ PR #20 merged
 
-#### Phase E — User Object
+#### Phase E — User Object (Current)
 
 11. **Add `externalId`** — External system ID mapping.
 12. **Add MFA fields** — totpEnabled, backupCodeEnabled, twoFactorEnabled.
