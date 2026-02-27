@@ -10,10 +10,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@blerp/nextjs": "workspace:*",
+    "@monite/sdk-api": "^3.22.1",
+    "@monite/sdk-react": "^4.6.8",
     "next": "15.0.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@blerp/nextjs": "workspace:*"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
