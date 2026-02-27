@@ -60,6 +60,20 @@ export class BlerpClient {
         if (error) throw error;
         return data;
       },
+      listUsers: async (query?: {
+        email?: string;
+        status?: string;
+        metadata_key?: string;
+        metadata_value?: string;
+        limit?: number;
+        cursor?: string;
+      }) => {
+        const { data, error } = await this.client.GET("/v1/users", {
+          params: { query },
+        });
+        if (error) throw error;
+        return data;
+      },
     };
   }
 }

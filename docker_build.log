@@ -1,0 +1,128 @@
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  824.5MB
+[1/6] STEP 1/2: FROM oven/bun:1.2.19-alpine AS base
+[1/6] STEP 2/2: WORKDIR /app
+--> Using cache 180a5814d6937bc838a71d57f28ad4a6bd6979c0c561d3649680f5cb2b005415
+--> 180a5814d693
+[2/6] STEP 1/14: FROM 180a5814d6937bc838a71d57f28ad4a6bd6979c0c561d3649680f5cb2b005415 AS install
+[2/6] STEP 2/14: RUN apk add --no-cache python3 make g++
+--> Using cache 40ae776ee3f13335fff91d5456cf2dbf4baf8484ecbaaf442d59d7b2361e6220
+--> 40ae776ee3f1
+[2/6] STEP 3/14: COPY package.json bun.lock turbo.json ./
+--> Using cache ec6db711ce63830ebf891c19d06f4fbd243a94716285f575433c4f7b2faa7d10
+--> ec6db711ce63
+[2/6] STEP 4/14: COPY apps/api/package.json ./apps/api/
+--> Using cache 43ef1f6949e8e4fe8e222866aaffc5e9cc72ba3d667ad3a30accf22de344b256
+--> 43ef1f6949e8
+[2/6] STEP 5/14: COPY apps/dashboard/package.json ./apps/dashboard/
+--> Using cache ccf00444e004042a5d7053924159e950dcd58389d11356118f28dd750907412a
+--> ccf00444e004
+[2/6] STEP 6/14: COPY apps/docs/package.json ./apps/docs/
+--> Using cache 56752bff6fc9851aeaeb0483d0aabf3342c1da7df67e5f651d7996c5d9dbcda5
+--> 56752bff6fc9
+[2/6] STEP 7/14: COPY packages/shared/package.json ./packages/shared/
+--> Using cache 1fbadde726c669b4a17f184af6b5caf0beeeb565806e3da9efea07a6fbb86de2
+--> 1fbadde726c6
+[2/6] STEP 8/14: COPY packages/config/package.json ./packages/config/
+--> Using cache 06c1cd44248c42ef9885280a4f8ff5a71c0e6ffbef760eebe72b727878892f46
+--> 06c1cd44248c
+[2/6] STEP 9/14: COPY packages/nextjs/package.json ./packages/nextjs/
+--> Using cache 4ff60b42a683f6a2b044697a65ea2046b1c41aeb54b85f30e19c3cce3ca07629
+--> 4ff60b42a683
+[2/6] STEP 10/14: COPY packages/backend/package.json ./packages/backend/
+--> Using cache e6ad73eeff57ee32b567fec91bc804444623e82bd53dbfa0308b1faa8f92e50d
+--> e6ad73eeff57
+[2/6] STEP 11/14: COPY examples/nextjs-quickstart/package.json ./examples/nextjs-quickstart/
+--> Using cache af6d894162f30eadd7d5ab07cd848be8cc76268962653073f14253cd3283821e
+--> af6d894162f3
+[2/6] STEP 12/14: COPY examples/monite-sdk-parity/package.json ./examples/monite-sdk-parity/
+--> Using cache 372ff6443b001cbdcdfc214ea9a664642d4a4e02e438d200ba6694cb617f848e
+--> 372ff6443b00
+[2/6] STEP 13/14: COPY examples/vite-react-simple/package.json ./examples/vite-react-simple/
+--> Using cache 5c3ae8ce268500921fd2b9bf8ada7ba9c05cfa5322bec2402fd3c689b54c59cc
+--> 5c3ae8ce2685
+[2/6] STEP 14/14: RUN bun install --frozen-lockfile
+--> Using cache 04b88554d9ee9e735d150bfccae5ee8b92dab1f426dec072cee456be0d30e0b0
+--> 04b88554d9ee
+[3/6] STEP 1/4: FROM 04b88554d9ee9e735d150bfccae5ee8b92dab1f426dec072cee456be0d30e0b0 AS build-shared
+[3/6] STEP 2/4: COPY packages/shared ./packages/shared
+--> Using cache 0ce14170286378d53a81b0922bc56631fe96a1a0715732b80079a9ac5cd0c90f
+--> 0ce141702863
+[3/6] STEP 3/4: COPY packages/config ./packages/config
+--> Using cache 828c4e268e60b16aa6bea3b7010c043f3bb9a86a966b34dd9a58e05913fc7e11
+--> 828c4e268e60
+[3/6] STEP 4/4: RUN bun run build --filter @blerp/shared
+--> Using cache 29c45aa185c7deb920ab4d4d063522f3c9feb84425ba3a509286fe27b8e9d7c0
+--> 29c45aa185c7
+[4/6] STEP 1/3: FROM 29c45aa185c7deb920ab4d4d063522f3c9feb84425ba3a509286fe27b8e9d7c0 AS build-dashboard
+[4/6] STEP 2/3: COPY apps/dashboard ./apps/dashboard
+--> afe0590029cb
+[4/6] STEP 3/3: RUN bun run build --filter @blerp/dashboard
+$ turbo run build --filter @blerp/dashboard
+• turbo 2.8.11
+• Packages in scope: @blerp/dashboard
+• Running build in 1 packages
+• Remote caching disabled
+@blerp/shared:build: cache hit, replaying logs 605e0ea38d0778a3
+@blerp/shared:build: $ tsc
+@blerp/dashboard:build: cache miss, executing 437216c4067c19f1
+@blerp/dashboard:build: $ tsc && vite build
+@blerp/dashboard:build: vite v7.3.1 building client environment for production...
+@blerp/dashboard:build: transforming...
+@blerp/dashboard:build: ✓ 1798 modules transformed.
+@blerp/dashboard:build: rendering chunks...
+@blerp/dashboard:build: computing gzip size...
+@blerp/dashboard:build: dist/index.html                   0.46 kB │ gzip:  0.30 kB
+@blerp/dashboard:build: dist/assets/index-Dyz6jw_n.css   21.23 kB │ gzip:  5.85 kB
+@blerp/dashboard:build: dist/assets/index-UbWDHRyp.js   292.84 kB │ gzip: 91.35 kB
+@blerp/dashboard:build: ✓ built in 851ms
+
+ Tasks:    2 successful, 2 total
+Cached:    1 cached, 2 total
+  Time:    3.055s 
+
+--> 29e664c55d45
+[5/6] STEP 1/3: FROM 29c45aa185c7deb920ab4d4d063522f3c9feb84425ba3a509286fe27b8e9d7c0 AS build-api
+[5/6] STEP 2/3: COPY apps/api ./apps/api
+--> 0d7a2a4d13cf
+[5/6] STEP 3/3: RUN bun run build --filter @blerp/api
+$ turbo run build --filter @blerp/api
+• turbo 2.8.11
+• Packages in scope: @blerp/api
+• Running build in 1 packages
+• Remote caching disabled
+@blerp/shared:build: cache hit, replaying logs 605e0ea38d0778a3
+@blerp/shared:build: $ tsc
+@blerp/api:build: cache miss, executing 20c314e8433801cf
+@blerp/api:build: $ tsc
+
+ Tasks:    2 successful, 2 total
+Cached:    1 cached, 2 total
+  Time:    1.775s 
+
+--> 46b267ce2899
+[6/6] STEP 1/9: FROM 180a5814d6937bc838a71d57f28ad4a6bd6979c0c561d3649680f5cb2b005415 AS release
+[6/6] STEP 2/9: COPY --from=build-api /app/apps/api/dist ./apps/api/dist
+--> 7d02271fa030
+[6/6] STEP 3/9: COPY --from=build-api /app/apps/api/package.json ./apps/api/package.json
+--> 581f10d1d3b0
+[6/6] STEP 4/9: COPY --from=build-dashboard /app/apps/dashboard/dist ./apps/dashboard/dist
+--> a6f129a5603c
+[6/6] STEP 5/9: COPY --from=install /app/node_modules ./node_modules
+--> a7dbfddae997
+[6/6] STEP 6/9: COPY --from=build-shared /app/packages/shared ./packages/shared
+--> 3a3d2e3cb276
+[6/6] STEP 7/9: EXPOSE 3000
+--> 4e0a2425ba0c
+[6/6] STEP 8/9: WORKDIR /app/apps/api
+--> f6eb15313154
+[6/6] STEP 9/9: CMD ["bun", "run", "start"]
+[6/6] COMMIT docker.io/library/blerp-api:test
+--> 14eeebb43b90
+Successfully tagged docker.io/library/blerp-api:test
+14eeebb43b90f6813fa35ece6f5d271142135d0dbf11cc95a28377d28eb4b879
+Successfully built 14eeebb43b90
+Successfully tagged blerp-api:test

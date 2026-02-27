@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { eventBus } from "../../lib/events";
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { deepMerge } from "../../lib/metadata";
 
 export class AuthService {
@@ -76,5 +76,43 @@ export class AuthService {
     await this.db.update(schema.users).set(updateData).where(eq(schema.users.id, userId));
 
     return this.getUser(userId);
+  }
+
+  async listUsers(filters: {
+    email?: string;
+    status?: string;
+    metadataKey?: string;
+    metadataValue?: string;
+    limit?: number;
+    cursor?: string;
+  }) {
+    const { status, metadataKey, metadataValue, limit = 20 } = filters;
+
+    const whereClauses = [];
+
+    if (status) {
+      whereClauses.push(eq(schema.users.status, status as any));
+    }
+
+    if (metadataKey && metadataValue) {
+      // Convert JSON pointer or dot notation to SQLite path
+      let path = metadataKey;
+      if (path.startsWith("/")) path = path.substring(1);
+      path = path.replace(/\//g, ".");
+      if (!path.startsWith("$.")) path = "$." + path;
+
+      whereClauses.push(
+        sql`(json_extract(${schema.users.publicMetadata}, ${path}) = ${metadataValue} OR 
+             json_extract(${schema.users.privateMetadata}, ${path}) = ${metadataValue})`,
+      );
+    }
+
+    return this.db.query.users.findMany({
+      where: whereClauses.length > 0 ? and(...whereClauses) : undefined,
+      limit,
+      with: {
+        emailAddresses: true,
+      },
+    });
   }
 }

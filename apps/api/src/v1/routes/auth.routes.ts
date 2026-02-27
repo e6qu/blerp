@@ -6,6 +6,7 @@ import * as userinfoController from "../controllers/userinfo.controller";
 import * as identityController from "../controllers/identity.controller";
 import * as sessionController from "../controllers/session.controller";
 import * as webauthnController from "../controllers/webauthn.controller";
+import * as userController from "../controllers/user.controller";
 import { authMiddleware } from "../../middleware/auth";
 
 const router = Router();
@@ -20,6 +21,9 @@ router.get("/auth/oauth/:provider", oauthController.authorize);
 router.get("/auth/oauth/:provider/callback", oauthController.callback);
 
 router.get("/userinfo", userinfoController.getUserInfo);
+
+// Users
+router.get("/users", authMiddleware, userController.listUsers);
 
 // User Identities
 router.get("/users/:user_id/identities", authMiddleware, identityController.listIdentities);
