@@ -1208,6 +1208,7 @@ export interface operations {
     parameters: {
       query?: {
         project_id?: string;
+        domain?: string;
         cursor?: string;
       };
     };
@@ -1813,6 +1814,9 @@ export interface operations {
    */
   getProjectConfig: {
     parameters: {
+      query?: {
+        domain?: string;
+      };
       path: {
         project_id: string;
       };
@@ -1832,6 +1836,9 @@ export interface operations {
    */
   updateProjectConfig: {
     parameters: {
+      query?: {
+        domain?: string;
+      };
       path: {
         project_id: string;
       };
@@ -1864,6 +1871,9 @@ export interface operations {
    */
   rotateSigningKeys: {
     parameters: {
+      query?: {
+        domain?: string;
+      };
       path: {
         project_id: string;
       };
@@ -1887,6 +1897,7 @@ export interface operations {
   listApiKeys: {
     parameters: {
       query?: {
+        domain?: string;
         environment?: "development" | "staging" | "production";
         type?: "publishable" | "secret";
       };
@@ -1911,6 +1922,9 @@ export interface operations {
    */
   createApiKey: {
     parameters: {
+      query?: {
+        domain?: string;
+      };
       path: {
         project_id: string;
       };
@@ -1942,6 +1956,9 @@ export interface operations {
    */
   rotateApiKeySecret: {
     parameters: {
+      query?: {
+        domain?: string;
+      };
       path: {
         project_id: string;
         key_id: string;

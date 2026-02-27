@@ -9,7 +9,7 @@ export function useOrganizations(query?: { domain?: string }) {
     queryKey: ["organizations", query],
     queryFn: async () => {
       const { data, error } = await client.GET("/v1/organizations", {
-        params: { query },
+        params: { query: query as any },
       });
       if (error) throw error;
       return data.data || [];
@@ -145,7 +145,7 @@ export function useUser() {
   return useQuery({
     queryKey: ["user"],
     queryFn: async () => {
-      const { data, error } = await client.GET("/userinfo" as any);
+      const { data, error } = await client.GET("/userinfo" as any, {});
       if (error) throw error;
       return data;
     },
