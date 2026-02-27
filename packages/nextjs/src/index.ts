@@ -14,6 +14,8 @@ export * from "./client/components/UserProfile";
 export * from "./client/components/UserButton";
 export * from "./client/components/UserAvatar";
 export * from "./client/components/Control";
+export * from "./client/components/TaskResetPassword";
+export * from "./client/components/TaskSetupMFA";
 export {
   useUser,
   useFullUser,
@@ -21,4 +23,6 @@ export {
   useSession,
   useSessions,
   useOrganizations,
+  useSignIn,
+  useSignUp,
 } from "./client/hooks";
