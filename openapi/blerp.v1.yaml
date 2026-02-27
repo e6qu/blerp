@@ -164,7 +164,19 @@ components:
           type: string
         username:
           type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        image_url:
+          type: string
+          format: uri
+        has_image:
+          type: boolean
         primary_email_id:
+          type: string
+          format: uuid
+        primary_phone_id:
           type: string
           format: uuid
         email_addresses:
@@ -188,6 +200,8 @@ components:
         status:
           type: string
           enum: [active, inactive, banned]
+        locked:
+          type: boolean
         last_sign_in_at:
           type: string
           format: date-time
@@ -1199,6 +1213,12 @@ paths:
             schema:
               type: object
               properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                username:
+                  type: string
                 public_metadata:
                   $ref: "#/components/schemas/PublicMetadata"
                 private_metadata:
