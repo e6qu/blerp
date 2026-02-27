@@ -223,3 +223,24 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bunx vitest run src/__tests__/metadata.integration.test.ts src/__tests__/users.integration.test.ts src/__tests__/organization.integration.test.ts`
 - Files touched: `packages/nextjs/src/client/components/OrganizationSwitcher.tsx`, `apps/api/src/v1/controllers/organization.controller.ts`, `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/controllers/user-metadata.controller.ts`, `apps/api/src/v1/controllers/organization-metadata.controller.ts`, `apps/api/src/__tests__/metadata.integration.test.ts`, `apps/api/src/__tests__/users.integration.test.ts`.
 - Notes/Links: Phase C of Milestone 6 is now complete. Ready for Phase D (Real-world SDK Validation).
+
+## 2026-02-26 — M6-PD-T1 Official Monite SDK Integration
+
+- Summary: Updated the `examples/monite-sdk-parity` application to use the official, unmodified `@monite/sdk-react` and `@monite/sdk-api` packages instead of internal mocks. Implemented a server-to-server token exchange endpoint (`/api/auth/token`) that resolves the mapped `entity_user_id` from the user's `metadata_private` to generate short-lived Monite access tokens. Integrated the `<MoniteProvider>` and `<Payables>` components into the main dashboard to verify that the official SDK runs cleanly against Blerp-provided contextual data. Verified the application builds successfully.
+- Tests run: `bun run build` (in `examples/monite-sdk-parity`)
+- Files touched: `examples/monite-sdk-parity/package.json`, `examples/monite-sdk-parity/src/app/api/auth/token/route.ts`, `examples/monite-sdk-parity/src/components/MoniteApp.tsx`, `examples/monite-sdk-parity/src/app/dashboard/page.tsx`, `examples/monite-sdk-parity/src/lib/blerp-api/get-current-user-entity.ts`.
+- Notes/Links: Ready for M6-PD-T2 (Token Exchange Verification).
+
+## 2026-02-27 — M6-PD-T2 Token Exchange Verification
+
+- Summary: Validated the server-to-server token exchange flow required by the Monite SDK. Updated `get-current-user-entity.ts` to correctly parse the complex `entities` metadata structure (added in Phase A) to retrieve the correct `entityUserId` for a given `entityId`. Verified that the token route (`/api/auth/token`) handles this context securely. Expanded the webhook handler (`/api/webhooks`) to simulate `user.created` events back-filling this nested metadata. This fully proves the Blerp identity system supports the complex synchronization required by enterprise embedded finance platforms.
+- Tests run: `bun run build` (in `examples/monite-sdk-parity`)
+- Files touched: `examples/monite-sdk-parity/src/app/api/auth/token/route.ts`, `examples/monite-sdk-parity/src/app/api/webhooks/route.ts`, `examples/monite-sdk-parity/src/lib/blerp-api/get-current-user-entity.ts`.
+- Notes/Links: Ready for M6-PD-T3 (Clerk-to-Blerp Mapping Docs).
+
+## 2026-02-27 — M6-PD-T3 Clerk-to-Blerp Mapping Docs
+
+- Summary: Created a comprehensive integration guide (`apps/docs/guide/monite-integration.md`) detailing how to map Monite entities to Blerp metadata schemas. The guide includes examples for building the server-side token exchange endpoint, webhook synchronization, and configuring the React providers. This officially marks the completion of Milestone 6.
+- Tests run: Not applicable (documentation change).
+- Files touched: `apps/docs/guide/monite-integration.md`.
+- Notes/Links: Milestone 6 (Monite SDK Full Feature Parity) is 100omplete.
