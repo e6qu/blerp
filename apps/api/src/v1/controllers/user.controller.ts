@@ -1,5 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from "express";
 import { AuthService } from "../services/auth.service";
+
+function mapUser(user: any) {
+  if (!user) return user;
+  const { publicMetadata, privateMetadata, unsafeMetadata, ...rest } = user;
+  return {
+    ...rest,
+    metadata_public: publicMetadata,
+    metadata_private: privateMetadata,
+    metadata_unsafe: unsafeMetadata,
+  };
+}
 
 export async function listUsers(req: Request, res: Response) {
   const service = new AuthService(req.tenantDb!, req.tenantId!);
@@ -13,7 +25,8 @@ export async function listUsers(req: Request, res: Response) {
       limit: limit ? parseInt(limit as string, 10) : undefined,
       cursor: cursor as string,
     });
-    res.status(200).json({ data: users });
+    const mappedUsers = users.map(mapUser);
+    res.status(200).json({ data: mappedUsers });
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
