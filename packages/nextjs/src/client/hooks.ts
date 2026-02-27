@@ -142,15 +142,34 @@ export function useVerifyDomain(organizationId: string) {
 }
 
 export function useUser() {
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const client = useBlerpClient();
-  return useQuery({
+
+  const query = useQuery({
     queryKey: ["user"],
     queryFn: async () => {
       const { data, error } = await client.GET("/v1/userinfo", {});
       if (error) throw error;
       return data as { sub: string; name: string; email: string };
     },
+    enabled: isSignedIn,
   });
+
+  return {
+    isLoaded: authLoaded && !query.isLoading,
+    isSignedIn,
+    user: query.data
+      ? {
+          id: query.data.sub,
+          fullName: query.data.name,
+          primaryEmailAddress: { emailAddress: query.data.email },
+          primaryPhoneNumber: null,
+          username: null,
+          imageUrl: null,
+          hasImage: false,
+        }
+      : null,
+  };
 }
 
 export function useCurrentUser() {
@@ -170,6 +189,30 @@ export function useCurrentUser() {
   });
 }
 
+export function useFullUser() {
+  const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
+  const client = useBlerpClient();
+
+  const query = useQuery({
+    queryKey: ["fullUser", userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data, error } = await client.GET("/v1/users/{user_id}", {
+        params: { path: { user_id: userId } },
+      });
+      if (error) throw error;
+      return data as User;
+    },
+    enabled: !!userId,
+  });
+
+  return {
+    isLoaded: authLoaded && !query.isLoading,
+    isSignedIn,
+    user: query.data ?? null,
+  };
+}
+
 export function useSessions() {
   const client = useBlerpClient();
   return useQuery({
@@ -180,6 +223,28 @@ export function useSessions() {
       return (data as { data: Session[] }).data || [];
     },
   });
+}
+
+export function useSession() {
+  const client = useBlerpClient();
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+
+  const query = useQuery({
+    queryKey: ["session", "current"],
+    queryFn: async () => {
+      const { data, error } = await client.GET("/v1/sessions", {});
+      if (error) throw error;
+      const sessions = (data as { data: Session[] }).data || [];
+      return sessions[0] ?? null;
+    },
+    enabled: isSignedIn,
+  });
+
+  return {
+    isLoaded: authLoaded && !query.isLoading,
+    isSignedIn,
+    session: query.data,
+  };
 }
 
 export function useDeleteSession() {
