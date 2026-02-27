@@ -62,7 +62,7 @@ export class BlerpClient {
       },
       listUsers: async (query?: {
         email?: string;
-        status?: string;
+        status?: "active" | "inactive" | "banned";
         metadata_key?: string;
         metadata_value?: string;
         limit?: number;
