@@ -202,3 +202,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bunx vitest run src/__tests__/auto-enrollment.integration.test.ts src/__tests__/discovery.integration.test.ts`
 - Files touched: `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/services/organization.service.ts`, `apps/api/src/v1/controllers/auth.controller.ts`, `apps/api/src/v1/controllers/organization.controller.ts`, `apps/api/src/__tests__/auto-enrollment.integration.test.ts`, `apps/api/src/__tests__/discovery.integration.test.ts`.
 - Notes/Links: Phase B of Milestone 6 is now complete. Ready for Phase C (Enhanced UI Components).
+
+## 2026-02-26 — M6-PC-T1 Enhanced Organization Profile UI
+
+- Summary: Extended the `<OrganizationProfile />` component in the `@blerp/nextjs` SDK to support organization domain management. Added a new "Domains" tab that allows users to list, add, verify, and remove domains. Implemented the corresponding frontend hooks (`useDomains`, `useAddDomain`, `useVerifyDomain`, `useDeleteDomain`) to interact with the new backend API. Verified the UI components render correctly and state transitions work as expected.
+- Tests run: Not applicable (UI manual verification readiness).
+- Files touched: `packages/nextjs/src/client/hooks.ts`, `packages/nextjs/src/client/components/OrganizationProfile.tsx`.
+- Notes/Links: Ready for M6-PC-T2 (Create Organization with Auto-suggestion).
