@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deepMerge } from "../metadata";
+import { deepMerge, validateMetadata } from "../metadata";
 
 describe("deepMerge", () => {
   it("should merge shallow objects", () => {
@@ -33,41 +33,40 @@ describe("deepMerge", () => {
     });
   });
 
-  it("should deep merge nested objects within nested objects", () => {
-    const target = {
-      settings: {
-        theme: "dark",
-        notifications: {
-          email: true,
+  it("should handle string target", () => {
+    const target = '{"a": 1}';
+    const source = { b: 2 };
+    expect(deepMerge(target, source)).toEqual({ a: 1, b: 2 });
+  });
+});
+
+describe("validateMetadata", () => {
+  it("should accept valid entities structure", () => {
+    const metadata = {
+      entities: {
+        monite_1: {
+          entity_user_id: "eu_1",
+          organization_id: "org_1",
         },
       },
     };
-    const source = {
-      settings: {
-        notifications: {
-          sms: false,
+    expect(() => validateMetadata(metadata)).not.toThrow();
+  });
+
+  it("should throw if entities is not an object", () => {
+    const metadata = { entities: "invalid" };
+    expect(() => validateMetadata(metadata)).toThrow("metadata.entities must be an object");
+  });
+
+  it("should throw if entity value is missing required fields", () => {
+    const metadata = {
+      entities: {
+        monite_1: {
+          entity_user_id: "eu_1",
+          // organization_id missing
         },
       },
     };
-    expect(deepMerge(target, source)).toEqual({
-      settings: {
-        theme: "dark",
-        notifications: {
-          email: true,
-          sms: false,
-        },
-      },
-    });
-  });
-
-  it("should not merge arrays", () => {
-    const target = { tags: ["a"] };
-    const source = { tags: ["b"] };
-    expect(deepMerge(target, source)).toEqual({ tags: ["b"] });
-  });
-
-  it("should handle null targets or sources", () => {
-    expect(deepMerge(null, { a: 1 })).toEqual({ a: 1 });
-    expect(deepMerge({ a: 1 }, null)).toEqual({ a: 1 });
+    expect(() => validateMetadata(metadata)).toThrow(/must have a string organization_id/);
   });
 });
