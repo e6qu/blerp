@@ -42,3 +42,28 @@ export function deepMerge(target: any, source: any): any {
 
   return output;
 }
+
+/**
+ * Validates the Monite entities metadata structure.
+ */
+export function validateMetadata(metadata: any): void {
+  if (!metadata) return;
+
+  if (metadata.entities) {
+    if (typeof metadata.entities !== "object" || Array.isArray(metadata.entities)) {
+      throw new Error("metadata.entities must be an object");
+    }
+
+    Object.entries(metadata.entities).forEach(([entityId, value]: [string, any]) => {
+      if (typeof value !== "object" || Array.isArray(value)) {
+        throw new Error(`metadata.entities[${entityId}] must be an object`);
+      }
+      if (!value.entity_user_id || typeof value.entity_user_id !== "string") {
+        throw new Error(`metadata.entities[${entityId}] must have a string entity_user_id`);
+      }
+      if (!value.organization_id || typeof value.organization_id !== "string") {
+        throw new Error(`metadata.entities[${entityId}] must have a string organization_id`);
+      }
+    });
+  }
+}

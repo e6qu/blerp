@@ -102,7 +102,6 @@ describe("Metadata Integration", () => {
   });
 
   it("should perform deep merge on user metadata", async () => {
-    // Initial update
     await request(app)
       .patch(`/v1/users/${userId}/metadata`)
       .set("X-Tenant-Id", tenantId)
@@ -110,12 +109,11 @@ describe("Metadata Integration", () => {
       .send({
         private_metadata: {
           entities: {
-            org_1: { entity_user_id: "eu_1" },
+            org_1: { entity_user_id: "eu_1", organization_id: "o1" },
           },
         },
       });
 
-    // Deep merge update
     const res = await request(app)
       .patch(`/v1/users/${userId}/metadata`)
       .set("X-Tenant-Id", tenantId)
@@ -123,15 +121,32 @@ describe("Metadata Integration", () => {
       .send({
         private_metadata: {
           entities: {
-            org_2: { entity_user_id: "eu_2" },
+            org_2: { entity_user_id: "eu_2", organization_id: "o2" },
           },
         },
       });
 
     expect(res.status).toBe(200);
     expect(res.body.privateMetadata.entities).toEqual({
-      org_1: { entity_user_id: "eu_1" },
-      org_2: { entity_user_id: "eu_2" },
+      org_1: { entity_user_id: "eu_1", organization_id: "o1" },
+      org_2: { entity_user_id: "eu_2", organization_id: "o2" },
     });
+  });
+
+  it("should reject malformed entities metadata", async () => {
+    const res = await request(app)
+      .patch(`/v1/users/${userId}/metadata`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId)
+      .send({
+        private_metadata: {
+          entities: {
+            org_1: { entity_user_id: "eu_1" }, // missing organization_id
+          },
+        },
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/must have a string organization_id/);
   });
 });

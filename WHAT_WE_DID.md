@@ -181,3 +181,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bunx vitest run src/__tests__/users.integration.test.ts`
 - Files touched: `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `packages/backend/src/index.ts`, `apps/api/src/__tests__/users.integration.test.ts`.
 - Notes/Links: Ready for M6-PA-T3 (Metadata Schema Validation).
+
+## 2026-02-26 — M6-PA-T3 Metadata Schema Validation
+
+- Summary: Implemented server-side validation for metadata updates, focusing on the complex `entities` object structure required by the Monite SDK. Added a `validateMetadata` helper to `lib/metadata.ts` and integrated it into both user and organization metadata controllers. This ensures data consistency and prevents malformed mapping data from being persisted. Verified with new unit and integration tests.
+- Tests run: `bunx vitest run src/lib/__tests__/metadata.test.ts src/__tests__/metadata.integration.test.ts`
+- Files touched: `apps/api/src/lib/metadata.ts`, `apps/api/src/v1/controllers/user-metadata.controller.ts`, `apps/api/src/v1/controllers/organization-metadata.controller.ts`, `apps/api/src/lib/__tests__/metadata.test.ts`, `apps/api/src/__tests__/metadata.integration.test.ts`.
+- Notes/Links: Phase A of Milestone 6 is now complete. Ready for Phase B (Organization Domains & Discovery).

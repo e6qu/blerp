@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { OrganizationService } from "../services/organization.service";
+import { validateMetadata } from "../../lib/metadata";
 
 export async function updateMetadata(req: Request, res: Response) {
   const id = req.params.organization_id as string;
@@ -7,6 +8,9 @@ export async function updateMetadata(req: Request, res: Response) {
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
   try {
+    if (public_metadata) validateMetadata(public_metadata);
+    if (private_metadata) validateMetadata(private_metadata);
+
     const org = await service.update(id, {
       publicMetadata: public_metadata,
       privateMetadata: private_metadata,
