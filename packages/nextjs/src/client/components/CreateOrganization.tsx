@@ -6,10 +6,10 @@ import { useCreateOrganization, useUser, useOrganizations } from "../hooks";
 export function CreateOrganization() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const { data: user } = useUser();
+  const { user } = useUser();
   const createOrg = useCreateOrganization();
 
-  const userEmail = (user as { email?: string })?.email;
+  const userEmail = user?.primaryEmailAddress?.emailAddress;
   const userDomain = userEmail?.split("@")[1];
   const { data: suggestedOrgs, isLoading: loadingSuggestions } = useOrganizations(
     userDomain ? { domain: userDomain } : undefined,
