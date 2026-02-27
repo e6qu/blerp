@@ -4,6 +4,7 @@ import { eventBus } from "../../lib/events";
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
 import { eq } from "drizzle-orm";
+import { deepMerge } from "../../lib/metadata";
 
 export class AuthService {
   constructor(
@@ -57,10 +58,23 @@ export class AuthService {
     userId: string,
     data: { publicMetadata?: any; privateMetadata?: any; unsafeMetadata?: any },
   ) {
-    await this.db
-      .update(schema.users)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(schema.users.id, userId));
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+
+    const updateData: any = { updatedAt: new Date() };
+
+    if (data.publicMetadata) {
+      updateData.publicMetadata = deepMerge(user.publicMetadata || {}, data.publicMetadata);
+    }
+    if (data.privateMetadata) {
+      updateData.privateMetadata = deepMerge(user.privateMetadata || {}, data.privateMetadata);
+    }
+    if (data.unsafeMetadata) {
+      updateData.unsafeMetadata = deepMerge(user.unsafeMetadata || {}, data.unsafeMetadata);
+    }
+
+    await this.db.update(schema.users).set(updateData).where(eq(schema.users.id, userId));
+
     return this.getUser(userId);
   }
 }
