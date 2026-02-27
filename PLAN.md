@@ -1,314 +1,305 @@
 # Blerp Identity Service — Execution Plan
 
-> **Tooling note**: All package management and script commands MUST run via Bun in npm-compatible mode—use `bun install` for deps, `bun run <script>` for package scripts, and `bunx <binary>` (e.g., Turbo, Spectral) for direct CLI execution. Never use `npm`, `pnpm`, or `yarn` in this project, even if a package claims it needs a post-install script; choose an alternate dependency or disable the script while staying on Bun.
+> **Tooling note**: All package management and script commands MUST run via Bun in npm-compatible mode—use `bun install` for deps, `bun run <script>` for package scripts, and `bunx <binary>` (e.g., Turbo, Spectral) for direct CLI execution. Never use `npm`, `pnpm`, or `yarn` in this project.
 
-> **Engineering standards**: Commit to absolute type safety. NEVER use `any`, `object`, or type ignores (`@ts-ignore`, `eslint-disable`). Type casts (`as`) should be avoided and used only as a documented last resort. Prefer optional properties (`?`) and unions over `null`, prefer shallow indentation via early exits and inverted conditionals, isolate only exception-throwing statements inside try blocks, and build an imperative shell around functional/pure cores when practical (logging allowed when necessary). Always run industry-standard linting, formatting, vulnerability scans, and SAST tooling as part of the workflow.
+> **Engineering standards**: Commit to absolute type safety. NEVER use `any`, `object`, or type ignores (`@ts-ignore`, `eslint-disable`). Type casts (`as`) should be avoided and used only as a documented last resort. Prefer optional properties (`?`) and unions over `null`, prefer shallow indentation via early exits and inverted conditionals, isolate only exception-throwing statements inside try blocks, and build an imperative shell around functional/pure cores when practical.
 
 ## Milestones Overview
 
-1. **Milestone 1 — Core Platform Foundations**  
-   Ship the initial backend, SPA flows, and infrastructure scaffolding with working authentication/user flows as defined in `DESIGN_DOCUMENT.md`.
-2. **Milestone 2 — Enterprise & Ecosystem Expansion**  
-   Deliver advanced features: organizations, RBAC customization, audit log streaming, inbound webhooks, and SCIM/OIDC enhancements.
-3. **Milestone 3 — Experience & Scale**  
-   Focus on performance tuning, observability automation, developer tooling polish, pricing/billing hooks, and readiness for GA launch.
+| Milestone | Description                           | Status             |
+| --------- | ------------------------------------- | ------------------ |
+| M1        | Core Platform Foundations             | ✅ Complete        |
+| M2        | Enterprise & Ecosystem Expansion      | ✅ Complete        |
+| M3        | Experience & Scale                    | ✅ Complete        |
+| M4        | Framework Adapters (Next.js Parity)   | ✅ Complete        |
+| M5        | Monite SDK Parity & Advanced Metadata | 🔄 Phase D pending |
+| M6        | Monite SDK Full Feature Parity        | ✅ Complete        |
+| M7        | Clerk SDK Parity                      | 📋 Planned         |
+| M8        | E2E Testing & Quality Assurance       | 📋 Planned         |
+| M9        | Production Infrastructure             | 📋 Planned         |
+| M10       | Multi-Language SDK Support            | 📋 Planned         |
+| M11       | Advanced Security & Compliance        | 📋 Planned         |
 
 ---
 
-## Milestone 1 — Core Platform Foundations
+## Completed Milestones (Summary)
 
-### Phase 0 — OpenAPI Schema Baseline (Gating)
+### Milestone 1 — Core Platform Foundations ✅
 
-_Objective_: finalize and validate the complete OpenAPI document locally before deeper implementation planning proceeds.
+- OpenAPI schema baseline with Spectral/Redocly linting
+- TurboRepo monorepo with shared configs
+- Express 5 API with Drizzle ORM + SQLite multi-tenancy
+- Vite + React dashboard with Storybook/MSW
+- Docker-compose stack, GitHub Actions CI/CD
+- AWS ECR/ECS infrastructure (Terraform)
 
-Tasks:
+### Milestone 2 — Enterprise & Ecosystem Expansion ✅
 
-1. [x] Author `openapi/blerp.v1.yaml` covering every endpoint defined in `DESIGN_DOCUMENT.md`, including schemas, security schemes, examples, and error responses.
-2. [x] Run spectral/Redocly linters locally to ensure the spec is syntactically correct and style-compliant.
-3. [x] Generate HTML/Markdown previews and share internally for review; capture approval in repo.
-4. [x] Wire Makefile/Turbo tasks to regenerate SDK clients from this spec so later phases can depend on a frozen contract.
+- Organization CRUD with per-tenant isolation
+- RBAC permissions engine (owner/admin/member)
+- Redis Streams event bus + webhook delivery
+- OAuth 2.0 social providers (GitHub, Google)
+- OIDC Discovery and Provider configuration
+- SCIM 2.0 provisioning endpoints
+- Audit log streaming to external sinks
 
-### Phase A — Project Scaffolding & Tooling
+### Milestone 3 — Experience & Scale ✅
 
-_Objective_: establish mono-repo structure, CI, type tooling, and local developer experience.
+- Redis caching for JWKS and organization metadata
+- SQLite indexes for high-volume tables
+- Enhanced `blerp` CLI with tenant management
+- Quota management system + Stripe placeholders
+- Load testing and security audit
 
-Tasks:
+### Milestone 4 — Framework Adapters (Next.js Parity) ✅
 
-1. [x] Initialize TurboRepo workspace with packages (`apps/api`, `apps/dashboard`, `packages/config`, `packages/shared`).
-2. [x] Configure shared ESLint, Prettier (or Biome), TypeScript base configs, and lint-staged hooks.
-3. [x] Set up Vite + React SPA skeleton for the dashboard (ENT-style layout) plus Storybook/MSW for mocks.
-4. [x] Scaffold Express 5 API (serving both REST endpoints and SPA static assets); integrate Drizzle ORM and basic database schema migration tooling targeting SQLite.
-5. [x] Author docker-compose stack (SQLite volume mounts, Redis, Mailpit) and `blerp dev` CLI for bootstrapping.
-6. [x] Create GitHub Actions workflow templates (lint, type-check, test, build).
-7. [x] Provision AWS ECR repositories (dev/staging/prod) and ensure dashboard/static assets are baked into the same containers used locally—no CDN allowed.
-8. [x] Define AWS ECS Fargate task/service definitions (API/dashboard container) with IaC (Terraform/CloudFormation) and hook GitHub Actions to perform blue/green ECS deployments—explicitly no Kubernetes stack.
+- `@blerp/nextjs` package with `BlerpProvider`, `auth()`, `currentUser()`
+- `blerpMiddleware` for Edge-compatible route protection
+- Pre-built UI components: `SignUp`, `SignIn`, `UserButton`, `OrganizationSwitcher`
+- Example apps validating Clerk tutorial compliance
 
-### Phase B — Identity Data Model & Storage
+### Milestone 5 — Monite SDK Parity & Advanced Metadata ✅ (Phase D pending)
 
-_Objective_: implement per-customer SQLite schemas, migrations, and Drizzle data access layers for users, sessions, projects.
+- `@blerp/backend` with `blerpClient` (clerkClient parity)
+- Private/public/unsafe metadata endpoints
+- `Protect` component and `has` permission helper
+- `OrganizationProfile`, `CreateOrganization` components
+- Webhook handler middleware
 
-Tasks:
+### Milestone 6 — Monite SDK Full Feature Parity ✅
 
-1. [x] Define Drizzle schema per `DESIGN_DOCUMENT.md` (users, sessions, projects, API keys, audit logs) targeting SQLite 3.
-2. [x] Implement database-router abstraction that maps tenant IDs → dedicated SQLite file paths and handles creation/migrations per customer.
-3. [x] Build migration + seeding pipeline that can run against every tenant database (turbo task iterating across DB files).
-4. [x] Integrate Redis connection layer for optional cache/rate limit primitives plus Redis Streams-based queues.
-5. [x] Create unit tests covering data constraints and lifecycle events (soft delete, metadata) across multiple tenant databases.
-
-### Phase C — Auth & Session APIs
-
-_Objective_: expose REST endpoints for sign-up, sign-in, session refresh/revoke, and token issuance.
-
-Tasks:
-
-1. [x] Implement controller + service modules for `/v1/auth/signups`, `/v1/auth/signins`, `/v1/tokens`.
-2. [x] Add Argon2 password hashing, WebAuthn placeholder interfaces, OTP generator utilities.
-3. [x] Wire JWT signing (Jose library) with configurable key rotation support.
-4. [x] Build Redis-backed session store and cookie helpers complying with security requirements.
-5. [x] Write Vitest integration tests plus Supertest API coverage for happy paths and error cases.
-
-### Phase D — Frontend Flows & SDK Compatibility
-
-_Objective_: build SPA flows that hit the REST API directly and validate compatibility using the official Clerk SDKs.
-
-Tasks:
-
-1. [x] Implement Vite + React SPA flows (sign-in/up, profile, organization management) consuming the JSON API directly via OpenAPI-generated clients.
-2. [x] Create Storybook/MSW coverage for these flows, mirroring Clerk’s documented UI behaviors.
-3. [x] Configure automated harnesses that run the official Clerk SDKs (ClerkJS, `@clerk/clerk-react`, server SDKs) against local Blerp instances to verify schema parity.
-4. [x] Document how to repoint the official SDKs to Blerp endpoints for validation.
-5. [x] Provide Vite demo apps/templates (no custom SDK) that developers can extend when integrating REST endpoints.
-
-### Phase E — Observability, Security Hardening & Docs
-
-_Objective_: establish minimum security/observability posture and developer documentation to unblock later milestones.
-
-Tasks:
-
-1. [x] Integrate OpenTelemetry SDK in API, exporting traces/metrics to docker-compose collectors.
-2. [x] Add structured logger (Pino) with correlation IDs and HTTP access logs.
-3. [x] Implement rate limiting middleware and API key auth guards (publishable vs secret).
-4. [x] Harden HTTP headers (Helmet), CSRF safeguards for dashboard.
-5. [x] Draft initial docs: onboarding guide, API quickstart, component usage; host via VitePress/Storybook docs tab.
+- Deep-merge strategy for nested metadata (`entities` object)
+- Query users by metadata values
+- Organization Domains REST API with verification
+- Verified domain auto-enrollment
+- Full `@monite/sdk-react` integration example
+- Clerk-to-Blerp mapping documentation
 
 ---
 
-## Milestone 2 — Enterprise & Ecosystem Expansion
-
-### Phase A — Organizations & RBAC
-
-_Objective_: implement multi-tenant organization support and custom role-based access control.
-
-Tasks:
-
-1. [x] Implement Organization CRUD, slug management, and per-tenant isolation in API.
-2. [x] Build Membership management service (roles: owner, admin, member) and invitation flows.
-3. [x] Define custom RBAC permissions engine mapping capability keys to roles.
-4. [x] Update Dashboard SPA with Organization switcher, member lists, and role management UIs.
-
-### Phase B — Webhooks & Event System
-
-_Objective_: enable real-time event delivery to customer applications via Redis Streams.
-
-Tasks:
-
-1. [x] Implement Redis Streams-based event bus emitting user, organization, and session events.
-2. [x] Build Webhook Endpoint management (URLs, secrets, event filtering) in API and DB.
-3. [x] Author Webhook delivery worker with HMAC signing, retries, and backoff.
-4. [x] Create Webhook monitoring and log viewer in the Dashboard SPA.
-
-### Phase C — Social Auth & OIDC
-
-_Objective_: expand authentication strategies to include social providers and OIDC.
-
-Tasks:
-
-1. [x] Integrate OAuth 2.0 social providers (GitHub, Google) into the auth flow.
-2. [x] Implement OIDC Discovery and Provider configuration for BIS.
-3. [x] Support linking/unlinking multiple identities and verification states per user.
-
-### Phase D — Enterprise Connectivity
-
-_Objective_: support enterprise-grade provisioning and audit features.
-
-Tasks:
-
-1. [x] Implement SCIM 2.0 provisioning endpoints for automated user/group management.
-2. [x] Build Audit Log streaming service to export events to external sinks (S3, Datadog).
-3. [x] Implement verified domain logic for automatic organization discovery and joining.
-
-### Phase E — Security Polish & Expansion
-
-_Objective_: finalize advanced security features and documentation for GA.
-
-Tasks:
-
-1. [x] Implement Session introspection and multi-device revocation UI in Dashboard.
-2. [x] Harden WebAuthn/Passkey registration and login flows with full attestation.
-3. [x] Finalize Enterprise onboarding guides, API reference updates, and deployment blueprints.
-
----
-
-## Milestone 3 — Experience & Scale
-
-### Phase A — Performance & Optimization
-
-_Objective_: optimize hot paths and ensure database efficiency for multi-tenant workloads.
-
-Tasks:
-
-1. [x] Implement Redis-based caching for frequent API lookups (public JWKS, organization metadata).
-2. [x] Optimize Drizzle queries and add necessary SQLite indexes for high-volume tables (audit logs, sessions).
-3. [x] Implement connection pooling and lifecycle management for tenant databases.
-
-### Phase B — Developer Tooling & CLI
-
-_Objective_: enhance the `blerp` CLI to improve local development and management workflows.
-
-Tasks:
-
-1. [x] Expand `scripts/blerp.ts` into a full-featured CLI with commands for tenant management, key rotation, and log tailing.
-2. [x] Build an "API Playground" in the Dashboard SPA or integrated into the documentation.
-3. [x] Automate SDK generation and distribution for multiple languages (Node, Go, Python).
-
-### Phase C — Billing & Monetization Primitives
-
-_Objective_: establish hooks for pricing, quotas, and billing integration.
-
-Tasks:
-
-1. [x] Define a Quota management system (users per organization, rate limits per project).
-2. [x] Implement Stripe integration placeholders for subscription and usage-based billing.
-3. [x] Build a "Usage" dashboard view for customers to monitor their consumption.
-
-### Phase D — Production Readiness & GA
-
-_Objective_: finalize security, stability, and documentation for General Availability.
-
-Tasks:
-
-1. [x] Conduct automated load testing and benchmarking for core auth and organization flows.
-2. [x] Perform a final security audit focusing on session hijacking and IDOR prevention.
-3. [x] Finalize all public documentation, including migration guides from Clerk.
-4. [x] Ship the first "v1.0.0" release candidate containers to ECR.
-
----
-
-## Milestone 4 — Framework Adapters (Next.js Parity)
-
-### Phase A — `@blerp/nextjs` Package
-
-_Objective_: implement a drop-in Next.js SDK that achieves feature parity with `@clerk/nextjs`.
-
-Tasks:
-
-1. [x] Initialize `packages/nextjs` workspace.
-2. [x] Implement `blerpMiddleware` for Edge-compatible route protection, session verification, and automatic token refresh.
-3. [x] Implement `BlerpProvider` context wrapper for the React tree.
-4. [x] Implement `auth()` and `currentUser()` server-side helpers leveraging Next.js App Router cookies.
-
-### Phase B — Pre-built UI Components
-
-_Objective_: provide polished, zero-config React components matching Clerk DX.
-
-Tasks:
-
-1. [x] Extract `SignUp`, `SignIn`, `UserButton`, and `OrganizationSwitcher` from the Dashboard into a reusable UI package or export them from `@blerp/nextjs`.
-2. [x] Ensure components support customization via a `appearance` prop.
-
-### Phase C — Next.js Quickstart Testing
-
-_Objective_: validate 100ompliance with Clerk Next.js tutorials.
-
-Tasks:
-
-1. [x] Create `examples/nextjs-quickstart` following the exact steps in the Clerk tutorial.
-2. [x] Configure Playwright to run against this example, verifying routing, redirects, and rendering.
-3. [x] Create `examples/nextjs-custom-sign-in` following the custom sign-in page guide.
-
----
-
-## Milestone 5 — Monite SDK Parity \& Advanced Metadata
-
-### Phase A — Server-side Client \& Metadata API
-
-_Objective_: implement a robust server-side client and metadata management matching Clerk APIs.
-
-Tasks:
-
-1. [x] Implement `blerpClient` for Node.js (parity with `clerkClient`) with `organizations.getOrganization`, `users.getUser`, etc.
-2. [x] Implement `privateMetadata` read/write endpoints for users and organizations in the API.
-3. [x] Add support for `publicMetadata` and `unsafeMetadata` updates via the API.
-
-### Phase B — Advanced Next.js Integration
-
-_Objective_: deliver high-level components and hooks for complex organization/permission flows.
-
-Tasks:
-
-1. [x] Implement `Protect` component and `has` permission helper for Next.js (Clerk RBAC parity).
-2. [x] Implement `OrganizationProfile` and `CreateOrganization` components.
-3. [x] Implement `OrganizationSwitcher` with active organization state management.
-
-### Phase C — Webhook Handlers \& monite-sdk Parity
-
-_Objective_: validate parity with the Monite SDK integration patterns.
-
-Tasks:
-
-1. [x] Implement `blerp-webhook-handler` middleware for Next.js.
-2. [x] Build `examples/monite-sdk-parity` mirroring the Monite SDK Next.js demo.
-3. Configure Terraform/DNS logic placeholders for custom domains.
+## Milestone 5 — Remaining Tasks
 
 ### Phase D — E2E Testing Helpers
 
-_Objective_: provide testing utilities for seamless E2E automation.
+1. [ ] Implement `@blerp/testing` package with token minting helpers for Playwright.
+2. [ ] Implement `global.setup.ts` pattern for monorepo E2E tests.
 
-Tasks:
+### Phase C — Remaining
 
-1. Implement `@blerp/testing` package with token minting helpers for Playwright.
-2. Implement `global.setup.ts` pattern for monorepo E2E tests.
+1. [ ] Configure Terraform/DNS logic placeholders for custom domains.
 
 ---
 
-## Milestone 6 — Monite SDK Full Feature Parity
+## Milestone 7 — Clerk SDK Parity
 
-### Phase A — Advanced Metadata Hardening
+_Objective_: Achieve full API and component parity with Clerk's SDK offerings.
 
-_Objective_: ensure Blerp's metadata system supports the complex structures used by Monite (e.g., the nested `entities` object).
-
-Tasks:
-
-1. [x] Implement deep-merge strategy for `updateUserMetadata` and `updateOrganizationMetadata` to correctly handle the `entities` mapping.
-2. [x] Add support for querying users by metadata values (e.g., find user by `monite_user_id` in `private_metadata`).
-3. [x] Add schema validation for metadata keys to ensure consistency with Monite's expected data formats.
-
-### Phase B — Organization Domains & Discovery
-
-_Objective_: support the enterprise routing and auto-enrollment features Monite relies on.
+### Phase A — User Components & Hooks
 
 Tasks:
 
-1. [x] Implement Organization Domains REST API (`GET/POST/DELETE /v1/organizations/:id/domains`).
-2. [x] Add domain verification logic (mocking DNS/Email verification flows) and update metadata status.
-3. [x] Implement "Verified Domain" auto-enrollment logic in the `AuthService` signup flow.
+1. [ ] Implement `<UserProfile />` component with full tab support (Account, Security, Connected Accounts).
+2. [ ] Implement `<UserButton />` component with dropdown menu and actions.
+3. [ ] Implement `<UserAvatar />` component.
+4. [ ] Add `useUser()` hook with full User object access.
+5. [ ] Add `useClerk()` hook exposing full Blerp client.
+6. [ ] Add `useSession()` and `useSessionList()` hooks.
 
-### Phase C — Enhanced UI Components
-
-_Objective_: deliver the full suite of UI components and tabs used in the Monite integration examples.
-
-Tasks:
-
-1. [x] Extend `<OrganizationProfile />` component with full tab support (General, Members, Invitations, Domains).
-2. [x] Implement `<CreateOrganization />` component with domain-based auto-suggestion features.
-3. [x] Polish the `<OrganizationSwitcher />` to support multi-entity routing and Personal Account toggling.
-
-### Phase D — Real-world SDK Validation
-
-_Objective_: prove 100% parity by running the official Monite SDK demo app against a local Blerp instance.
+### Phase B — Control & Navigation Components
 
 Tasks:
 
-1. [x] Update `examples/monite-sdk-parity` to use the unmodified official `@monite/sdk-react` package.
-2. [x] Verify the Server-to-Server token exchange flow and data synchronization via webhooks.
-3. [x] Document any required Clerk-to-Blerp mapping overrides needed for the Monite SDK.
+1. [ ] Implement `<SignedIn />` and `<SignedOut />` conditional rendering components.
+2. [ ] Implement `<ClerkLoaded />` and `<ClerkLoading />` loading state components.
+3. [ ] Implement `<RedirectToSignIn />`, `<RedirectToSignUp />`, `<RedirectToUserProfile />` components.
+4. [ ] Implement `<RedirectToOrganizationProfile />`, `<RedirectToCreateOrganization />` components.
+5. [ ] Implement `<AuthenticateWithRedirectCallback />` for OAuth flows.
+6. [ ] Add `buildSignInUrl()`, `buildSignUpUrl()`, `buildUserProfileUrl()` methods.
+
+### Phase C — Auth Flow Components & Hooks
+
+Tasks:
+
+1. [ ] Implement `<TaskResetPassword />` component.
+2. [ ] Implement `<TaskSetupMFA />` component.
+3. [ ] Implement `<TaskChooseOrganization />` component.
+4. [ ] Implement `<GoogleOneTap />` component.
+5. [ ] Implement `<Waitlist />` component for pre-launch signups.
+6. [ ] Add `useSignIn()` and `useSignUp()` hooks with full flow control.
+7. [ ] Add `useReverification()` hook for step-up auth.
+
+### Phase D — Organization Components
+
+Tasks:
+
+1. [ ] Implement `<OrganizationList />` component.
+2. [ ] Add `useOrganizationList()` hook.
+3. [ ] Add `useOrganizationCreationDefaults()` hook.
+4. [ ] Implement organization-related redirect components.
+
+### Phase E — User Object Enhancements
+
+Tasks:
+
+1. [ ] Add `externalId` field for external system ID mapping.
+2. [ ] Add MFA-related fields: `totpEnabled`, `backupCodeEnabled`, `twoFactorEnabled`.
+3. [ ] Add `locked` and `lockout` fields for account lock management.
+4. [ ] Add `legalAcceptedAt` field for legal compliance tracking.
+5. [ ] Add `locale` field for user language preference.
+6. [ ] Add `web3Wallets` array for crypto wallet addresses.
+
+### Phase F — Testing Tokens & Sign-in Tokens
+
+Tasks:
+
+1. [ ] Implement Testing Tokens API for E2E test bot detection bypass.
+2. [ ] Implement Sign-in Tokens API for passwordless authentication.
+3. [ ] Add `createSignInToken()` and `revokeSignInToken()` to backend client.
+4. [ ] Add `createTestingToken()` to backend client.
+
+### Phase G — Allowlist & Redirect URLs
+
+Tasks:
+
+1. [ ] Implement Allowlist Identifiers API (restrict signups by email/phone).
+2. [ ] Implement Redirect URLs API for whitelisted OAuth redirects.
+3. [ ] Add backend client methods for allowlist management.
+4. [ ] Add backend client methods for redirect URL management.
+
+### Phase H — SAML SSO (Enterprise)
+
+Tasks:
+
+1. [ ] Implement SAML Connections API for organizations.
+2. [ ] Add `samlAccounts` to User object.
+3. [ ] Implement SAML SSO sign-in flow.
+4. [ ] Add SAML connection management to OrganizationProfile component.
+
+---
+
+## Milestone 8 — E2E Testing & Quality Assurance
+
+_Objective_: establish comprehensive testing infrastructure for production confidence.
+
+### Phase A — Testing Package
+
+1. [ ] Create `@blerp/testing` package with Playwright utilities.
+2. [ ] Implement token minting helpers for authenticated E2E flows.
+3. [ ] Create mock fixtures for users, organizations, and sessions.
+4. [ ] Add visual regression testing with Playwright snapshots.
+
+### Phase B — Integration Test Suite
+
+1. [ ] Implement `global.setup.ts` pattern for monorepo E2E tests.
+2. [ ] Add API integration tests for all auth flows.
+3. [ ] Add webhook delivery verification tests.
+4. [ ] Create load testing harness with k6 or Artillery.
+
+### Phase C — Quality Gates
+
+1. [ ] Configure mutation testing (Stryker) for critical paths.
+2. [ ] Add security scanning (Snyk, Trivy) to CI pipeline.
+3. [ ] Implement coverage thresholds (80% minimum).
+4. [ ] Add bundle size monitoring for frontend packages.
+
+---
+
+## Milestone 9 — Production Infrastructure
+
+_Objective_: harden infrastructure for production deployment.
+
+### Phase A — Infrastructure Hardening
+
+1. [ ] Implement blue/green deployment automation.
+2. [ ] Configure SSL/TLS certificates via AWS ACM.
+3. [ ] Set up CloudFront CDN for static assets.
+4. [ ] Implement secrets management via AWS Secrets Manager.
+
+### Phase B — Observability
+
+1. [ ] Integrate Datadog/New Relic for APM.
+2. [ ] Configure log aggregation (CloudWatch Logs or Datadog).
+3. [ ] Set up alerting for critical metrics (error rate, latency).
+4. [ ] Implement distributed tracing across services.
+
+### Phase C — Disaster Recovery
+
+1. [ ] Implement automated backup for SQLite databases.
+2. [ ] Configure multi-region failover (Route 53 health checks).
+3. [ ] Document runbooks for common incident scenarios.
+4. [ ] Conduct chaos engineering exercises.
+
+---
+
+## Milestone 10 — Multi-Language SDK Support
+
+_Objective_: provide official SDKs for major programming languages.
+
+### Phase A — SDK Generation
+
+1. [ ] Configure OpenAPI Generator for TypeScript (existing).
+2. [ ] Generate Python SDK client.
+3. [ ] Generate Go SDK client.
+4. [ ] Generate Ruby SDK client.
+
+### Phase B — SDK Publishing
+
+1. [ ] Set up npm publishing for `@blerp/*` packages.
+2. [ ] Set up PyPI publishing for `blerp-python`.
+3. [ ] Set up Go module publishing.
+4. [ ] Configure versioning and changelog automation.
+
+### Phase C — SDK Documentation
+
+1. [ ] Generate API reference docs from OpenAPI spec.
+2. [ ] Create language-specific quickstart guides.
+3. [ ] Add code examples for common use cases.
+4. [ ] Create interactive API playground.
+
+---
+
+## Milestone 11 — Advanced Security & Compliance
+
+_Objective_: achieve enterprise-grade security posture.
+
+### Phase A — Security Enhancements
+
+1. [ ] Implement rate limiting per API key with configurable limits.
+2. [ ] Add IP allowlisting for enterprise customers.
+3. [ ] Implement API key rotation with zero-downtime.
+4. [ ] Add anomaly detection for suspicious login patterns.
+
+### Phase B — Compliance
+
+1. [ ] Complete SOC 2 Type I assessment preparation.
+2. [ ] Implement GDPR data export/deletion endpoints.
+3. [ ] Add audit log retention policies.
+4. [ ] Document security whitepaper.
+
+### Phase C — Penetration Testing
+
+1. [ ] Engage third-party security audit.
+2. [ ] Remediate all critical/high findings.
+3. [ ] Implement security headers validation in CI.
+4. [ ] Add dependency vulnerability scanning with blocking.
+
+---
+
+## Phase F — Engineering Standards (Ongoing)
+
+1. [ ] Standardize error handling across all services.
+2. [ ] Optimize GitHub Actions workflows for faster feedback.
+3. [ ] Implement consistent logging patterns.
+4. [ ] Add pre-commit hooks for security scanning.
+
+---
+
+## Future Considerations (Not Currently Planned)
+
+The following features exist in Clerk but are not currently prioritized:
+
+- **Billing Components**: `<PricingTable />`, `<CheckoutButton />`, etc. (Beta in Clerk)
+- **M2M Tokens**: Machine-to-machine authentication (Beta in Clerk)
+- **OAuth Applications**: Blerp as an OAuth provider
+- **Web3 Authentication**: MetaMask, Coinbase Wallet, Solana wallets
+- **Native Mobile SDKs**: iOS (Swift), Android (Kotlin)

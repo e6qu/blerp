@@ -1,20 +1,45 @@
 # Do Next
 
-Maintain a prioritized list of upcoming actions. Update this file whenever new follow-ups are identified or existing ones are completed.
+Prioritized list of upcoming actions based on Clerk parity gap analysis.
 
-### Phase F: Engineering Standards Compliance
+### Milestone 7 — Clerk SDK Parity (Priority)
 
-1. ~~**Type Hardening: Remove `any`**~~ — ✅ Completed
-2. ~~**OpenAPI Spec Fix**~~ — ✅ Completed (PR #12 merged)
-3. **Standardize Error Handling** — Ensure all services use a consistent error handling pattern as defined in the engineering standards.
-4. **CI/CD Optimization** — Review and optimize GitHub Actions workflows for faster execution and better feedback.
+#### Phase A — User Components (Highest Priority)
 
-### Milestone 5 — Remaining Tasks
+1. **`<UserProfile />`** — Full user profile management with tabs (Account, Security, Connected Accounts).
+2. **`<UserButton />`** — User dropdown with sign out, profile links, org switcher.
+3. **`useUser()` hook** — Full User object access from frontend.
+4. **`useClerk()` hook** — Expose full Blerp client object.
 
-5. **E2E Testing Helpers** — Implement `@blerp/testing` package with token minting helpers for Playwright.
-6. **Global Setup Pattern** — Implement `global.setup.ts` pattern for monorepo E2E tests.
+#### Phase B — Control Components
 
-### Future: Production Launch
+5. **`<SignedIn />` / `<SignedOut />`** — Conditional rendering components.
+6. **`<ClerkLoaded />` / `<ClerkLoading />`** — Loading state components.
+7. **Redirect components** — RedirectToSignIn, RedirectToSignUp, RedirectToUserProfile.
 
-7. **v1.0.0 Release** — Final tag and deployment of the production-ready containers.
-8. **Marketing & Launch** — Announce General Availability.
+#### Phase C — Auth Flow
+
+8. **`useSignIn()` / `useSignUp()`** hooks — Full auth flow control.
+9. **`<TaskResetPassword />`** — Password reset flow component.
+10. **`<TaskSetupMFA />`** — MFA setup component.
+
+#### Phase E — User Object
+
+11. **Add `externalId`** — External system ID mapping.
+12. **Add MFA fields** — totpEnabled, backupCodeEnabled, twoFactorEnabled.
+13. **Add `locked` field** — Account lock status.
+
+### Milestone 5 — Completion
+
+14. **`@blerp/testing` package** — Playwright helpers and token minting.
+15. **Global setup pattern** — E2E test infrastructure.
+
+### Phase F — Engineering Standards
+
+16. **Standardize error handling** — Consistent error patterns.
+17. **CI/CD optimization** — Faster GitHub Actions.
+
+### Production
+
+18. **v1.0.0 Release** — Final tag and container deployment.
+19. **Marketing & Launch** — Announce General Availability.
