@@ -10,11 +10,3 @@ export function SignIn() {
     </div>
   );
 }
-
-export function UserButton() {
-  return (
-    <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
-      U
-    </div>
-  );
-}
