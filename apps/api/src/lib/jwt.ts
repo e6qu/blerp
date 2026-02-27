@@ -1,5 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { SignJWT, jwtVerify, generateKeyPair, exportJWK, type JWTPayload } from "jose";
+import {
+  SignJWT,
+  jwtVerify,
+  generateKeyPair,
+  exportJWK,
+  type JWTPayload,
+  type CryptoKey,
+} from "jose";
 
 export const jwt = {
   // Generate a new RS256 key pair
@@ -13,7 +19,7 @@ export const jwt = {
   // Sign a JWT with a private key
   sign: async (
     payload: JWTPayload,
-    privateKey: any | Uint8Array,
+    privateKey: CryptoKey | Uint8Array,
     options: { issuer: string; audience: string; expiresIn: string },
   ) => {
     return new SignJWT(payload)
@@ -28,7 +34,7 @@ export const jwt = {
   // Verify a JWT with a public key
   verify: async (
     token: string,
-    publicKey: any | Uint8Array,
+    publicKey: CryptoKey | Uint8Array,
     options: { issuer: string; audience: string },
   ) => {
     return jwtVerify(token, publicKey, {
@@ -38,7 +44,7 @@ export const jwt = {
   },
 
   // Export public key as JWK
-  exportJWK: async (publicKey: any | Uint8Array, kid: string) => {
+  exportJWK: async (publicKey: CryptoKey | Uint8Array, kid: string) => {
     const jwk = await exportJWK(publicKey);
     return {
       ...jwk,

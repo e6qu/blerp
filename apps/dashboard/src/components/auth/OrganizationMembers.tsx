@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemberships } from "../../hooks/useOrganizations";
 import type { components } from "@blerp/shared";
 
@@ -33,9 +32,8 @@ export function OrganizationMembers({ organizationId }: { organizationId: string
                   <div className="h-8 w-8 flex-shrink-0 rounded-full bg-gray-200"></div>
                   <div className="ml-4">
                     <div className="text-sm font-medium text-gray-900">
-                      {(membership as any).user?.first_name} {(membership as any).user?.last_name}
+                      User ID: {membership.user_id}
                     </div>
-                    <div className="text-sm text-gray-500">User ID: {membership.user_id}</div>
                   </div>
                 </div>
               </td>

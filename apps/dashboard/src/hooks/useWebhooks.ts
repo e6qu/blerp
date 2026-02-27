@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "../lib/api";
-import type { components } from "@blerp/shared";
 
 export function useWebhooks() {
   return useQuery({
@@ -9,7 +7,7 @@ export function useWebhooks() {
     queryFn: async () => {
       const { data, error } = await client.GET("/v1/webhooks/endpoints", {});
       if (error) throw error;
-      return (data as any).data as components["schemas"]["WebhookEndpoint"][];
+      return data?.data || [];
     },
   });
 }

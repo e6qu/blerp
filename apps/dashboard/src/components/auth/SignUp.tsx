@@ -16,8 +16,8 @@ export function SignUp() {
     });
 
     if (error) {
-      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-      alert((error as any).error.message);
+      const errorData = error as { error?: { message?: string } };
+      alert(errorData.error?.message || "Failed to sign up");
     } else {
       setStatus(`Signup initiated: ${data.id}. Please check your email.`);
     }

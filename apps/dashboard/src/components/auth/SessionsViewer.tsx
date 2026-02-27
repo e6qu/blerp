@@ -1,6 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useSessions, useRevokeSession } from "../../hooks/useSessions";
 import { Monitor, Trash2 } from "lucide-react";
+import type { components } from "@blerp/shared";
+
+type Session = components["schemas"]["Session"];
 
 export function SessionsViewer() {
   const { data: sessions, isLoading } = useSessions();
@@ -25,18 +27,20 @@ export function SessionsViewer() {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
-          {sessions?.map((session: any) => (
+          {sessions?.map((session: Session) => (
             <tr key={session.id}>
               <td className="whitespace-nowrap px-6 py-4">
                 <div className="flex items-center">
                   <Monitor className="mr-3 h-5 w-5 text-gray-400" />
                   <div className="text-sm text-gray-900">
-                    {session.userAgent || "Unknown Device"}
+                    {session.user_agent || "Unknown Device"}
                   </div>
                 </div>
               </td>
               <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                {new Date(session.lastActiveAt).toLocaleString()}
+                {session.latest_activity
+                  ? new Date(session.latest_activity).toLocaleString()
+                  : "Unknown"}
               </td>
               <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                 <button

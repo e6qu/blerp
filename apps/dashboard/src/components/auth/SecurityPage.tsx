@@ -1,6 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { usePasskeys, useRegisterPasskey } from "../../hooks/usePasskeys";
 import { Key, ShieldCheck } from "lucide-react";
+import type { components } from "@blerp/shared";
+
+type PasskeyCredential = components["schemas"]["PasskeyCredential"];
 
 export function SecurityPage() {
   const { data: passkeys, isLoading } = usePasskeys();
@@ -28,15 +30,13 @@ export function SecurityPage() {
           </div>
 
           <div className="space-y-4">
-            {passkeys?.map((pk: any) => (
+            {passkeys?.map((pk: PasskeyCredential) => (
               <div key={pk.id} className="flex items-center justify-between rounded-lg border p-4">
                 <div className="flex items-center">
                   <Key className="mr-3 h-5 w-5 text-gray-400" />
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{pk.name}</div>
-                    <div className="text-xs text-gray-500">
-                      Registered on {new Date(pk.createdAt).toLocaleDateString()}
-                    </div>
+                    <div className="text-sm font-medium text-gray-900">{pk.friendly_name}</div>
+                    <div className="text-xs text-gray-500">ID: {pk.id}</div>
                   </div>
                 </div>
                 <ShieldCheck className="h-5 w-5 text-green-500" />

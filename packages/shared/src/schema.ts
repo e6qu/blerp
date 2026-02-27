@@ -370,6 +370,32 @@ export interface paths {
      */
     get: operations["getUserInfo"];
   };
+  "/v1/sessions": {
+    /** List sessions */
+    get: operations["listSessions"];
+  };
+  "/v1/sessions/{session_id}": {
+    /** Revoke session */
+    delete: operations["revokeSession"];
+  };
+  "/v1/usage": {
+    get: operations["getUsage"];
+  };
+  "/v1/auth/webauthn/passkeys": {
+    get: operations["listPasskeys"];
+  };
+  "/v1/auth/webauthn/registration/options": {
+    get: operations["getWebauthnRegistrationOptions"];
+  };
+  "/v1/auth/webauthn/registration/verify": {
+    post: operations["verifyWebauthnRegistration"];
+  };
+  "/v1/users/{user_id}/identities": {
+    get: operations["listUserIdentities"];
+  };
+  "/v1/users/{user_id}/identities/oauth/{oauth_account_id}": {
+    delete: operations["deleteUserOAuthIdentity"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -968,29 +994,18 @@ export interface operations {
       400: components["responses"]["BadRequest"];
     };
   };
-  /**
-   * Revoke a session
-   * @description Immediately revokes a session so the associated devices must reauthenticate.
-   */
+  /** Revoke session */
   revokeSession: {
     parameters: {
       path: {
         session_id: string;
       };
     };
-    requestBody: {
-      content: {
-        "application/json": {
-          reason?: string;
-        };
-      };
-    };
     responses: {
-      /** @description Revoked */
+      /** @description Session revoked */
       204: {
         content: never;
       };
-      400: components["responses"]["BadRequest"];
     };
   };
   /**
@@ -2126,6 +2141,105 @@ export interface operations {
             email?: string;
           };
         };
+      };
+    };
+  };
+  /** List sessions */
+  listSessions: {
+    responses: {
+      /** @description List of sessions */
+      200: {
+        content: {
+          "application/json": {
+            data?: components["schemas"]["Session"][];
+          };
+        };
+      };
+    };
+  };
+  getUsage: {
+    responses: {
+      /** @description Usage stats */
+      200: {
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
+  listPasskeys: {
+    responses: {
+      /** @description List of passkeys */
+      200: {
+        content: {
+          "application/json": {
+            data?: components["schemas"]["PasskeyCredential"][];
+          };
+        };
+      };
+    };
+  };
+  getWebauthnRegistrationOptions: {
+    responses: {
+      /** @description Registration options */
+      200: {
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
+  verifyWebauthnRegistration: {
+    requestBody?: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Verified */
+      200: {
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
+  listUserIdentities: {
+    parameters: {
+      path: {
+        user_id: string;
+      };
+    };
+    responses: {
+      /** @description List of identities */
+      200: {
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
+  deleteUserOAuthIdentity: {
+    parameters: {
+      path: {
+        user_id: string;
+        oauth_account_id: string;
+      };
+    };
+    responses: {
+      /** @description Identity deleted */
+      204: {
+        content: never;
       };
     };
   };

@@ -2459,3 +2459,142 @@ paths:
                     type: string
                   email:
                     type: string
+
+  /v1/sessions:
+    get:
+      tags: [Sessions]
+      summary: List sessions
+      operationId: listSessions
+      security:
+        - SecretKey: []
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Session"
+
+  /v1/sessions/{session_id}:
+    delete:
+      tags: [Sessions]
+      summary: Revoke session
+      operationId: revokeSession
+      security:
+        - SecretKey: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Session revoked
+
+  /v1/usage:
+    get:
+      tags: [System]
+      operationId: getUsage
+      security:
+        - SecretKey: []
+      responses:
+        "200":
+          description: Usage stats
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/auth/webauthn/passkeys:
+    get:
+      tags: [Auth]
+      operationId: listPasskeys
+      responses:
+        "200":
+          description: List of passkeys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PasskeyCredential"
+
+  /v1/auth/webauthn/registration/options:
+    get:
+      tags: [Auth]
+      operationId: getWebauthnRegistrationOptions
+      responses:
+        "200":
+          description: Registration options
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/auth/webauthn/registration/verify:
+    post:
+      tags: [Auth]
+      operationId: verifyWebauthnRegistration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/users/{user_id}/identities:
+    get:
+      tags: [Users]
+      operationId: listUserIdentities
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of identities
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/users/{user_id}/identities/oauth/{oauth_account_id}:
+    delete:
+      tags: [Users]
+      operationId: deleteUserOAuthIdentity
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: oauth_account_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Identity deleted

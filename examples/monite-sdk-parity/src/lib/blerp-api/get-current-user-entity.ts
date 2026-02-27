@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { auth, currentUser } from "@blerp/nextjs/server";
 import { createBlerpClient } from "@blerp/backend";
 
@@ -17,11 +16,13 @@ export async function getCurrentUserEntity() {
 
   // Monite-specific fields derived from Blerp metadata
   // Using the snake_case fields as mapped in the controllers
-  const entityId = (org as any).metadata_private?.entity_id;
+  const entityId = org?.private_metadata?.entity_id as string | undefined;
 
   // Find entity_user_id for this entity_id in user metadata
-  const userEntities = (user as any).metadata_private?.entities || {};
-  const entityUserData = entityId ? userEntities[entityId] : null;
+  const userEntities = (user?.private_metadata?.entities as Record<string, unknown>) || {};
+  const entityUserData = entityId
+    ? (userEntities[entityId] as { entity_user_id?: string } | undefined)
+    : null;
   const entityUserId = entityUserData?.entity_user_id;
 
   return {

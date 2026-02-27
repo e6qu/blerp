@@ -12,7 +12,7 @@ Every Blerp Organization corresponds to a single Monite Entity. You must store t
 
 ```json
 {
-  "metadata_private": {
+  "private_metadata": {
     "entity_id": "monite_ent_123"
   }
 }
@@ -24,7 +24,7 @@ A single Blerp User can belong to multiple Monite Entities. Blerp handles this v
 
 ```json
 {
-  "metadata_private": {
+  "private_metadata": {
     "entities": {
       "monite_ent_123": {
         "entity_user_id": "mu_abc1",
@@ -60,14 +60,14 @@ export async function GET() {
 
   // 1. Fetch organization to get the mapped Monite entity_id
   const blerp = createBlerpClient({
-    baseUrl: process.env.BLERP_API_URL,
-    secretKey: process.env.BLERP_SECRET_KEY,
+    baseUrl: process.env.BLERP_API_URL!,
+    secretKey: process.env.BLERP_SECRET_KEY!,
   });
   const org = await blerp.organizations.getOrganization(orgId);
-  const entityId = (org as any).metadata_private?.entity_id;
+  const entityId = org?.private_metadata?.entity_id as string | undefined;
 
   // 2. Resolve the Monite entity_user_id from the user's metadata
-  const userEntities = (user as any).metadata_private?.entities || {};
+  const userEntities = (user?.private_metadata?.entities as Record<string, any>) || {};
   const entityUserId = entityId ? userEntities[entityId]?.entity_user_id : null;
 
   if (!entityId || !entityUserId) {

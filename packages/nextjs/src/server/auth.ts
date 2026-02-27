@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
 import * as jose from "jose";
+import type { components } from "@blerp/shared";
+
+type User = components["schemas"]["User"];
 
 export interface BlerpSessionPayload extends jose.JWTPayload {
   org_id?: string;
@@ -45,14 +48,24 @@ export async function auth() {
   }
 }
 
-export async function currentUser() {
+export async function currentUser(): Promise<User | null> {
   const { userId } = await auth();
   if (!userId) return null;
 
+  // In a real implementation, this would fetch from the Blerp API
   return {
     id: userId,
-    firstName: "Mock",
-    lastName: "User",
-    emailAddresses: [{ emailAddress: "mock@example.com" }],
+    status: "active",
+    email_addresses: [
+      {
+        id: "email_mock",
+        email: "mock@example.com",
+        verification: { status: "verified" },
+      },
+    ],
+    public_metadata: {},
+    private_metadata: {},
+    unsafe_metadata: {},
+    created_at: new Date().toISOString(),
   };
 }

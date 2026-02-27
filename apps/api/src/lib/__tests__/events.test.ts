@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { eventBus } from "../events";
 import { redis } from "../redis";
@@ -29,8 +28,8 @@ describe("EventBus", () => {
 
     // Check if args contains expected fields
     const data = Object.fromEntries(
-      args.reduce((acc: any[][], val, i) => {
-        if (i % 2 === 0) acc.push([val, args[i + 1]]);
+      (args as string[]).reduce((acc: string[][], val, i) => {
+        if (i % 2 === 0) acc.push([val, args[i + 1] as string]);
         return acc;
       }, []),
     );
