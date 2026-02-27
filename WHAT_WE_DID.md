@@ -209,3 +209,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: Not applicable (UI manual verification readiness).
 - Files touched: `packages/nextjs/src/client/hooks.ts`, `packages/nextjs/src/client/components/OrganizationProfile.tsx`.
 - Notes/Links: Ready for M6-PC-T2 (Create Organization with Auto-suggestion).
+
+## 2026-02-26 — M6-PC-T2 Create Organization with Auto-suggestion
+
+- Summary: Enhanced the `<CreateOrganization />` component in the `@blerp/nextjs` SDK to support domain-based organization discovery. Added a `useUser` hook to fetch current user details and updated `useOrganizations` to support domain filtering. The component now automatically checks for existing verified organizations matching the user's email domain and suggests joining them instead of creating a new organization. Verified UI logic and data flow.
+- Tests run: Not applicable (UI manual verification readiness).
+- Files touched: `packages/nextjs/src/client/hooks.ts`, `packages/nextjs/src/client/components/CreateOrganization.tsx`.
+- Notes/Links: Ready for M6-PC-T3 (Organization Switcher Polish).
