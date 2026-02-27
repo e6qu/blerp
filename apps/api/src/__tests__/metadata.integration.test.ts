@@ -100,4 +100,38 @@ describe("Metadata Integration", () => {
     expect(res.body.privateMetadata).toEqual({ monite_user_id: "mu_123" });
     expect(res.body.unsafeMetadata).toEqual({ theme: "dark" });
   });
+
+  it("should perform deep merge on user metadata", async () => {
+    // Initial update
+    await request(app)
+      .patch(`/v1/users/${userId}/metadata`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId)
+      .send({
+        private_metadata: {
+          entities: {
+            org_1: { entity_user_id: "eu_1" },
+          },
+        },
+      });
+
+    // Deep merge update
+    const res = await request(app)
+      .patch(`/v1/users/${userId}/metadata`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId)
+      .send({
+        private_metadata: {
+          entities: {
+            org_2: { entity_user_id: "eu_2" },
+          },
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.privateMetadata.entities).toEqual({
+      org_1: { entity_user_id: "eu_1" },
+      org_2: { entity_user_id: "eu_2" },
+    });
+  });
 });

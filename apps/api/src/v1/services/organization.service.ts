@@ -4,6 +4,7 @@ import { eventBus } from "../../lib/events";
 import * as schema from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { deepMerge } from "../../lib/metadata";
 
 export class OrganizationService {
   constructor(
@@ -40,9 +41,23 @@ export class OrganizationService {
     id: string,
     data: Partial<{ name: string; slug: string; publicMetadata: any; privateMetadata: any }>,
   ) {
+    const org = await this.get(id);
+    if (!org) throw new Error("Organization not found");
+
+    const updateData: any = { updatedAt: new Date() };
+    if (data.name) updateData.name = data.name;
+    if (data.slug) updateData.slug = data.slug;
+
+    if (data.publicMetadata) {
+      updateData.publicMetadata = deepMerge(org.publicMetadata || {}, data.publicMetadata);
+    }
+    if (data.privateMetadata) {
+      updateData.privateMetadata = deepMerge(org.privateMetadata || {}, data.privateMetadata);
+    }
+
     await this.db
       .update(schema.organizations)
-      .set({ ...data, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(schema.organizations.id, id));
 
     return this.get(id);

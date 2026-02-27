@@ -167,3 +167,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: Not applicable (documentation-only change).
 - Files touched: tasks/to-do/M6-\*.md, USER_STORIES.md, DO_NEXT.md, STATUS.md, WHAT_WE_DID.md.
 - Notes/Links: Backlog is now ready for implementation of M6-PA-T1.
+
+## 2026-02-26 — M6-PA-T1 Deep Metadata Merging
+
+- Summary: Implemented deep merging for `updateUserMetadata` and `updateOrganizationMetadata` to support complex nested metadata structures, specifically the `entities` object used by the Monite SDK. Created a new `metadata.ts` utility in `apps/api/src/lib` and updated `AuthService` and `OrganizationService` to use it. Verified with comprehensive unit and integration tests.
+- Tests run: `bunx vitest run src/lib/__tests__/metadata.test.ts src/__tests__/metadata.integration.test.ts`
+- Files touched: `apps/api/src/lib/metadata.ts`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/services/organization.service.ts`, `apps/api/src/lib/__tests__/metadata.test.ts`, `apps/api/src/__tests__/metadata.integration.test.ts`.
+- Notes/Links: Ready for M6-PA-T2 (Query Users by Metadata).
