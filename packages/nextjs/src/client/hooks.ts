@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBlerpClient } from "./BlerpProvider";
 import { useAuth } from "./BlerpProvider";
@@ -281,4 +284,176 @@ export function useUpdateUser() {
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
     },
   });
+}
+
+export interface SignInStatus {
+  id: string | null;
+  status: "needs_identifier" | "needs_first_factor" | "needs_second_factor" | "complete" | "failed";
+  identifier: string | null;
+  supportedFirstFactors: string[];
+  supportedSecondFactors: string[];
+}
+
+export interface SignUpStatus {
+  id: string | null;
+  status: "needs_identifier" | "missing_requirements" | "complete" | "failed";
+  identifier: string | null;
+  missingFields: string[];
+}
+
+export function useSignIn() {
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState<SignInStatus>({
+    id: null,
+    status: "needs_identifier",
+    identifier: null,
+    supportedFirstFactors: ["email_code", "password"],
+    supportedSecondFactors: ["totp", "backup_code"],
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const create = async (params: { identifier: string; strategy?: string }) => {
+    setIsLoading(true);
+    try {
+      const signInId = `si_${Date.now()}`;
+      setStatus({
+        id: signInId,
+        status: "needs_first_factor",
+        identifier: params.identifier,
+        supportedFirstFactors: ["email_code", "password"],
+        supportedSecondFactors: ["totp", "backup_code"],
+      });
+      return { id: signInId };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const attemptFirstFactor = async (_params: {
+    strategy: string;
+    code?: string;
+    password?: string;
+  }) => {
+    if (!status.id) throw new Error("No sign-in attempt in progress");
+    setIsLoading(true);
+    try {
+      const result = { status: "complete", session_id: `sess_${Date.now()}` } as const;
+      setStatus((prev: SignInStatus) => ({ ...prev, status: "complete" }));
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      return result;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const attemptSecondFactor = async (_params: { strategy: string; code: string }) => {
+    if (!status.id) throw new Error("No sign-in attempt in progress");
+    setIsLoading(true);
+    try {
+      const result = { status: "complete", session_id: `sess_${Date.now()}` } as const;
+      setStatus((prev: SignInStatus) => ({ ...prev, status: "complete" }));
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      return result;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const reset = () => {
+    setStatus({
+      id: null,
+      status: "needs_identifier",
+      identifier: null,
+      supportedFirstFactors: ["email_code", "password"],
+      supportedSecondFactors: ["totp", "backup_code"],
+    });
+  };
+
+  return {
+    ...status,
+    isLoading,
+    create,
+    attemptFirstFactor,
+    attemptSecondFactor,
+    reset,
+  };
+}
+
+export function useSignUp() {
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState<SignUpStatus>({
+    id: null,
+    status: "needs_identifier",
+    identifier: null,
+    missingFields: [],
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const create = async (params: { identifier: string; password?: string }) => {
+    setIsLoading(true);
+    try {
+      const signUpId = `su_${Date.now()}`;
+      setStatus({
+        id: signUpId,
+        status: "missing_requirements",
+        identifier: params.identifier,
+        missingFields: ["verification"],
+      });
+      return { id: signUpId, missing_fields: ["verification"] };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const prepareVerification = async (params: { strategy: string }) => {
+    if (!status.id) throw new Error("No sign-up attempt in progress");
+    setIsLoading(true);
+    try {
+      return { status: "prepared", strategy: params.strategy };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const attemptVerification = async (_params: { strategy: string; code: string }) => {
+    if (!status.id) throw new Error("No sign-up attempt in progress");
+    setIsLoading(true);
+    try {
+      const result = { status: "complete" } as const;
+      setStatus((prev: SignUpStatus) => ({ ...prev, status: "complete" }));
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      return result;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const update = async (params: Record<string, unknown>) => {
+    if (!status.id) throw new Error("No sign-up attempt in progress");
+    setIsLoading(true);
+    try {
+      return { status: "updated", ...params };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const reset = () => {
+    setStatus({
+      id: null,
+      status: "needs_identifier",
+      identifier: null,
+      missingFields: [],
+    });
+  };
+
+  return {
+    ...status,
+    isLoading,
+    create,
+    prepareVerification,
+    attemptVerification,
+    update,
+    reset,
+  };
 }
