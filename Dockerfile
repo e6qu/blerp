@@ -16,7 +16,7 @@ COPY packages/backend/package.json ./packages/backend/
 COPY examples/nextjs-quickstart/package.json ./examples/nextjs-quickstart/
 COPY examples/monite-sdk-parity/package.json ./examples/monite-sdk-parity/
 COPY examples/vite-react-simple/package.json ./examples/vite-react-simple/
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # Build shared packages first
 FROM install AS build-shared
