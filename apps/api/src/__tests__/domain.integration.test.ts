@@ -100,5 +100,21 @@ describe("Domain Integration", () => {
 
     expect(verify.status).toBe(200);
     expect(verify.body.verificationStatus).toBe("verified");
+
+    // 4. Delete Domain
+    const del = await request(app)
+      .delete(`/v1/organizations/${orgId}/domains/${domId}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId);
+
+    expect(del.status).toBe(204);
+
+    // 5. Verify it's gone
+    const listFinal = await request(app)
+      .get(`/v1/organizations/${orgId}/domains`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId);
+
+    expect(listFinal.body.data).toHaveLength(0);
   });
 });

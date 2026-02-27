@@ -188,3 +188,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bunx vitest run src/lib/__tests__/metadata.test.ts src/__tests__/metadata.integration.test.ts`
 - Files touched: `apps/api/src/lib/metadata.ts`, `apps/api/src/v1/controllers/user-metadata.controller.ts`, `apps/api/src/v1/controllers/organization-metadata.controller.ts`, `apps/api/src/lib/__tests__/metadata.test.ts`, `apps/api/src/__tests__/metadata.integration.test.ts`.
 - Notes/Links: Phase A of Milestone 6 is now complete. Ready for Phase B (Organization Domains & Discovery).
+
+## 2026-02-26 — M6-PB-T1 & T2 Organization Domains
+
+- Summary: Implemented the full REST API and backend service logic for managing and verifying Organization Domains. This includes endpoints for adding, listing, verifying (mocked), and deleting domains. Verified the implementation with a comprehensive integration test covering the entire domain lifecycle.
+- Tests run: `bunx vitest run src/__tests__/domain.integration.test.ts`
+- Files touched: `apps/api/src/v1/controllers/domain.controller.ts`, `apps/api/src/v1/routes/organization.routes.ts`, `apps/api/src/__tests__/domain.integration.test.ts`.
+- Notes/Links: Ready for M6-PB-T3 (Verified Domain Auto-enrollment).
