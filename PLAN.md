@@ -94,16 +94,16 @@
 
 _Objective_: Achieve full API and component parity with Clerk's SDK offerings.
 
-### Phase A — User Components & Hooks
+### Phase A — User Components & Hooks ✅ COMPLETE
 
 Tasks:
 
-1. [ ] Implement `<UserProfile />` component with full tab support (Account, Security, Connected Accounts).
-2. [ ] Implement `<UserButton />` component with dropdown menu and actions.
-3. [ ] Implement `<UserAvatar />` component.
-4. [ ] Add `useUser()` hook with full User object access.
-5. [ ] Add `useClerk()` hook exposing full Blerp client.
-6. [ ] Add `useSession()` and `useSessionList()` hooks.
+1. [x] Implement `<UserProfile />` component with full tab support (Account, Security, Connected Accounts).
+2. [x] Implement `<UserButton />` component with dropdown menu and actions.
+3. [x] Implement `<UserAvatar />` component.
+4. [x] Add `useUser()` hook with full User object access.
+5. [x] Add `useClerk()` hook exposing full Blerp client.
+6. [x] Add `useSession()` and `useSessionList()` hooks.
 
 ### Phase B — Control & Navigation Components
 
@@ -143,7 +143,7 @@ Tasks:
 
 1. [ ] Add `externalId` field for external system ID mapping.
 2. [ ] Add MFA-related fields: `totpEnabled`, `backupCodeEnabled`, `twoFactorEnabled`.
-3. [ ] Add `locked` and `lockout` fields for account lock management.
+3. [x] Add `locked` and `lockout` fields for account lock management.
 4. [ ] Add `legalAcceptedAt` field for legal compliance tracking.
 5. [ ] Add `locale` field for user language preference.
 6. [ ] Add `web3Wallets` array for crypto wallet addresses.

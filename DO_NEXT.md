@@ -4,14 +4,14 @@ Prioritized list of upcoming actions based on Clerk parity gap analysis.
 
 ### Milestone 7 — Clerk SDK Parity (Priority)
 
-#### Phase A — User Components (Highest Priority)
+#### Phase A — User Components ✅ COMPLETE
 
-1. **`<UserProfile />`** — Full user profile management with tabs (Account, Security, Connected Accounts).
-2. **`<UserButton />`** — User dropdown with sign out, profile links, org switcher.
-3. **`useUser()` hook** — Full User object access from frontend.
-4. **`useClerk()` hook** — Expose full Blerp client object.
+1. ~~**`<UserProfile />`**~~ — ✅ PR #15 merged
+2. ~~**`<UserButton />`**~~ — ✅ PR #16 merged
+3. ~~**`useUser()` hook**~~ — ✅ PR #17 merged
+4. ~~**`useClerk()` hook**~~ — ✅ PR #17 merged
 
-#### Phase B — Control Components
+#### Phase B — Control Components (Current)
 
 5. **`<SignedIn />` / `<SignedOut />`** — Conditional rendering components.
 6. **`<ClerkLoaded />` / `<ClerkLoading />`** — Loading state components.
@@ -27,7 +27,7 @@ Prioritized list of upcoming actions based on Clerk parity gap analysis.
 
 11. **Add `externalId`** — External system ID mapping.
 12. **Add MFA fields** — totpEnabled, backupCodeEnabled, twoFactorEnabled.
-13. **Add `locked` field** — Account lock status.
+13. ~~**Add `locked` field**~~ — ✅ Added in PR #15
 
 ### Milestone 5 — Completion
 
