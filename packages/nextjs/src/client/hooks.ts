@@ -3,12 +3,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBlerpClient } from "./BlerpProvider";
 import type { components } from "@blerp/shared";
 
-export function useOrganizations() {
+export function useOrganizations(query?: { domain?: string }) {
   const client = useBlerpClient();
   return useQuery({
-    queryKey: ["organizations"],
+    queryKey: ["organizations", query],
     queryFn: async () => {
-      const { data, error } = await client.GET("/v1/organizations", {});
+      const { data, error } = await client.GET("/v1/organizations", {
+        params: { query },
+      });
       if (error) throw error;
       return data.data || [];
     },
@@ -134,6 +136,18 @@ export function useVerifyDomain(organizationId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["domains", organizationId] });
+    },
+  });
+}
+
+export function useUser() {
+  const client = useBlerpClient();
+  return useQuery({
+    queryKey: ["user"],
+    queryFn: async () => {
+      const { data, error } = await client.GET("/userinfo" as any);
+      if (error) throw error;
+      return data;
     },
   });
 }
