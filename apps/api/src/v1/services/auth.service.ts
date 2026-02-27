@@ -26,7 +26,7 @@ export class AuthService {
     };
   }
 
-  async attemptSignup(signupId: string, code: string) {
+  async attemptSignup(signupId: string, code: string, email: string = "pending@example.com") {
     if (code !== "123456") {
       throw new Error("Invalid verification code");
     }
@@ -38,9 +38,30 @@ export class AuthService {
     await this.db.insert(schema.emailAddresses).values({
       id: `email_${nanoid()}`,
       userId,
-      emailAddress: "pending@example.com",
+      emailAddress: email,
       verificationStatus: "verified",
     });
+
+    // Domain Auto-enrollment
+    const domain = email.split("@")[1];
+    if (domain) {
+      const verifiedDomain = await this.db.query.organizationDomains.findFirst({
+        where: and(
+          eq(schema.organizationDomains.domain, domain),
+          eq(schema.organizationDomains.verificationStatus, "verified"),
+        ),
+      });
+
+      if (verifiedDomain) {
+        await this.db.insert(schema.memberships).values({
+          id: `mem_${nanoid()}`,
+          organizationId: verifiedDomain.organizationId,
+          userId,
+          role: "member",
+        });
+      }
+    }
+
     await eventBus.emit("user.created", this.tenantId, { userId });
     return { userId };
   }

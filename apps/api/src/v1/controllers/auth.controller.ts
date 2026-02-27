@@ -15,11 +15,11 @@ export async function createSignup(req: Request, res: Response) {
 
 export async function attemptSignup(req: Request, res: Response) {
   const id = req.params.id as string;
-  const code = req.body.code as string;
+  const { code, email } = req.body;
   const authService = new AuthService(req.tenantDb!, req.tenantId!);
 
   try {
-    const result = await authService.attemptSignup(id, String(code));
+    const result = await authService.attemptSignup(id, String(code), email);
     res.status(200).json(result);
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });

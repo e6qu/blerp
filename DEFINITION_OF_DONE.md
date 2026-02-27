@@ -26,5 +26,6 @@ For every task/phase, mark it “done” only after the following checklist is s
    - Changes understandable by another engineer (clear structure, comments where necessary).
    - Acceptance criteria (see `ACCEPTANCE_CRITERIA.md`) confirmed.
    - No unresolved review feedback (if PR-based workflow).
+   - **PR Mandate**: Work is officially paused immediately after creating a PR. No further tasks should start until the PR is merged.
 
 Only once all of the above are true should a task be considered fully done.

@@ -1,6 +1,6 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export class DomainService {
@@ -31,6 +31,15 @@ export class DomainService {
       .select()
       .from(schema.organizationDomains)
       .where(eq(schema.organizationDomains.organizationId, organizationId));
+  }
+
+  async findOrganizationByVerifiedDomain(domain: string) {
+    return this.db.query.organizationDomains.findFirst({
+      where: and(
+        eq(schema.organizationDomains.domain, domain),
+        eq(schema.organizationDomains.verificationStatus, "verified"),
+      ),
+    });
   }
 
   async verifyDomain(id: string) {
