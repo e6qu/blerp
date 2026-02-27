@@ -182,17 +182,29 @@ export interface paths {
     patch: operations["updateOrganizationRoles"];
   };
   "/v1/organizations/{organization_id}/domains": {
-    /** List organization domains */
+    /**
+     * List organization domains
+     * @description Retrieve all domains associated with an organization.
+     */
     get: operations["listOrganizationDomains"];
-    /** Register organization domain */
+    /**
+     * Register organization domain
+     * @description Register a new domain for an organization.
+     */
     post: operations["registerOrganizationDomain"];
   };
   "/v1/organizations/{organization_id}/domains/{domain_id}": {
-    /** Delete organization domain */
+    /**
+     * Delete organization domain
+     * @description Remove a domain from an organization.
+     */
     delete: operations["deleteOrganizationDomain"];
   };
   "/v1/organizations/{organization_id}/domains/{domain_id}/verify": {
-    /** Verify organization domain */
+    /**
+     * Verify organization domain
+     * @description Trigger verification of a domain ownership.
+     */
     post: operations["verifyOrganizationDomain"];
   };
   "/v1/invitations": {
@@ -371,29 +383,59 @@ export interface paths {
     get: operations["getUserInfo"];
   };
   "/v1/sessions": {
-    /** List sessions */
+    /**
+     * List sessions
+     * @description Retrieve all active sessions for the authenticated user.
+     */
     get: operations["listSessions"];
   };
   "/v1/sessions/{session_id}": {
-    /** Revoke session */
-    delete: operations["revokeSession"];
+    /**
+     * Delete a session
+     * @description Immediately revokes and deletes a session by ID.
+     */
+    delete: operations["deleteSession"];
   };
   "/v1/usage": {
+    /**
+     * Get usage statistics
+     * @description Retrieve resource usage and quota consumption for the tenant.
+     */
     get: operations["getUsage"];
   };
   "/v1/auth/webauthn/passkeys": {
+    /**
+     * List passkeys
+     * @description Retrieve all registered passkeys for the authenticated user.
+     */
     get: operations["listPasskeys"];
   };
   "/v1/auth/webauthn/registration/options": {
+    /**
+     * Get WebAuthn registration options
+     * @description Retrieve the options needed to register a new passkey.
+     */
     get: operations["getWebauthnRegistrationOptions"];
   };
   "/v1/auth/webauthn/registration/verify": {
+    /**
+     * Verify WebAuthn registration
+     * @description Complete passkey registration by verifying the attestation.
+     */
     post: operations["verifyWebauthnRegistration"];
   };
   "/v1/users/{user_id}/identities": {
+    /**
+     * List user identities
+     * @description Retrieve all OAuth and email identities linked to a user.
+     */
     get: operations["listUserIdentities"];
   };
   "/v1/users/{user_id}/identities/oauth/{oauth_account_id}": {
+    /**
+     * Delete OAuth identity
+     * @description Unlink an OAuth identity from a user account.
+     */
     delete: operations["deleteUserOAuthIdentity"];
   };
 }
@@ -453,8 +495,15 @@ export interface components {
       id: string;
       external_id?: string;
       username?: string;
+      first_name?: string;
+      last_name?: string;
+      /** Format: uri */
+      image_url?: string;
+      has_image?: boolean;
       /** Format: uuid */
       primary_email_id?: string;
+      /** Format: uuid */
+      primary_phone_id?: string;
       email_addresses: components["schemas"]["EmailAddress"][];
       phone_numbers?: components["schemas"]["PhoneNumber"][];
       passkeys?: components["schemas"]["PasskeyCredential"][];
@@ -463,6 +512,7 @@ export interface components {
       unsafe_metadata?: components["schemas"]["PublicMetadata"];
       /** @enum {string} */
       status: "active" | "inactive" | "banned";
+      locked?: boolean;
       /** Format: date-time */
       last_sign_in_at?: string;
       /** Format: date-time */
@@ -994,18 +1044,29 @@ export interface operations {
       400: components["responses"]["BadRequest"];
     };
   };
-  /** Revoke session */
+  /**
+   * Revoke a session
+   * @description Immediately revokes a session so the associated devices must reauthenticate.
+   */
   revokeSession: {
     parameters: {
       path: {
         session_id: string;
       };
     };
+    requestBody: {
+      content: {
+        "application/json": {
+          reason?: string;
+        };
+      };
+    };
     responses: {
-      /** @description Session revoked */
+      /** @description Revoked */
       204: {
         content: never;
       };
+      400: components["responses"]["BadRequest"];
     };
   };
   /**
@@ -1140,6 +1201,9 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          first_name?: string;
+          last_name?: string;
+          username?: string;
           public_metadata?: components["schemas"]["PublicMetadata"];
           private_metadata?: components["schemas"]["PrivateMetadata"];
           password?: string;
@@ -1443,7 +1507,10 @@ export interface operations {
       };
     };
   };
-  /** List organization domains */
+  /**
+   * List organization domains
+   * @description Retrieve all domains associated with an organization.
+   */
   listOrganizationDomains: {
     parameters: {
       path: {
@@ -1461,7 +1528,10 @@ export interface operations {
       };
     };
   };
-  /** Register organization domain */
+  /**
+   * Register organization domain
+   * @description Register a new domain for an organization.
+   */
   registerOrganizationDomain: {
     parameters: {
       path: {
@@ -1484,7 +1554,10 @@ export interface operations {
       };
     };
   };
-  /** Delete organization domain */
+  /**
+   * Delete organization domain
+   * @description Remove a domain from an organization.
+   */
   deleteOrganizationDomain: {
     parameters: {
       path: {
@@ -1499,7 +1572,10 @@ export interface operations {
       };
     };
   };
-  /** Verify organization domain */
+  /**
+   * Verify organization domain
+   * @description Trigger verification of a domain ownership.
+   */
   verifyOrganizationDomain: {
     parameters: {
       path: {
@@ -2144,7 +2220,10 @@ export interface operations {
       };
     };
   };
-  /** List sessions */
+  /**
+   * List sessions
+   * @description Retrieve all active sessions for the authenticated user.
+   */
   listSessions: {
     responses: {
       /** @description List of sessions */
@@ -2157,6 +2236,27 @@ export interface operations {
       };
     };
   };
+  /**
+   * Delete a session
+   * @description Immediately revokes and deletes a session by ID.
+   */
+  deleteSession: {
+    parameters: {
+      path: {
+        session_id: string;
+      };
+    };
+    responses: {
+      /** @description Session revoked */
+      204: {
+        content: never;
+      };
+    };
+  };
+  /**
+   * Get usage statistics
+   * @description Retrieve resource usage and quota consumption for the tenant.
+   */
   getUsage: {
     responses: {
       /** @description Usage stats */
@@ -2169,6 +2269,10 @@ export interface operations {
       };
     };
   };
+  /**
+   * List passkeys
+   * @description Retrieve all registered passkeys for the authenticated user.
+   */
   listPasskeys: {
     responses: {
       /** @description List of passkeys */
@@ -2181,6 +2285,10 @@ export interface operations {
       };
     };
   };
+  /**
+   * Get WebAuthn registration options
+   * @description Retrieve the options needed to register a new passkey.
+   */
   getWebauthnRegistrationOptions: {
     responses: {
       /** @description Registration options */
@@ -2193,6 +2301,10 @@ export interface operations {
       };
     };
   };
+  /**
+   * Verify WebAuthn registration
+   * @description Complete passkey registration by verifying the attestation.
+   */
   verifyWebauthnRegistration: {
     requestBody?: {
       content: {
@@ -2212,6 +2324,10 @@ export interface operations {
       };
     };
   };
+  /**
+   * List user identities
+   * @description Retrieve all OAuth and email identities linked to a user.
+   */
   listUserIdentities: {
     parameters: {
       path: {
@@ -2229,6 +2345,10 @@ export interface operations {
       };
     };
   };
+  /**
+   * Delete OAuth identity
+   * @description Unlink an OAuth identity from a user account.
+   */
   deleteUserOAuthIdentity: {
     parameters: {
       path: {

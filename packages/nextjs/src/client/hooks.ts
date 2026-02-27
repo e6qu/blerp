@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBlerpClient } from "./BlerpProvider";
+import { useAuth } from "./BlerpProvider";
 import type { components, paths } from "@blerp/shared";
 
 type Organization = components["schemas"]["Organization"];
 type Membership = components["schemas"]["Membership"];
 type Invitation = components["schemas"]["Invitation"];
 type OrganizationDomain = components["schemas"]["OrganizationDomain"];
+type User = components["schemas"]["User"];
+type Session = components["schemas"]["Session"];
 
 export function useOrganizations(query?: { domain?: string }) {
   const client = useBlerpClient();
@@ -146,6 +149,71 @@ export function useUser() {
       const { data, error } = await client.GET("/v1/userinfo", {});
       if (error) throw error;
       return data as { sub: string; name: string; email: string };
+    },
+  });
+}
+
+export function useCurrentUser() {
+  const { userId } = useAuth();
+  const client = useBlerpClient();
+  return useQuery({
+    queryKey: ["currentUser", userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data, error } = await client.GET("/v1/users/{user_id}", {
+        params: { path: { user_id: userId } },
+      });
+      if (error) throw error;
+      return data as User;
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useSessions() {
+  const client = useBlerpClient();
+  return useQuery({
+    queryKey: ["sessions"],
+    queryFn: async () => {
+      const { data, error } = await client.GET("/v1/sessions", {});
+      if (error) throw error;
+      return (data as { data: Session[] }).data || [];
+    },
+  });
+}
+
+export function useDeleteSession() {
+  const client = useBlerpClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { error } = await client.DELETE("/v1/sessions/{session_id}", {
+        params: { path: { session_id: sessionId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+    },
+  });
+}
+
+export function useUpdateUser() {
+  const { userId } = useAuth();
+  const client = useBlerpClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { first_name?: string; last_name?: string; username?: string }) => {
+      if (!userId) throw new Error("No user ID");
+      const { data, error } = await client.PATCH("/v1/users/{user_id}", {
+        params: { path: { user_id: userId } },
+        body,
+      });
+      if (error) throw error;
+      return data as User;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
     },
   });
 }
