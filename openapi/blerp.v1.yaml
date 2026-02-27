@@ -202,6 +202,15 @@ components:
           enum: [active, inactive, banned]
         locked:
           type: boolean
+        totp_enabled:
+          type: boolean
+          description: Whether TOTP (authenticator app) is enabled for this user.
+        backup_code_enabled:
+          type: boolean
+          description: Whether backup codes are available for account recovery.
+        two_factor_enabled:
+          type: boolean
+          description: Whether any form of two-factor authentication is enabled.
         last_sign_in_at:
           type: string
           format: date-time
