@@ -13,6 +13,7 @@ export * from "./client/components/OrganizationProfile";
 export * from "./client/components/UserProfile";
 export * from "./client/components/UserButton";
 export * from "./client/components/UserAvatar";
+export * from "./client/components/Control";
 export {
   useUser,
   useFullUser,
