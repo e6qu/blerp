@@ -12,7 +12,9 @@ COPY apps/docs/package.json ./apps/docs/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/config/package.json ./packages/config/
 COPY packages/nextjs/package.json ./packages/nextjs/
+COPY packages/backend/package.json ./packages/backend/
 COPY examples/nextjs-quickstart/package.json ./examples/nextjs-quickstart/
+COPY examples/monite-sdk-parity/package.json ./examples/monite-sdk-parity/
 COPY examples/vite-react-simple/package.json ./examples/vite-react-simple/
 RUN bun install --frozen-lockfile
 
