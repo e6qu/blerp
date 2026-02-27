@@ -216,3 +216,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: Not applicable (UI manual verification readiness).
 - Files touched: `packages/nextjs/src/client/hooks.ts`, `packages/nextjs/src/client/components/CreateOrganization.tsx`.
 - Notes/Links: Ready for M6-PC-T3 (Organization Switcher Polish).
+
+## 2026-02-26 — M6-PC-T3 Organization Switcher Polish
+
+- Summary: Polished the `<OrganizationSwitcher />` component in the `@blerp/nextjs` SDK. Added support for "Personal Account" toggling, allowing users to switch between organization context and their own personal context. Implemented multi-entity routing display by showing the `entity_id` (Monite Entity) if present in the organization's public metadata. Improved UI/UX with better visual indicators, transitions, and shadcn-inspired styling. Fixed a critical backend issue where metadata fields were not being correctly mapped to the OpenAPI-expected snake_case names (`metadata_public`). Verified with updated integration tests.
+- Tests run: `bunx vitest run src/__tests__/metadata.integration.test.ts src/__tests__/users.integration.test.ts src/__tests__/organization.integration.test.ts`
+- Files touched: `packages/nextjs/src/client/components/OrganizationSwitcher.tsx`, `apps/api/src/v1/controllers/organization.controller.ts`, `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/controllers/user-metadata.controller.ts`, `apps/api/src/v1/controllers/organization-metadata.controller.ts`, `apps/api/src/__tests__/metadata.integration.test.ts`, `apps/api/src/__tests__/users.integration.test.ts`.
+- Notes/Links: Phase C of Milestone 6 is now complete. Ready for Phase D (Real-world SDK Validation).

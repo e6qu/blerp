@@ -3,6 +3,16 @@ import { Request, Response } from "express";
 import { OrganizationService } from "../services/organization.service";
 import { cache } from "../../lib/redis";
 
+function mapOrganization(org: any) {
+  if (!org) return org;
+  const { publicMetadata, privateMetadata, ...rest } = org;
+  return {
+    ...rest,
+    metadata_public: publicMetadata,
+    metadata_private: privateMetadata,
+  };
+}
+
 export async function createOrganization(req: Request, res: Response) {
   const { name, slug, project_id } = req.body;
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
@@ -11,7 +21,7 @@ export async function createOrganization(req: Request, res: Response) {
     const org = await service.create({ name, slug, projectId: project_id });
     // Invalidate list cache
     await cache.del(`blerp:orgs:${req.tenantId}`);
-    res.status(201).json(org);
+    res.status(201).json(mapOrganization(org));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
@@ -33,7 +43,8 @@ export async function listOrganizations(req: Request, res: Response) {
 
   try {
     const orgs = await service.list({ domain: domain as string });
-    const response = { data: orgs };
+    const mappedOrgs = orgs.map(mapOrganization);
+    const response = { data: mappedOrgs };
     if (!domain) {
       await cache.set(cacheKey, response, 300); // Cache for 5 mins
     }
@@ -53,7 +64,7 @@ export async function getOrganization(req: Request, res: Response) {
       res.status(404).json({ error: { message: "Organization not found" } });
       return;
     }
-    res.status(200).json(org);
+    res.status(200).json(mapOrganization(org));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
@@ -67,7 +78,7 @@ export async function updateOrganization(req: Request, res: Response) {
   try {
     const org = await service.update(id, data);
     await cache.del(`blerp:orgs:${req.tenantId}`);
-    res.status(200).json(org);
+    res.status(200).json(mapOrganization(org));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }

@@ -1,0 +1,21 @@
+$ turbo run build --filter @blerp/api --filter @blerp/nextjs
+• turbo 2.8.11
+• Packages in scope: @blerp/api, @blerp/nextjs
+• Running build in 2 packages
+• Remote caching disabled
+@blerp/shared:build: cache miss, executing 9302dcdabfb042fe
+@blerp/shared:build: $ tsc
+@blerp/api:build: cache miss, executing 8fe2bd87fcffc21a
+@blerp/nextjs:build: cache miss, executing 345e7f34c132180e
+@blerp/api:build: $ tsc
+@blerp/nextjs:build: $ tsc
+@blerp/nextjs:build: src/client/components/OrganizationSwitcher.tsx(96,21): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+@blerp/nextjs:build: ERROR: command finished with error: command (/Users/zardoz/projects/blerp/packages/nextjs) /Users/zardoz/.bun/bin/bun run build exited (2)
+@blerp/nextjs#build: command (/Users/zardoz/projects/blerp/packages/nextjs) /Users/zardoz/.bun/bin/bun run build exited (2)
+
+ Tasks:    1 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    1.583s 
+Failed:    @blerp/nextjs#build
+
+ ERROR  run failed: command  exited (2)
