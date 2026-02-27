@@ -13,7 +13,7 @@ export const jwt = {
   // Sign a JWT with a private key
   sign: async (
     payload: JWTPayload,
-    privateKey: any,
+    privateKey: any | Uint8Array,
     options: { issuer: string; audience: string; expiresIn: string },
   ) => {
     return new SignJWT(payload)
@@ -26,7 +26,11 @@ export const jwt = {
   },
 
   // Verify a JWT with a public key
-  verify: async (token: string, publicKey: any, options: { issuer: string; audience: string }) => {
+  verify: async (
+    token: string,
+    publicKey: any | Uint8Array,
+    options: { issuer: string; audience: string },
+  ) => {
     return jwtVerify(token, publicKey, {
       issuer: options.issuer,
       audience: options.audience,
@@ -34,7 +38,7 @@ export const jwt = {
   },
 
   // Export public key as JWK
-  exportJWK: async (publicKey: any, kid: string) => {
+  exportJWK: async (publicKey: any | Uint8Array, kid: string) => {
     const jwk = await exportJWK(publicKey);
     return {
       ...jwk,

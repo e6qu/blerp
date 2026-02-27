@@ -2,14 +2,19 @@
 import { Request, Response } from "express";
 import { OrganizationService } from "../services/organization.service";
 import { cache } from "../../lib/redis";
+import type { components } from "@blerp/shared";
 
-function mapOrganization(org: any) {
-  if (!org) return org;
-  const { publicMetadata, privateMetadata, ...rest } = org;
+type Organization = components["schemas"]["Organization"];
+
+function mapOrganization(org: any): Organization {
   return {
-    ...rest,
-    metadata_public: publicMetadata,
-    metadata_private: privateMetadata,
+    id: org.id,
+    project_id: org.projectId,
+    name: org.name,
+    slug: org.slug,
+    public_metadata: (org.publicMetadata as Record<string, unknown>) || {},
+    private_metadata: (org.privateMetadata as Record<string, unknown>) || {},
+    created_at: org.createdAt.toISOString(),
   };
 }
 
@@ -19,6 +24,8 @@ export async function createOrganization(req: Request, res: Response) {
 
   try {
     const org = await service.create({ name, slug, projectId: project_id });
+    if (!org) throw new Error("Failed to create organization");
+
     // Invalidate list cache
     await cache.del(`blerp:orgs:${req.tenantId}`);
     res.status(201).json(mapOrganization(org));
@@ -33,7 +40,7 @@ export async function listOrganizations(req: Request, res: Response) {
 
   // Bypass cache for domain filtering
   if (!domain) {
-    const cached = await cache.get<{ data: any[] }>(cacheKey);
+    const cached = await cache.get<{ data: Organization[] }>(cacheKey);
     if (cached) {
       return res.status(200).json(cached);
     }
@@ -43,7 +50,7 @@ export async function listOrganizations(req: Request, res: Response) {
 
   try {
     const orgs = await service.list({ domain: domain as string });
-    const mappedOrgs = orgs.map(mapOrganization);
+    const mappedOrgs = orgs.map((o) => mapOrganization(o));
     const response = { data: mappedOrgs };
     if (!domain) {
       await cache.set(cacheKey, response, 300); // Cache for 5 mins
@@ -77,6 +84,8 @@ export async function updateOrganization(req: Request, res: Response) {
 
   try {
     const org = await service.update(id, data);
+    if (!org) throw new Error("Failed to update organization");
+
     await cache.del(`blerp:orgs:${req.tenantId}`);
     res.status(200).json(mapOrganization(org));
   } catch (error) {

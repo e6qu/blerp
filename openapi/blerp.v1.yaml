@@ -382,10 +382,10 @@ components:
           type: string
         slug:
           type: string
-        metadata_public:
+        public_metadata:
           type: object
           additionalProperties: true
-        metadata_private:
+        private_metadata:
           type: object
           additionalProperties: true
         domains:
@@ -414,6 +414,26 @@ components:
         created_at:
           type: string
           format: date-time
+
+    OrganizationDomain:
+      type: object
+      required: [id, organization_id, domain, verification_status]
+      properties:
+        id:
+          type: string
+        organization_id:
+          type: string
+        domain:
+          type: string
+        verification_status:
+          type: string
+          enum: [verified, unverified]
+        verification_token:
+          type: string
+        created_at:
+          type: integer
+        updated_at:
+          type: integer
     Membership:
       type: object
       required: [id, organization_id, user_id, role]
@@ -1542,10 +1562,33 @@ paths:
         "200":
           description: Updated roles
   /v1/organizations/{organization_id}/domains:
+    get:
+      tags: [Organizations]
+      summary: List organization domains
+      operationId: listOrganizationDomains
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of domains
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrganizationDomain"
     post:
       tags: [Organizations]
       summary: Register organization domain
-      description: Registers or verifies a domain for automatic organization assignment.
       operationId: registerOrganizationDomain
       security:
         - SecretKey: []
@@ -1568,6 +1611,58 @@ paths:
       responses:
         "201":
           description: Domain registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationDomain"
+
+  /v1/organizations/{organization_id}/domains/{domain_id}:
+    delete:
+      tags: [Organizations]
+      summary: Delete organization domain
+      operationId: deleteOrganizationDomain
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: domain_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Domain deleted
+
+  /v1/organizations/{organization_id}/domains/{domain_id}/verify:
+    post:
+      tags: [Organizations]
+      summary: Verify organization domain
+      operationId: verifyOrganizationDomain
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: domain_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Domain verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationDomain"
   /v1/invitations:
     get:
       tags: [Invitations]
@@ -2342,3 +2437,25 @@ paths:
                     $ref: "#/components/schemas/User"
                   session:
                     $ref: "#/components/schemas/Session"
+  /v1/userinfo:
+    get:
+      tags: [Auth]
+      summary: Get user information
+      description: Returns OIDC compliant user information.
+      operationId: getUserInfo
+      security:
+        - SessionToken: []
+      responses:
+        "200":
+          description: User information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sub:
+                    type: string
+                  name:
+                    type: string
+                  email:
+                    type: string

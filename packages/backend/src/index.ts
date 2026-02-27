@@ -1,6 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import createClient from "openapi-fetch";
 import type { paths } from "@blerp/shared";
+
+type Metadata = Record<string, unknown>;
 
 export class BlerpClient {
   private client: ReturnType<typeof createClient<paths>>;
@@ -25,10 +26,10 @@ export class BlerpClient {
       },
       updateOrganizationMetadata: async (
         id: string,
-        metadata: { public_metadata?: any; private_metadata?: any },
+        metadata: { public_metadata?: Metadata; private_metadata?: Metadata },
       ) => {
         const { data, error } = await this.client.PATCH(
-          "/v1/organizations/{organization_id}/metadata" as any,
+          "/v1/organizations/{organization_id}/metadata",
           {
             params: { path: { organization_id: id } },
             body: metadata,
@@ -51,9 +52,13 @@ export class BlerpClient {
       },
       updateUserMetadata: async (
         id: string,
-        metadata: { public_metadata?: any; private_metadata?: any; unsafe_metadata?: any },
+        metadata: {
+          public_metadata?: Metadata;
+          private_metadata?: Metadata;
+          unsafe_metadata?: Metadata;
+        },
       ) => {
-        const { data, error } = await this.client.PATCH("/v1/users/{user_id}/metadata" as any, {
+        const { data, error } = await this.client.PATCH("/v1/users/{user_id}/metadata", {
           params: { path: { user_id: id } },
           body: metadata,
         });

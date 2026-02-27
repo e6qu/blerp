@@ -279,9 +279,9 @@ _Objective_: ensure Blerp's metadata system supports the complex structures used
 
 Tasks:
 
-1. [ ] Implement deep-merge strategy for `updateUserMetadata` and `updateOrganizationMetadata` to correctly handle the `entities` mapping.
-2. [ ] Add support for querying users by metadata values (e.g., find user by `monite_user_id` in `private_metadata`).
-3. [ ] Add schema validation for metadata keys to ensure consistency with Monite's expected data formats.
+1. [x] Implement deep-merge strategy for `updateUserMetadata` and `updateOrganizationMetadata` to correctly handle the `entities` mapping.
+2. [x] Add support for querying users by metadata values (e.g., find user by `monite_user_id` in `private_metadata`).
+3. [x] Add schema validation for metadata keys to ensure consistency with Monite's expected data formats.
 
 ### Phase B — Organization Domains & Discovery
 
@@ -289,9 +289,9 @@ _Objective_: support the enterprise routing and auto-enrollment features Monite 
 
 Tasks:
 
-1. [ ] Implement Organization Domains REST API (`GET/POST/DELETE /v1/organizations/:id/domains`).
-2. [ ] Add domain verification logic (mocking DNS/Email verification flows) and update metadata status.
-3. [ ] Implement "Verified Domain" auto-enrollment logic in the `AuthService` signup flow.
+1. [x] Implement Organization Domains REST API (`GET/POST/DELETE /v1/organizations/:id/domains`).
+2. [x] Add domain verification logic (mocking DNS/Email verification flows) and update metadata status.
+3. [x] Implement "Verified Domain" auto-enrollment logic in the `AuthService` signup flow.
 
 ### Phase C — Enhanced UI Components
 
@@ -299,9 +299,9 @@ _Objective_: deliver the full suite of UI components and tabs used in the Monite
 
 Tasks:
 
-1. [ ] Extend `<OrganizationProfile />` component with full tab support (General, Members, Invitations, Domains).
-2. [ ] Implement `<CreateOrganization />` component with domain-based auto-suggestion features.
-3. [ ] Polish the `<OrganizationSwitcher />` to support multi-entity routing and Personal Account toggling.
+1. [x] Extend `<OrganizationProfile />` component with full tab support (General, Members, Invitations, Domains).
+2. [x] Implement `<CreateOrganization />` component with domain-based auto-suggestion features.
+3. [x] Polish the `<OrganizationSwitcher />` to support multi-entity routing and Personal Account toggling.
 
 ### Phase D — Real-world SDK Validation
 
@@ -309,6 +309,6 @@ _Objective_: prove 100% parity by running the official Monite SDK demo app again
 
 Tasks:
 
-1. [ ] Update `examples/monite-sdk-parity` to use the unmodified official `@monite/sdk-react` package.
-2. [ ] Verify the Server-to-Server token exchange flow and data synchronization via webhooks.
-3. [ ] Document any required Clerk-to-Blerp mapping overrides needed for the Monite SDK.
+1. [x] Update `examples/monite-sdk-parity` to use the unmodified official `@monite/sdk-react` package.
+2. [x] Verify the Server-to-Server token exchange flow and data synchronization via webhooks.
+3. [x] Document any required Clerk-to-Blerp mapping overrides needed for the Monite SDK.

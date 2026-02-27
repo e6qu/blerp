@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { eventBus } from "../../lib/events";
 import * as schema from "../../db/schema";
 import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { deepMerge } from "../../lib/metadata";
+import { deepMerge, Metadata } from "../../lib/metadata";
 
 export class OrganizationService {
   constructor(
@@ -55,20 +54,31 @@ export class OrganizationService {
 
   async update(
     id: string,
-    data: Partial<{ name: string; slug: string; publicMetadata: any; privateMetadata: any }>,
+    data: Partial<{
+      name: string;
+      slug: string;
+      publicMetadata: Metadata;
+      privateMetadata: Metadata;
+    }>,
   ) {
     const org = await this.get(id);
     if (!org) throw new Error("Organization not found");
 
-    const updateData: any = { updatedAt: new Date() };
+    const updateData: Partial<typeof schema.organizations.$inferInsert> = { updatedAt: new Date() };
     if (data.name) updateData.name = data.name;
     if (data.slug) updateData.slug = data.slug;
 
     if (data.publicMetadata) {
-      updateData.publicMetadata = deepMerge(org.publicMetadata || {}, data.publicMetadata);
+      updateData.publicMetadata = deepMerge(
+        (org.publicMetadata as Metadata) || {},
+        data.publicMetadata,
+      );
     }
     if (data.privateMetadata) {
-      updateData.privateMetadata = deepMerge(org.privateMetadata || {}, data.privateMetadata);
+      updateData.privateMetadata = deepMerge(
+        (org.privateMetadata as Metadata) || {},
+        data.privateMetadata,
+      );
     }
 
     await this.db

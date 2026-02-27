@@ -4,7 +4,7 @@ export interface WebhookEvent {
   id: string;
   type: string;
   created_at: number;
-  data: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  data: Record<string, unknown>;
 }
 
 export class Webhook {

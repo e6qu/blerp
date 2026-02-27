@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { redis } from "../lib/redis";
 import { logger } from "../lib/logger";
 import { getTenantDb } from "../db/router";
@@ -13,17 +12,32 @@ const CONSUMER_NAME = `worker_${process.pid}`;
 export async function initWorker() {
   try {
     await redis.xgroup("CREATE", STREAM_NAME, CONSUMER_GROUP, "0", "MKSTREAM");
-  } catch (err: any) {
-    if (!err.message.includes("BUSYGROUP")) {
+  } catch (err) {
+    if (err instanceof Error && !err.message.includes("BUSYGROUP")) {
       throw err;
     }
   }
 }
 
+type RedisStreamResponse = [string, [string, string[]][]][] | null;
+
 export async function processEvents() {
   while (true) {
     try {
-      const response = await (redis.xreadgroup as any)(
+      const response = await (
+        redis.xreadgroup as (
+          groupKeyword: "GROUP",
+          group: string,
+          consumer: string,
+          countKeyword: "COUNT",
+          count: string,
+          blockKeyword: "BLOCK",
+          block: string,
+          streamsKeyword: "STREAMS",
+          stream: string,
+          id: ">",
+        ) => Promise<RedisStreamResponse>
+      )(
         "GROUP",
         CONSUMER_GROUP,
         CONSUMER_NAME,
@@ -65,12 +79,21 @@ function parseEvent(fields: string[]) {
     type: data.type,
     tenantId: data.tenantId,
     timestamp: parseInt(data.timestamp),
-    payload: JSON.parse(data.data),
+    payload: JSON.parse(data.data) as Record<string, unknown>,
   };
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-async function deliverEvent(event: any) {
+interface WorkerEvent {
+  id: string;
+  type: string;
+  tenantId: string;
+  timestamp: number;
+  payload: Record<string, unknown>;
+}
+
+type DBWebhookEndpoint = typeof schema.webhookEndpoints.$inferSelect;
+
+async function deliverEvent(event: WorkerEvent) {
   const db = await getTenantDb(event.tenantId);
   const endpoints = await db
     .select()
@@ -83,11 +106,11 @@ async function deliverEvent(event: any) {
       continue;
     }
 
-    await attemptDelivery(endpoint, event);
+    await attemptDelivery(endpoint as DBWebhookEndpoint, event);
   }
 }
 
-async function attemptDelivery(endpoint: any, event: any) {
+async function attemptDelivery(endpoint: DBWebhookEndpoint, event: WorkerEvent) {
   const payload = JSON.stringify({
     id: event.id,
     type: event.type,

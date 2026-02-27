@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, ElementType } from "react";
 import { MoniteSDK } from "@monite/sdk-api";
 import { MoniteProvider, Payables } from "@monite/sdk-react";
 
@@ -19,16 +19,17 @@ export function MoniteApp({ entityId }: { entityId: string }) {
     });
   }, [entityId]);
 
+  const MoniteProviderCast = MoniteProvider as unknown as ElementType;
+  const PayablesCast = Payables as unknown as ElementType;
+
   return (
-    // @ts-expect-error - React 19 type compatibility issue with Monite SDK
-    <MoniteProvider monite={monite}>
+    <MoniteProviderCast monite={monite}>
       <div className="space-y-8">
         <div className="rounded-lg border bg-white p-6">
           <h2 className="mb-4 text-xl font-bold">Payables (Official Monite SDK)</h2>
-          {/* @ts-expect-error - React 19 type compatibility issue with Monite SDK */}
-          <Payables />
+          <PayablesCast />
         </div>
       </div>
-    </MoniteProvider>
+    </MoniteProviderCast>
   );
 }

@@ -1,17 +1,28 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { cookies } from "next/headers";
 import * as jose from "jose";
+
+export interface BlerpSessionPayload extends jose.JWTPayload {
+  org_id?: string;
+  org_role?: string;
+  org_permissions?: string[];
+}
 
 export async function auth() {
   const cookieStore = await cookies();
   const token = cookieStore.get("__blerp_session")?.value;
 
   if (!token) {
-    return { userId: null, orgId: null, orgRole: null, orgPermissions: [] };
+    return {
+      userId: null,
+      orgId: null,
+      orgRole: null,
+      orgPermissions: [] as string[],
+      has: () => false,
+    };
   }
 
   try {
-    const payload = jose.decodeJwt(token) as any;
+    const payload = jose.decodeJwt(token) as BlerpSessionPayload;
     return {
       userId: (payload.sub as string) || null,
       orgId: (payload.org_id as string) || null,
@@ -24,7 +35,13 @@ export async function auth() {
       },
     };
   } catch {
-    return { userId: null, orgId: null, orgRole: null, orgPermissions: [] };
+    return {
+      userId: null,
+      orgId: null,
+      orgRole: null,
+      orgPermissions: [] as string[],
+      has: () => false,
+    };
   }
 }
 

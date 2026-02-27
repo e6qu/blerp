@@ -1,7 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBlerpClient } from "./BlerpProvider";
-import type { components } from "@blerp/shared";
+import type { components, paths } from "@blerp/shared";
+
+type Organization = components["schemas"]["Organization"];
+type Membership = components["schemas"]["Membership"];
+type Invitation = components["schemas"]["Invitation"];
+type OrganizationDomain = components["schemas"]["OrganizationDomain"];
 
 export function useOrganizations(query?: { domain?: string }) {
   const client = useBlerpClient();
@@ -9,10 +13,10 @@ export function useOrganizations(query?: { domain?: string }) {
     queryKey: ["organizations", query],
     queryFn: async () => {
       const { data, error } = await client.GET("/v1/organizations", {
-        params: { query: query as any },
+        params: { query: query as paths["/v1/organizations"]["get"]["parameters"]["query"] },
       });
       if (error) throw error;
-      return data.data || [];
+      return (data as { data: Organization[] }).data || [];
     },
   });
 }
@@ -24,7 +28,7 @@ export function useCreateOrganization() {
     mutationFn: async (body: { name: string; slug?: string; project_id: string }) => {
       const { data, error } = await client.POST("/v1/organizations", { body });
       if (error) throw error;
-      return data;
+      return data as Organization;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
@@ -41,7 +45,7 @@ export function useMemberships(organizationId: string) {
         params: { path: { organization_id: organizationId } },
       });
       if (error) throw error;
-      return (data as any).data as components["schemas"]["Membership"][];
+      return (data as { data: Membership[] }).data;
     },
     enabled: !!organizationId,
   });
@@ -56,7 +60,7 @@ export function useInvitations(organizationId: string) {
         params: { query: { organization_id: organizationId } },
       });
       if (error) throw error;
-      return (data as any).data as components["schemas"]["Invitation"][];
+      return (data as { data: Invitation[] }).data;
     },
     enabled: !!organizationId,
   });
@@ -67,14 +71,11 @@ export function useDomains(organizationId: string) {
   return useQuery({
     queryKey: ["domains", organizationId],
     queryFn: async () => {
-      const { data, error } = await client.GET(
-        "/v1/organizations/{organization_id}/domains" as any,
-        {
-          params: { path: { organization_id: organizationId } },
-        },
-      );
+      const { data, error } = await client.GET("/v1/organizations/{organization_id}/domains", {
+        params: { path: { organization_id: organizationId } },
+      });
       if (error) throw error;
-      return (data as any).data as any[];
+      return (data as { data: OrganizationDomain[] }).data;
     },
     enabled: !!organizationId,
   });
@@ -85,15 +86,12 @@ export function useAddDomain(organizationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (domain: string) => {
-      const { data, error } = await client.POST(
-        "/v1/organizations/{organization_id}/domains" as any,
-        {
-          params: { path: { organization_id: organizationId } },
-          body: { domain },
-        },
-      );
+      const { data, error } = await client.POST("/v1/organizations/{organization_id}/domains", {
+        params: { path: { organization_id: organizationId } },
+        body: { domain },
+      });
       if (error) throw error;
-      return data;
+      return data as OrganizationDomain;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["domains", organizationId] });
@@ -107,7 +105,7 @@ export function useDeleteDomain(organizationId: string) {
   return useMutation({
     mutationFn: async (domainId: string) => {
       const { error } = await client.DELETE(
-        "/v1/organizations/{organization_id}/domains/{domain_id}" as any,
+        "/v1/organizations/{organization_id}/domains/{domain_id}",
         {
           params: { path: { organization_id: organizationId, domain_id: domainId } },
         },
@@ -126,13 +124,13 @@ export function useVerifyDomain(organizationId: string) {
   return useMutation({
     mutationFn: async (domainId: string) => {
       const { data, error } = await client.POST(
-        "/v1/organizations/{organization_id}/domains/{domain_id}/verify" as any,
+        "/v1/organizations/{organization_id}/domains/{domain_id}/verify",
         {
           params: { path: { organization_id: organizationId, domain_id: domainId } },
         },
       );
       if (error) throw error;
-      return data;
+      return data as OrganizationDomain;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["domains", organizationId] });
@@ -145,9 +143,9 @@ export function useUser() {
   return useQuery({
     queryKey: ["user"],
     queryFn: async () => {
-      const { data, error } = await client.GET("/userinfo" as any, {});
+      const { data, error } = await client.GET("/v1/userinfo", {});
       if (error) throw error;
-      return data;
+      return data as { sub: string; name: string; email: string };
     },
   });
 }

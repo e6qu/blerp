@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { redis } from "../lib/redis";
 import { logger } from "../lib/logger";
 import { getTenantDb } from "../db/router";
@@ -11,17 +10,32 @@ const CONSUMER_NAME = `audit_worker_${process.pid}`;
 export async function initAuditWorker() {
   try {
     await redis.xgroup("CREATE", STREAM_NAME, CONSUMER_GROUP, "0", "MKSTREAM");
-  } catch (err: any) {
-    if (!err.message.includes("BUSYGROUP")) {
+  } catch (err) {
+    if (err instanceof Error && !err.message.includes("BUSYGROUP")) {
       throw err;
     }
   }
 }
 
+type RedisStreamResponse = [string, [string, string[]][]][] | null;
+
 export async function processAuditEvents() {
   while (true) {
     try {
-      const response = await (redis.xreadgroup as any)(
+      const response = await (
+        redis.xreadgroup as (
+          groupKeyword: "GROUP",
+          group: string,
+          consumer: string,
+          countKeyword: "COUNT",
+          count: string,
+          blockKeyword: "BLOCK",
+          block: string,
+          streamsKeyword: "STREAMS",
+          stream: string,
+          id: ">",
+        ) => Promise<RedisStreamResponse>
+      )(
         "GROUP",
         CONSUMER_GROUP,
         CONSUMER_NAME,
@@ -63,12 +77,19 @@ function parseEvent(fields: string[]) {
     type: data.type,
     tenantId: data.tenantId,
     timestamp: parseInt(data.timestamp),
-    payload: JSON.parse(data.data),
+    payload: JSON.parse(data.data) as Record<string, unknown>,
   };
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-async function persistAuditLog(event: any) {
+interface WorkerEvent {
+  id: string;
+  type: string;
+  tenantId: string;
+  timestamp: number;
+  payload: Record<string, unknown>;
+}
+
+async function persistAuditLog(event: WorkerEvent) {
   try {
     const db = await getTenantDb(event.tenantId);
     const auditService = new AuditLogService(db);
@@ -77,8 +98,8 @@ async function persistAuditLog(event: any) {
       action: event.type,
       actor: { type: "system" }, // Placeholder for actual actor resolution
       payload: event.payload,
-      userId: event.payload.userId,
-      organizationId: event.payload.organizationId,
+      userId: event.payload.userId as string | undefined,
+      organizationId: event.payload.organizationId as string | undefined,
     });
 
     logger.info({ eventId: event.id, type: event.type }, "Audit log persisted");

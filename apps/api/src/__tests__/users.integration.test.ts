@@ -68,7 +68,7 @@ describe("Users Integration", () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(2);
     const user2 = res.body.data.find((u: { id: string }) => u.id === userId2);
-    expect(user2.metadata_public).toEqual({ role: "manager", settings: { theme: "light" } });
+    expect(user2.public_metadata).toEqual({ role: "manager", settings: { theme: "light" } });
   });
 
   it("should filter users by private metadata", async () => {
@@ -81,7 +81,7 @@ describe("Users Integration", () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].id).toBe(userId1);
-    expect(res.body.data[0].metadata_private).toEqual({ monite_user_id: "mu_1" });
+    expect(res.body.data[0].private_metadata).toEqual({ monite_user_id: "mu_1" });
   });
 
   it("should filter users by public metadata", async () => {

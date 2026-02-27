@@ -138,14 +138,14 @@ export function OrganizationProfile({ organizationId }: { organizationId: string
                       <p className="text-sm font-medium text-gray-900">{d.domain}</p>
                       <div className="flex gap-2 items-center">
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${d.verificationStatus === "verified" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
+                          className={`text-xs px-2 py-0.5 rounded-full ${d.verification_status === "verified" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
                         >
-                          {d.verificationStatus}
+                          {d.verification_status}
                         </span>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {d.verificationStatus !== "verified" && (
+                      {d.verification_status !== "verified" && (
                         <button
                           onClick={() => verifyDomainMutation.mutate(d.id)}
                           disabled={verifyDomainMutation.isPending}

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
 import { eq } from "drizzle-orm";
@@ -20,10 +19,24 @@ export interface SCIMUser {
   active: boolean;
 }
 
+export interface CreateSCIMUserData {
+  userName: string;
+  name?: {
+    givenName?: string;
+    familyName?: string;
+  };
+  emails?: {
+    value: string;
+    type?: string;
+    primary?: boolean;
+  }[];
+  active?: boolean;
+}
+
 export class SCIMService {
   constructor(private db: BetterSQLite3Database<typeof schema>) {}
 
-  async createUser(data: any): Promise<SCIMUser> {
+  async createUser(data: CreateSCIMUserData): Promise<SCIMUser> {
     const userId = `user_${nanoid()}`;
     const email = data.emails?.[0]?.value;
 
@@ -43,7 +56,9 @@ export class SCIMService {
       });
     }
 
-    return this.getUser(userId) as Promise<SCIMUser>;
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("Failed to create user");
+    return user;
   }
 
   async getUser(id: string): Promise<SCIMUser | null> {

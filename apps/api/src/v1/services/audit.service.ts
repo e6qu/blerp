@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
 import { desc } from "drizzle-orm";
@@ -11,8 +10,8 @@ export class AuditLogService {
     userId?: string;
     organizationId?: string;
     action: string;
-    actor: any;
-    payload?: any;
+    actor: Record<string, unknown>;
+    payload?: Record<string, unknown>;
     ipAddress?: string;
     userAgent?: string;
   }) {

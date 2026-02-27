@@ -93,9 +93,9 @@ export function OrganizationSwitcher({ hidePersonal = false }: OrganizationSwitc
                   </div>
                   <div className="flex-1 overflow-hidden text-left">
                     <p className="truncate font-medium">{org.name}</p>
-                    {!!org.metadata_public?.entity_id && (
+                    {!!org.public_metadata?.entity_id && (
                       <p className="truncate text-[10px] text-gray-400 uppercase tracking-tight">
-                        Entity: {String(org.metadata_public.entity_id)}
+                        Entity: {String(org.public_metadata.entity_id)}
                       </p>
                     )}
                   </div>

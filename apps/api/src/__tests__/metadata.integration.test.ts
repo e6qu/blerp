@@ -82,8 +82,8 @@ describe("Metadata Integration", () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.metadata_private).toEqual({ entity_id: "monite_123" });
-    expect(res.body.metadata_public).toEqual({ plan: "enterprise" });
+    expect(res.body.private_metadata).toEqual({ entity_id: "monite_123" });
+    expect(res.body.public_metadata).toEqual({ plan: "enterprise" });
   });
 
   it("should update user metadata", async () => {
@@ -97,8 +97,8 @@ describe("Metadata Integration", () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.metadata_private).toEqual({ monite_user_id: "mu_123" });
-    expect(res.body.metadata_unsafe).toEqual({ theme: "dark" });
+    expect(res.body.private_metadata).toEqual({ monite_user_id: "mu_123" });
+    expect(res.body.unsafe_metadata).toEqual({ theme: "dark" });
   });
 
   it("should perform deep merge on user metadata", async () => {
@@ -127,7 +127,7 @@ describe("Metadata Integration", () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.metadata_private.entities).toEqual({
+    expect(res.body.private_metadata.entities).toEqual({
       org_1: { entity_user_id: "eu_1", organization_id: "o1" },
       org_2: { entity_user_id: "eu_2", organization_id: "o2" },
     });

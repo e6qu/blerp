@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
 import { eq } from "drizzle-orm";
@@ -13,11 +12,11 @@ export class WebAuthnService {
       challenge: nanoid(),
       rp: { name: "Blerp", id: "localhost" },
       user: { id: userId, name: "user@example.com", displayName: "User" },
-      pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+      pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
     };
   }
 
-  async verifyRegistration(userId: string, credential: any) {
+  async verifyRegistration(userId: string, credential: { id?: string }) {
     // Mock verification
     const id = `pk_${nanoid()}`;
     await this.db.insert(schema.passkeys).values({

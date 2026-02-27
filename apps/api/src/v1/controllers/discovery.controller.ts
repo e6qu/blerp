@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from "express";
 import { jwt } from "../../lib/jwt";
 import { cache } from "../../lib/redis";
@@ -14,7 +13,7 @@ async function getMockKeyPair() {
 
 export async function getJWKS(req: Request, res: Response) {
   const cacheKey = "blerp:jwks:v1";
-  const cached = await cache.get<{ keys: any[] }>(cacheKey);
+  const cached = await cache.get<{ keys: Record<string, unknown>[] }>(cacheKey);
 
   if (cached) {
     return res.json(cached);
@@ -23,7 +22,7 @@ export async function getJWKS(req: Request, res: Response) {
   const { publicKey } = await getMockKeyPair();
   const jwk = await jwt.exportJWK(publicKey, "default-kid");
   const response = {
-    keys: [jwk],
+    keys: [jwk as unknown as Record<string, unknown>],
   };
 
   await cache.set(cacheKey, response, 3600); // Cache for 1 hour

@@ -182,11 +182,18 @@ export interface paths {
     patch: operations["updateOrganizationRoles"];
   };
   "/v1/organizations/{organization_id}/domains": {
-    /**
-     * Register organization domain
-     * @description Registers or verifies a domain for automatic organization assignment.
-     */
+    /** List organization domains */
+    get: operations["listOrganizationDomains"];
+    /** Register organization domain */
     post: operations["registerOrganizationDomain"];
+  };
+  "/v1/organizations/{organization_id}/domains/{domain_id}": {
+    /** Delete organization domain */
+    delete: operations["deleteOrganizationDomain"];
+  };
+  "/v1/organizations/{organization_id}/domains/{domain_id}/verify": {
+    /** Verify organization domain */
+    post: operations["verifyOrganizationDomain"];
   };
   "/v1/invitations": {
     /**
@@ -355,6 +362,13 @@ export interface paths {
      * @description Returns the current session's user to light-weight server actions or clients.
      */
     get: operations["getClientUser"];
+  };
+  "/v1/userinfo": {
+    /**
+     * Get user information
+     * @description Returns OIDC compliant user information.
+     */
+    get: operations["getUserInfo"];
   };
 }
 
@@ -537,10 +551,10 @@ export interface components {
       project_id: string;
       name: string;
       slug?: string;
-      metadata_public?: {
+      public_metadata?: {
         [key: string]: unknown;
       };
-      metadata_private?: {
+      private_metadata?: {
         [key: string]: unknown;
       };
       domains?: {
@@ -558,6 +572,16 @@ export interface components {
       };
       /** Format: date-time */
       created_at?: string;
+    };
+    OrganizationDomain: {
+      id: string;
+      organization_id: string;
+      domain: string;
+      /** @enum {string} */
+      verification_status: "verified" | "unverified";
+      verification_token?: string;
+      created_at?: number;
+      updated_at?: number;
     };
     Membership: {
       /** Format: uuid */
@@ -1404,10 +1428,25 @@ export interface operations {
       };
     };
   };
-  /**
-   * Register organization domain
-   * @description Registers or verifies a domain for automatic organization assignment.
-   */
+  /** List organization domains */
+  listOrganizationDomains: {
+    parameters: {
+      path: {
+        organization_id: string;
+      };
+    };
+    responses: {
+      /** @description List of domains */
+      200: {
+        content: {
+          "application/json": {
+            data?: components["schemas"]["OrganizationDomain"][];
+          };
+        };
+      };
+    };
+  };
+  /** Register organization domain */
   registerOrganizationDomain: {
     parameters: {
       path: {
@@ -1424,7 +1463,41 @@ export interface operations {
     responses: {
       /** @description Domain registered */
       201: {
+        content: {
+          "application/json": components["schemas"]["OrganizationDomain"];
+        };
+      };
+    };
+  };
+  /** Delete organization domain */
+  deleteOrganizationDomain: {
+    parameters: {
+      path: {
+        organization_id: string;
+        domain_id: string;
+      };
+    };
+    responses: {
+      /** @description Domain deleted */
+      204: {
         content: never;
+      };
+    };
+  };
+  /** Verify organization domain */
+  verifyOrganizationDomain: {
+    parameters: {
+      path: {
+        organization_id: string;
+        domain_id: string;
+      };
+    };
+    responses: {
+      /** @description Domain verified */
+      200: {
+        content: {
+          "application/json": components["schemas"]["OrganizationDomain"];
+        };
       };
     };
   };
@@ -2033,6 +2106,24 @@ export interface operations {
           "application/json": {
             user?: components["schemas"]["User"];
             session?: components["schemas"]["Session"];
+          };
+        };
+      };
+    };
+  };
+  /**
+   * Get user information
+   * @description Returns OIDC compliant user information.
+   */
+  getUserInfo: {
+    responses: {
+      /** @description User information */
+      200: {
+        content: {
+          "application/json": {
+            sub?: string;
+            name?: string;
+            email?: string;
           };
         };
       };

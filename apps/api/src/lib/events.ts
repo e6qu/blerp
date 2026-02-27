@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { redis } from "./redis";
 import { logger } from "./logger";
 import { nanoid } from "nanoid";
+import { Metadata } from "./metadata";
 
 export type EventType =
   | "user.created"
@@ -18,15 +18,11 @@ export interface BlerpEvent {
   type: EventType;
   tenantId: string;
   timestamp: number;
-  data: Record<string, any>;
+  data: Metadata;
 }
 
 export const eventBus = {
-  emit: async (
-    type: EventType,
-    tenantId: string,
-    data: Record<string, any>,
-  ): Promise<string | null> => {
+  emit: async (type: EventType, tenantId: string, data: Metadata): Promise<string | null> => {
     const event: BlerpEvent = {
       id: `evt_${nanoid()}`,
       type,
@@ -36,8 +32,6 @@ export const eventBus = {
     };
 
     try {
-      // We use a single stream for all events, or could split by tenant/type
-      // For now, let's use a global stream 'blerp_events'
       const streamName = "blerp_events";
 
       const message = {

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (event.type === "organization.created") {
-      const { organizationId } = event.data;
+      const { organizationId } = event.data as { organizationId: string };
       // Mock Monite entity creation and sync back to Blerp
       const entityId = `monite_ent_${Math.random().toString(36).substring(7)}`;
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === "user.created") {
-      const { userId } = event.data;
+      const { userId } = event.data as { userId: string };
       // Mock finding or creating an entity user in Monite
       // and mapping it to a specific entity
       const entityId = "monite_ent_default"; // Hardcoded for this mock
