@@ -1,5 +1,5 @@
 import { auth, currentUser } from "@blerp/nextjs/server";
-import { createBlerpClient } from "@blerp/backend";
+import { createBlerpClientFromEnv } from "@blerp/backend";
 
 export async function getCurrentUserEntity() {
   const { userId, orgId } = await auth();
@@ -7,10 +7,7 @@ export async function getCurrentUserEntity() {
 
   if (!userId || !orgId || !user) return null;
 
-  const blerp = createBlerpClient({
-    baseUrl: process.env.BLERP_API_URL || "http://localhost:3000",
-    secretKey: process.env.BLERP_SECRET_KEY!,
-  });
+  const blerp = createBlerpClientFromEnv();
 
   const org = await blerp.organizations.getOrganization(orgId);
 
