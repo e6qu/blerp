@@ -251,3 +251,24 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bun run openapi:lint`, `bun run lint`, `bun run build`
 - Files touched: `openapi/blerp.v1.yaml`, `examples/vite-react-simple/package.json`.
 - Notes/Links: PR #12 merged. CI now passes.
+
+## 2026-02-28 — M7 Phase A Task 1: UserProfile Component (PR #15)
+
+- Summary: Implemented `<UserProfile />` component with Account, Security, and Sessions tabs. Added hooks: `useCurrentUser()`, `useSessions()`, `useDeleteSession()`, `useUpdateUser()`. Extended User schema with `first_name`, `last_name`, `image_url`, `has_image`, `locked` fields. Updated PATCH /v1/users endpoint to accept profile fields.
+- Tests run: `bun run build`, `bun run lint`, `bun run openapi:lint`
+- Files touched: `packages/nextjs/src/client/components/UserProfile.tsx`, `packages/nextjs/src/client/hooks.ts`, `openapi/blerp.v1.yaml`, `packages/shared/src/schema.ts`.
+- Notes/Links: PR #15 merged. First task of M7 Clerk SDK Parity complete.
+
+## 2026-02-28 — M7 Phase A Tasks 2-3: UserButton and UserAvatar (PR #16)
+
+- Summary: Implemented `<UserButton />` dropdown component with profile link, account settings, org switcher integration, and sign out functionality. Implemented `<UserAvatar />` component with multiple sizes (xs, sm, md, lg, xl) and gradient fallback for users without images. Removed placeholder UserButton from Auth.tsx.
+- Tests run: `bun run build`, `bun run lint`
+- Files touched: `packages/nextjs/src/client/components/UserButton.tsx`, `packages/nextjs/src/client/components/UserAvatar.tsx`, `packages/nextjs/src/client/components/Auth.tsx`, `packages/nextjs/src/index.ts`.
+- Notes/Links: PR #16 merged.
+
+## 2026-02-28 — M7 Phase A Tasks 4-5: Enhanced Hooks (PR #17)
+
+- Summary: Enhanced `useUser()` hook to return Clerk-compatible shape `{ isLoaded, isSignedIn, user }`. Added `useClerk()` hook exposing Blerp client and methods (signOut, openSignIn, openSignUp, openUserProfile, openOrganizationProfile, setActive, has). Added `useFullUser()` for complete User object access and `useSession()` for current session. Added navigation and auth methods to BlerpProvider context. Fixed Docker build by skipping native module scripts for better-sqlite3.
+- Tests run: `bun run build`, `bun run lint`
+- Files touched: `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/nextjs/src/client/hooks.ts`, `packages/nextjs/src/client/components/CreateOrganization.tsx`, `packages/nextjs/src/index.ts`, `Dockerfile`.
+- Notes/Links: PR #17 merged. M7 Phase A complete.
