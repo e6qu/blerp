@@ -2,7 +2,7 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { eventBus } from "../../lib/events";
 import * as schema from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { deepMerge } from "../../lib/metadata";
 
@@ -27,7 +27,23 @@ export class OrganizationService {
     return this.get(id);
   }
 
-  async list() {
+  async list(filters?: { domain?: string }) {
+    if (filters?.domain) {
+      const results = await this.db
+        .select({ organization: schema.organizations })
+        .from(schema.organizations)
+        .innerJoin(
+          schema.organizationDomains,
+          eq(schema.organizations.id, schema.organizationDomains.organizationId),
+        )
+        .where(
+          and(
+            eq(schema.organizationDomains.domain, filters.domain),
+            eq(schema.organizationDomains.verificationStatus, "verified"),
+          ),
+        );
+      return results.map((r) => r.organization);
+    }
     return this.db.select().from(schema.organizations);
   }
 

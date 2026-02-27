@@ -195,3 +195,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bunx vitest run src/__tests__/domain.integration.test.ts`
 - Files touched: `apps/api/src/v1/controllers/domain.controller.ts`, `apps/api/src/v1/routes/organization.routes.ts`, `apps/api/src/__tests__/domain.integration.test.ts`.
 - Notes/Links: Ready for M6-PB-T3 (Verified Domain Auto-enrollment).
+
+## 2026-02-26 — M6-PB-T3 Domain Auto-enrollment
+
+- Summary: Implemented automatic organization enrollment for users signing up with verified domains. Updated `AuthService.attemptSignup` to detect matching verified domains and automatically create memberships. Enhanced `OrganizationService.list` and the corresponding controller to support organization discovery via the `domain` query parameter. Verified with comprehensive integration tests for both auto-enrollment and discovery flows.
+- Tests run: `bunx vitest run src/__tests__/auto-enrollment.integration.test.ts src/__tests__/discovery.integration.test.ts`
+- Files touched: `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/services/organization.service.ts`, `apps/api/src/v1/controllers/auth.controller.ts`, `apps/api/src/v1/controllers/organization.controller.ts`, `apps/api/src/__tests__/auto-enrollment.integration.test.ts`, `apps/api/src/__tests__/discovery.integration.test.ts`.
+- Notes/Links: Phase B of Milestone 6 is now complete. Ready for Phase C (Enhanced UI Components).

@@ -18,19 +18,25 @@ export async function createOrganization(req: Request, res: Response) {
 }
 
 export async function listOrganizations(req: Request, res: Response) {
+  const { domain } = req.query;
   const cacheKey = `blerp:orgs:${req.tenantId}`;
-  const cached = await cache.get<{ data: any[] }>(cacheKey);
 
-  if (cached) {
-    return res.status(200).json(cached);
+  // Bypass cache for domain filtering
+  if (!domain) {
+    const cached = await cache.get<{ data: any[] }>(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
   }
 
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
   try {
-    const orgs = await service.list();
+    const orgs = await service.list({ domain: domain as string });
     const response = { data: orgs };
-    await cache.set(cacheKey, response, 300); // Cache for 5 mins
+    if (!domain) {
+      await cache.set(cacheKey, response, 300); // Cache for 5 mins
+    }
     res.status(200).json(response);
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
