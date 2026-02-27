@@ -2,7 +2,7 @@
 
 > **Tooling note**: All package management and script commands MUST run via Bun in npm-compatible mode—use `bun install` for deps, `bun run <script>` for package scripts, and `bunx <binary>` (e.g., Turbo, Spectral) for direct CLI execution. Never use `npm`, `pnpm`, or `yarn` in this project, even if a package claims it needs a post-install script; choose an alternate dependency or disable the script while staying on Bun.
 
-> **Engineering standards**: Favor strongly-typed code (avoid `any`, `object`, or hand-waving types), prefer shallow indentation via early exits and inverted conditionals, isolate only exception-throwing statements inside try blocks, and build an imperative shell around functional/pure cores when practical (logging allowed when necessary). Always run industry-standard linting, formatting, vulnerability scans, and SAST tooling as part of the workflow.
+> **Engineering standards**: Commit to absolute type safety. NEVER use `any`, `object`, or type ignores (`@ts-ignore`, `eslint-disable`). Type casts (`as`) should be avoided and used only as a documented last resort. Prefer optional properties (`?`) and unions over `null`, prefer shallow indentation via early exits and inverted conditionals, isolate only exception-throwing statements inside try blocks, and build an imperative shell around functional/pure cores when practical (logging allowed when necessary). Always run industry-standard linting, formatting, vulnerability scans, and SAST tooling as part of the workflow.
 
 ## Milestones Overview
 

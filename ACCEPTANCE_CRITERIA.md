@@ -22,6 +22,8 @@ Use the following criteria to decide whether a task/phase is acceptable. All ite
 
 5. **Quality Gates**
    - Code formatted (Prettier/ESLint or applicable tool).
+   - **Strict Typing**: Zero usage of `any`, `object`, or type ignores (`@ts-ignore`, `eslint-disable`). Type casts (`as`) are permitted only exceptionally when no other type-safe path exists and must be documented.
+   - **Null-Safety**: Minimize usage of `null` in favor of TypeScript optional properties (`?`) or union types (e.g., `string | undefined`).
    - No critical lint/type errors.
    - Security-sensitive changes reviewed for secrets exposure, auth checks, and rate limiting.
 

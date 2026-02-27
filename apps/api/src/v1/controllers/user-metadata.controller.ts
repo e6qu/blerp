@@ -15,9 +15,9 @@ interface UserWithRelations extends DBUser {
 function mapUser(user: UserWithRelations): User {
   return {
     id: user.id,
-    external_id: null,
-    username: null,
-    primary_email_id: user.primaryEmailAddressId || null,
+    external_id: undefined,
+    username: undefined,
+    primary_email_id: user.primaryEmailAddressId || undefined,
     status: user.status as "active" | "inactive" | "banned",
     public_metadata: (user.publicMetadata as Metadata) || {},
     private_metadata: (user.privateMetadata as Metadata) || {},
@@ -32,7 +32,7 @@ function mapUser(user: UserWithRelations): User {
     })),
     created_at: user.createdAt.toISOString(),
     updated_at: user.updatedAt?.toISOString() || user.createdAt.toISOString(),
-    deleted_at: user.deletedAt?.toISOString() || null,
+    deleted_at: user.deletedAt?.toISOString() || undefined,
   };
 }
 

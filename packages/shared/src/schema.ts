@@ -413,8 +413,8 @@ export interface components {
     };
     PaginationMeta: {
       total?: number;
-      next_cursor?: string | null;
-      previous_cursor?: string | null;
+      next_cursor?: string;
+      previous_cursor?: string;
     };
     EmailAddress: {
       /** Format: uuid */
@@ -451,10 +451,10 @@ export interface components {
     User: {
       /** Format: uuid */
       id: string;
-      external_id?: string | null;
-      username?: string | null;
+      external_id?: string;
+      username?: string;
       /** Format: uuid */
-      primary_email_id?: string | null;
+      primary_email_id?: string;
       email_addresses: components["schemas"]["EmailAddress"][];
       phone_numbers?: components["schemas"]["PhoneNumber"][];
       passkeys?: components["schemas"]["PasskeyCredential"][];
@@ -464,20 +464,20 @@ export interface components {
       /** @enum {string} */
       status: "active" | "inactive" | "banned";
       /** Format: date-time */
-      last_sign_in_at?: string | null;
+      last_sign_in_at?: string;
       /** Format: date-time */
       created_at: string;
       /** Format: date-time */
       updated_at?: string;
       /** Format: date-time */
-      deleted_at?: string | null;
+      deleted_at?: string;
     };
     Session: {
       id: string;
       /** Format: uuid */
       user_id: string;
       /** Format: uuid */
-      organization_id?: string | null;
+      organization_id?: string;
       /** @enum {string} */
       status: "active" | "revoked" | "expired";
       /** Format: date-time */
@@ -485,7 +485,7 @@ export interface components {
       /** Format: date-time */
       expires_at?: string;
       /** Format: date-time */
-      abandoned_at?: string | null;
+      abandoned_at?: string;
       ip_address?: string;
       user_agent?: string;
       /** Format: date-time */
@@ -496,9 +496,9 @@ export interface components {
         id?: string;
       };
       first_factor?: string;
-      second_factor?: string | null;
+      second_factor?: string;
       /** Format: date-time */
-      last_rotated_at?: string | null;
+      last_rotated_at?: string;
       /** Format: date-time */
       created_at: string;
     };
@@ -510,7 +510,7 @@ export interface components {
       /** Format: uri */
       logo_url?: string;
       /** Format: uri */
-      favicon_url?: string | null;
+      favicon_url?: string;
       font_family?: string;
       /** @enum {string} */
       button_shape?: "rounded" | "pill" | "sharp";
@@ -558,17 +558,17 @@ export interface components {
       type: "publishable" | "secret";
       scopes?: string[];
       prefix?: string;
-      label?: string | null;
+      label?: string;
       /** @description Only returned when the key is generated or rotated. */
-      secret?: string | null;
+      secret?: string;
       /** @enum {string} */
       status: "active" | "revoked";
       /** Format: date-time */
-      last_used_at?: string | null;
+      last_used_at?: string;
       /** Format: date-time */
       created_at: string;
       /** Format: date-time */
-      rotated_at?: string | null;
+      rotated_at?: string;
     };
     Organization: {
       /** Format: uuid */
@@ -588,7 +588,7 @@ export interface components {
         /** @enum {string} */
         status?: "pending" | "verified" | "rejected";
         /** Format: date-time */
-        verified_at?: string | null;
+        verified_at?: string;
       }[];
       settings?: {
         allow_invites?: boolean;
@@ -619,11 +619,11 @@ export interface components {
       role: string;
       permissions?: string[];
       /** Format: uuid */
-      invited_by?: string | null;
+      invited_by?: string;
       /** @enum {string} */
       status?: "active" | "revoked" | "pending_invite";
       /** Format: date-time */
-      last_active_at?: string | null;
+      last_active_at?: string;
     };
     Invitation: {
       id: string;
@@ -633,17 +633,17 @@ export interface components {
       email: string;
       role: string;
       permissions?: string[];
-      inviter_user_id?: string | null;
+      inviter_user_id?: string;
       /** @enum {string} */
       status: "pending" | "accepted" | "revoked" | "expired";
       /** Format: uri */
-      redirect_url?: string | null;
+      redirect_url?: string;
       /** Format: date-time */
       created_at: string;
       /** Format: date-time */
       expires_at: string;
       /** Format: date-time */
-      accepted_at?: string | null;
+      accepted_at?: string;
     };
     Signup: {
       id: string;
@@ -659,7 +659,7 @@ export interface components {
         /** Format: date-time */
         expires_at?: string;
       };
-      created_session_id?: string | null;
+      created_session_id?: string;
       /** Format: date-time */
       expires_at?: string;
     };
@@ -671,7 +671,7 @@ export interface components {
       strategy?: string;
       mfa_required?: boolean;
       available_strategies?: string[];
-      created_session_id?: string | null;
+      created_session_id?: string;
     };
     TokenResponse: {
       access_token: string;
@@ -697,7 +697,7 @@ export interface components {
         success?: number;
         failure?: number;
         /** Format: date-time */
-        last_failure?: string | null;
+        last_failure?: string;
       };
       /** Format: date-time */
       created_at?: string;
@@ -721,7 +721,7 @@ export interface components {
         type: "user" | "api_key" | "system";
         id: string;
         /** Format: email */
-        email?: string | null;
+        email?: string;
       };
       action: string;
       resource: {
@@ -740,11 +740,11 @@ export interface components {
       kid: string;
       use: string;
       alg: string;
-      n?: string | null;
-      e?: string | null;
-      crv?: string | null;
-      x?: string | null;
-      y?: string | null;
+      n?: string;
+      e?: string;
+      crv?: string;
+      x?: string;
+      y?: string;
     };
     JWKS: {
       keys: components["schemas"]["JWK"][];

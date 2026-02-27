@@ -81,9 +81,9 @@ components:
           type: integer
           minimum: 0
         next_cursor:
-          type: ["string", "null"]
+          type: string
         previous_cursor:
-          type: ["string", "null"]
+          type: string
     EmailAddress:
       type: object
       required: [id, email, verification]
@@ -151,11 +151,11 @@ components:
           type: string
           format: uuid
         external_id:
-          type: ["string", "null"]
+          type: string
         username:
-          type: ["string", "null"]
+          type: string
         primary_email_id:
-          type: ["string", "null"]
+          type: string
           format: uuid
         email_addresses:
           type: array
@@ -179,7 +179,7 @@ components:
           type: string
           enum: [active, inactive, banned]
         last_sign_in_at:
-          type: ["string", "null"]
+          type: string
           format: date-time
         created_at:
           type: string
@@ -188,7 +188,7 @@ components:
           type: string
           format: date-time
         deleted_at:
-          type: ["string", "null"]
+          type: string
           format: date-time
     Session:
       type: object
@@ -204,7 +204,7 @@ components:
           type: string
           format: uuid
         organization_id:
-          type: ["string", "null"]
+          type: string
           format: uuid
         status:
           type: string
@@ -216,7 +216,7 @@ components:
           type: string
           format: date-time
         abandoned_at:
-          type: ["string", "null"]
+          type: string
           format: date-time
         ip_address:
           type: string
@@ -236,9 +236,9 @@ components:
         first_factor:
           type: string
         second_factor:
-          type: ["string", "null"]
+          type: string
         last_rotated_at:
-          type: ["string", "null"]
+          type: string
           format: date-time
         created_at:
           type: string
@@ -257,7 +257,7 @@ components:
           type: string
           format: uri
         favicon_url:
-          type: ["string", "null"]
+          type: string
           format: uri
         font_family:
           type: string
@@ -352,21 +352,21 @@ components:
         prefix:
           type: string
         label:
-          type: ["string", "null"]
+          type: string
         secret:
-          type: ["string", "null"]
+          type: string
           description: Only returned when the key is generated or rotated.
         status:
           type: string
           enum: [active, revoked]
         last_used_at:
-          type: ["string", "null"]
+          type: string
           format: date-time
         created_at:
           type: string
           format: date-time
         rotated_at:
-          type: ["string", "null"]
+          type: string
           format: date-time
     Organization:
       type: object
@@ -399,7 +399,7 @@ components:
                 type: string
                 enum: [pending, verified, rejected]
               verified_at:
-                type: ["string", "null"]
+                type: string
                 format: date-time
         settings:
           type: object
@@ -454,13 +454,13 @@ components:
           items:
             type: string
         invited_by:
-          type: ["string", "null"]
+          type: string
           format: uuid
         status:
           type: string
           enum: [active, revoked, pending_invite]
         last_active_at:
-          type: ["string", "null"]
+          type: string
           format: date-time
     Invitation:
       type: object
@@ -489,12 +489,12 @@ components:
           items:
             type: string
         inviter_user_id:
-          type: ["string", "null"]
+          type: string
         status:
           type: string
           enum: [pending, accepted, revoked, expired]
         redirect_url:
-          type: ["string", "null"]
+          type: string
           format: uri
         created_at:
           type: string
@@ -503,7 +503,7 @@ components:
           type: string
           format: date-time
         accepted_at:
-          type: ["string", "null"]
+          type: string
           format: date-time
     Signup:
       type: object
@@ -531,7 +531,7 @@ components:
               type: string
               format: date-time
         created_session_id:
-          type: ["string", "null"]
+          type: string
         expires_at:
           type: string
           format: date-time
@@ -555,7 +555,7 @@ components:
           items:
             type: string
         created_session_id:
-          type: ["string", "null"]
+          type: string
     TokenResponse:
       type: object
       required: [access_token, expires_in, session_id]
@@ -602,7 +602,7 @@ components:
             failure:
               type: integer
             last_failure:
-              type: ["string", "null"]
+              type: string
               format: date-time
         created_at:
           type: string
@@ -643,7 +643,7 @@ components:
             id:
               type: string
             email:
-              type: ["string", "null"]
+              type: string
               format: email
         action:
           type: string
@@ -675,15 +675,15 @@ components:
         alg:
           type: string
         n:
-          type: ["string", "null"]
+          type: string
         e:
-          type: ["string", "null"]
+          type: string
         crv:
-          type: ["string", "null"]
+          type: string
         x:
-          type: ["string", "null"]
+          type: string
         y:
-          type: ["string", "null"]
+          type: string
     JWKS:
       type: object
       required: [keys]

@@ -2,7 +2,7 @@
 
 > **Tooling Mandate**: This repo is permanently Bun-first. Always use `bun install`, `bun run`, and `bunx`. Under no circumstance may you switch to npm/pnpm/yarn—even if a dependency claims to require post-install scripts. Instead, avoid or replace packages that need those scripts; skipping them is preferable to breaking the Bun mandate.
 >
-> **Engineering Standards**: Favor precise typing (no `any`, `object`, or implicit `unknown` escapes), keep indentation shallow via early exits/inverted conditionals, and isolate only exception-throwing statements inside try blocks. Strive for an imperative shell with a functional/pure core (allow logging when needed) and run industry-standard lint/security tooling (formatters, type-check, vuln scans, SAST) before shipping.
+> **Engineering Standards**: Commit to absolute type safety. NEVER use `any`, `object`, or type ignores (`@ts-ignore`, `eslint-disable`). Type casts (`as`) should be avoided and used only as a documented last resort. Prefer optional properties (`?`) and unions over `null`. Keep indentation shallow via early exits/inverted conditionals, and isolate only exception-throwing statements inside try blocks. Strive for an imperative shell with a functional/pure core (allow logging when needed) and run industry-standard lint/security tooling (formatters, type-check, vuln scans, SAST) before shipping.
 >
 > **PR Mandate**: ALWAYS stop working immediately after creating a pull request. Do not proceed to the next task, phase, or milestone until the PR has been reviewed and merged. Ensure PR bodies are correctly formatted without literal escape characters (like `
 `).

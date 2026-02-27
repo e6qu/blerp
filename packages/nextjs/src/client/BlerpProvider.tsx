@@ -64,7 +64,7 @@ export function BlerpProvider({
       userId: null,
       orgId: activeOrgId,
       orgRole: null,
-      orgPermissions: [],
+      orgPermissions: [] as string[],
       isLoaded: true,
       isSignedIn: false,
       client: apiClient,
