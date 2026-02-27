@@ -105,15 +105,15 @@ Tasks:
 5. [x] Add `useClerk()` hook exposing full Blerp client.
 6. [x] Add `useSession()` and `useSessionList()` hooks.
 
-### Phase B — Control & Navigation Components
+### Phase B — Control & Navigation Components ✅ COMPLETE
 
 Tasks:
 
-1. [ ] Implement `<SignedIn />` and `<SignedOut />` conditional rendering components.
-2. [ ] Implement `<ClerkLoaded />` and `<ClerkLoading />` loading state components.
-3. [ ] Implement `<RedirectToSignIn />`, `<RedirectToSignUp />`, `<RedirectToUserProfile />` components.
-4. [ ] Implement `<RedirectToOrganizationProfile />`, `<RedirectToCreateOrganization />` components.
-5. [ ] Implement `<AuthenticateWithRedirectCallback />` for OAuth flows.
+1. [x] Implement `<SignedIn />` and `<SignedOut />` conditional rendering components.
+2. [x] Implement `<ClerkLoaded />` and `<ClerkLoading />` loading state components.
+3. [x] Implement `<RedirectToSignIn />`, `<RedirectToSignUp />`, `<RedirectToUserProfile />` components.
+4. [x] Implement `<RedirectToOrganizationProfile />`, `<RedirectToCreateOrganization />` components.
+5. [x] Implement `<AuthenticateWithRedirectCallback />` for OAuth flows.
 6. [ ] Add `buildSignInUrl()`, `buildSignUpUrl()`, `buildUserProfileUrl()` methods.
 
 ### Phase C — Auth Flow Components & Hooks

@@ -11,13 +11,13 @@ Prioritized list of upcoming actions based on Clerk parity gap analysis.
 3. ~~**`useUser()` hook**~~ — ✅ PR #17 merged
 4. ~~**`useClerk()` hook**~~ — ✅ PR #17 merged
 
-#### Phase B — Control Components (Current)
+#### Phase B — Control Components ✅ COMPLETE
 
-5. **`<SignedIn />` / `<SignedOut />`** — Conditional rendering components.
-6. **`<ClerkLoaded />` / `<ClerkLoading />`** — Loading state components.
-7. **Redirect components** — RedirectToSignIn, RedirectToSignUp, RedirectToUserProfile.
+5. ~~**`<SignedIn />` / `<SignedOut />`**~~ — ✅ PR #19 merged
+6. ~~**`<ClerkLoaded />` / `<ClerkLoading />`**~~ — ✅ PR #19 merged
+7. ~~**Redirect components**~~ — ✅ PR #19 merged
 
-#### Phase C — Auth Flow
+#### Phase C — Auth Flow (Current)
 
 8. **`useSignIn()` / `useSignUp()`** hooks — Full auth flow control.
 9. **`<TaskResetPassword />`** — Password reset flow component.
