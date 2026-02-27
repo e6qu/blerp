@@ -174,3 +174,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bunx vitest run src/lib/__tests__/metadata.test.ts src/__tests__/metadata.integration.test.ts`
 - Files touched: `apps/api/src/lib/metadata.ts`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/services/organization.service.ts`, `apps/api/src/lib/__tests__/metadata.test.ts`, `apps/api/src/__tests__/metadata.integration.test.ts`.
 - Notes/Links: Ready for M6-PA-T2 (Query Users by Metadata).
+
+## 2026-02-26 — M6-PA-T2 Query Users by Metadata
+
+- Summary: Implemented the ability to filter and query users by metadata keys and values in the `GET /v1/users` endpoint. The implementation supports both dot notation (`settings.theme`) and JSON pointer (`/settings/theme`) styles for querying nested metadata objects. Updated `AuthService`, `user.controller.ts`, and `BlerpClient` to support this feature. Verified with a new integration test suite.
+- Tests run: `bunx vitest run src/__tests__/users.integration.test.ts`
+- Files touched: `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `packages/backend/src/index.ts`, `apps/api/src/__tests__/users.integration.test.ts`.
+- Notes/Links: Ready for M6-PA-T3 (Metadata Schema Validation).

@@ -91,6 +91,12 @@ router.get(
   requirePermission("org:read"),
   domainController.listDomains,
 );
+router.delete(
+  "/organizations/:organization_id/domains/:domain_id",
+  authMiddleware,
+  requirePermission("org:write"),
+  domainController.deleteDomain,
+);
 router.post(
   "/organizations/:organization_id/domains/:domain_id/verify",
   authMiddleware,

@@ -37,3 +37,15 @@ export async function verifyDomain(req: Request, res: Response) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
 }
+
+export async function deleteDomain(req: Request, res: Response) {
+  const id = req.params.domain_id as string;
+  const service = new DomainService(req.tenantDb!);
+
+  try {
+    await service.deleteDomain(id);
+    res.status(204).send();
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}
