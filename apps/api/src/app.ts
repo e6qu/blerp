@@ -17,6 +17,7 @@ import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
 import { authMiddleware } from "./middleware/auth";
+import { errorHandler } from "./middleware/error-handler";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,9 +92,12 @@ app.get("*", (req, res, next) => {
   }
   res.sendFile(path.join(dashboardDist, "index.html"), (err) => {
     if (err) {
-      res.status(404).json({ error: "Not found" });
+      res.status(404).json({ error: { code: "not_found", message: "Not found" } });
     }
   });
 });
+
+// Error handler (must be last)
+app.use(errorHandler);
 
 export { app };

@@ -3,6 +3,7 @@ import { OrganizationService } from "../services/organization.service";
 import { cache } from "../../lib/redis";
 import type { components } from "@blerp/shared";
 import { Metadata } from "../../lib/metadata";
+import { NotFoundError, BadRequestError } from "../../lib/errors";
 
 type Organization = components["schemas"]["Organization"];
 
@@ -38,23 +39,19 @@ export async function createOrganization(req: Request, res: Response) {
   };
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
-  try {
-    const org = await service.create({ name, slug, projectId: project_id });
-    if (!org) throw new Error("Failed to create organization");
-
-    // Invalidate list cache
-    await cache.del(`blerp:orgs:${req.tenantId}`);
-    res.status(201).json(mapOrganization(org));
-  } catch (error) {
-    res.status(400).json({ error: { message: (error as Error).message } });
+  const org = await service.create({ name, slug, projectId: project_id });
+  if (!org) {
+    throw new BadRequestError("Failed to create organization");
   }
+
+  await cache.del(`blerp:orgs:${req.tenantId}`);
+  res.status(201).json(mapOrganization(org));
 }
 
 export async function listOrganizations(req: Request, res: Response) {
   const { domain } = req.query as { domain?: string };
   const cacheKey = `blerp:orgs:${req.tenantId}`;
 
-  // Bypass cache for domain filtering
   if (!domain) {
     const cached = await cache.get<{ data: Organization[] }>(cacheKey);
     if (cached) {
@@ -64,33 +61,24 @@ export async function listOrganizations(req: Request, res: Response) {
 
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
-  try {
-    const orgs = await service.list({ domain });
-    const mappedOrgs = orgs.map(mapOrganization);
-    const response = { data: mappedOrgs };
-    if (!domain) {
-      await cache.set(cacheKey, response, 300); // Cache for 5 mins
-    }
-    res.status(200).json(response);
-  } catch (error) {
-    res.status(400).json({ error: { message: (error as Error).message } });
+  const orgs = await service.list({ domain });
+  const mappedOrgs = orgs.map(mapOrganization);
+  const response = { data: mappedOrgs };
+  if (!domain) {
+    await cache.set(cacheKey, response, 300);
   }
+  res.status(200).json(response);
 }
 
 export async function getOrganization(req: Request, res: Response) {
   const id = (req.params.organization_id || req.params.id) as string;
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
-  try {
-    const org = await service.get(id);
-    if (!org) {
-      res.status(404).json({ error: { message: "Organization not found" } });
-      return;
-    }
-    res.status(200).json(mapOrganization(org));
-  } catch (error) {
-    res.status(400).json({ error: { message: (error as Error).message } });
+  const org = await service.get(id);
+  if (!org) {
+    throw new NotFoundError("Organization");
   }
+  res.status(200).json(mapOrganization(org));
 }
 
 export async function updateOrganization(req: Request, res: Response) {
@@ -103,31 +91,25 @@ export async function updateOrganization(req: Request, res: Response) {
   };
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
-  try {
-    const org = await service.update(id, {
-      name: data.name,
-      slug: data.slug,
-      publicMetadata: data.public_metadata,
-      privateMetadata: data.private_metadata,
-    });
-    if (!org) throw new Error("Failed to update organization");
-
-    await cache.del(`blerp:orgs:${req.tenantId}`);
-    res.status(200).json(mapOrganization(org));
-  } catch (error) {
-    res.status(400).json({ error: { message: (error as Error).message } });
+  const org = await service.update(id, {
+    name: data.name,
+    slug: data.slug,
+    publicMetadata: data.public_metadata,
+    privateMetadata: data.private_metadata,
+  });
+  if (!org) {
+    throw new BadRequestError("Failed to update organization");
   }
+
+  await cache.del(`blerp:orgs:${req.tenantId}`);
+  res.status(200).json(mapOrganization(org));
 }
 
 export async function deleteOrganization(req: Request, res: Response) {
   const id = (req.params.organization_id || req.params.id) as string;
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
-  try {
-    await service.delete(id);
-    await cache.del(`blerp:orgs:${req.tenantId}`);
-    res.status(204).send();
-  } catch (error) {
-    res.status(400).json({ error: { message: (error as Error).message } });
-  }
+  await service.delete(id);
+  await cache.del(`blerp:orgs:${req.tenantId}`);
+  res.status(204).send();
 }
