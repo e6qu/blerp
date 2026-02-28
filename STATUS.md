@@ -18,4 +18,5 @@
 | 2026-02-28 | M7 Phase A — Hooks               | completed   | PR #17 merged - useUser, useClerk, useSession hooks                       |
 | 2026-02-28 | M7 Phase B — Control Components  | completed   | PR #19 merged - SignedIn/Out, redirects                                   |
 | 2026-02-28 | M7 Phase C — Auth Flow           | completed   | PR #20 merged - useSignIn, useSignUp, TaskResetPassword, TaskSetupMFA     |
-| 2026-02-28 | M7 Phase E — User Object         | in-progress | externalId, MFA fields (totpEnabled, backupCodeEnabled, twoFactorEnabled) |
+| 2026-02-28 | M7 Phase E — User Object         | completed   | PR #21 merged - externalId, MFA fields                                    |
+| 2026-02-28 | M5 Phase D — Testing Package     | in-progress | @blerp/testing package created, tokens and playwright helpers implemented |

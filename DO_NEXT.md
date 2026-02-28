@@ -23,15 +23,29 @@ Prioritized list of upcoming actions based on Clerk parity gap analysis.
 9. ~~**`<TaskResetPassword />`**~~ — ✅ PR #20 merged
 10. ~~**`<TaskSetupMFA />`**~~ — ✅ PR #20 merged
 
-#### Phase E — User Object (Current)
+#### Phase E — User Object ✅ COMPLETE
 
-11. **Add `externalId`** — External system ID mapping.
-12. **Add MFA fields** — totpEnabled, backupCodeEnabled, twoFactorEnabled.
+11. ~~**Add `externalId`**~~ — ✅ Already in schema
+12. ~~**Add MFA fields**~~ — ✅ PR #21 merged
 13. ~~**Add `locked` field**~~ — ✅ Added in PR #15
 
-### Milestone 5 — Completion
+### Milestone 5 — Completion (Current)
 
-14. **`@blerp/testing` package** — Playwright helpers and token minting.
+#### Task 14: `@blerp/testing` Package (In Progress)
+
+**Completed:**
+
+- `tokens.ts`: createTestToken(), createTestUser(), createTestOrganization(), createTestSession(), mintTestTokens()
+- `playwright.ts`: BlerpTestHelper class, loginAsUser(), logout()
+- `index.ts`: Export all public APIs
+- `package.json` with proper exports
+
+**Remaining:**
+
+- Build and lint verification
+- Add to turbo.json pipeline
+- Create PR
+
 15. **Global setup pattern** — E2E test infrastructure.
 
 ### Phase F — Engineering Standards

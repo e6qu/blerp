@@ -225,6 +225,22 @@
         "typescript": "^5.4.5",
       },
     },
+    "packages/testing": {
+      "name": "@blerp/testing",
+      "version": "1.0.0",
+      "dependencies": {
+        "@blerp/backend": "workspace:*",
+        "@blerp/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "@blerp/config": "workspace:*",
+        "@playwright/test": "^1.50.0",
+        "typescript": "^5.7.2",
+      },
+      "peerDependencies": {
+        "@playwright/test": ">=1.40.0",
+      },
+    },
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
@@ -332,6 +348,8 @@
     "@blerp/nextjs": ["@blerp/nextjs@workspace:packages/nextjs"],
 
     "@blerp/shared": ["@blerp/shared@workspace:packages/shared"],
+
+    "@blerp/testing": ["@blerp/testing@workspace:packages/testing"],
 
     "@chromatic-com/storybook": ["@chromatic-com/storybook@5.0.1", "", { "dependencies": { "@neoconfetti/react": "^1.0.0", "chromatic": "^13.3.4", "filesize": "^10.0.12", "jsonfile": "^6.1.0", "strip-ansi": "^7.1.0" }, "peerDependencies": { "storybook": "^0.0.0-0 || ^10.1.0 || ^10.1.0-0 || ^10.2.0-0 || ^10.3.0-0" } }, "sha512-v80QBwVd8W6acH5NtDgFlUevIBaMZAh1pYpBiB40tuNzS242NTHeQHBDGYwIAbWKDnt1qfjJpcpL6pj5kAr4LA=="],
 

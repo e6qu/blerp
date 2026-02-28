@@ -272,3 +272,31 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bun run build`, `bun run lint`
 - Files touched: `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/nextjs/src/client/hooks.ts`, `packages/nextjs/src/client/components/CreateOrganization.tsx`, `packages/nextjs/src/index.ts`, `Dockerfile`.
 - Notes/Links: PR #17 merged. M7 Phase A complete.
+
+## 2026-02-28 — M7 Phase B: Control Components (PR #19)
+
+- Summary: Implemented control and redirect components for Clerk parity: `<SignedIn />`, `<SignedOut />`, `<ClerkLoaded />`, `<ClerkLoading />`, `<RedirectToSignIn />`, `<RedirectToSignUp />`, `<RedirectToUserProfile />`, `<RedirectToOrganizationProfile />`, `<RedirectToCreateOrganization />`, `<AuthenticateWithRedirectCallback />`. Added `useSessionClaim()` hook.
+- Tests run: `bun run build`, `bun run lint`
+- Files touched: `packages/nextjs/src/client/components/Control.tsx`, `packages/nextjs/src/index.ts`.
+- Notes/Links: PR #19 merged. M7 Phase B complete.
+
+## 2026-02-28 — M7 Phase C: Auth Flow Hooks and Components (PR #20)
+
+- Summary: Implemented `useSignIn()` hook with create, attemptFirstFactor, attemptSecondFactor, reset methods. Implemented `useSignUp()` hook with create, prepareVerification, attemptVerification, update, reset methods. Added `<TaskResetPassword />` component for password reset flow. Added `<TaskSetupMFA />` component for MFA setup with TOTP and backup codes.
+- Tests run: `bun run build`, `bun run lint`
+- Files touched: `packages/nextjs/src/client/hooks.ts`, `packages/nextjs/src/client/components/TaskResetPassword.tsx`, `packages/nextjs/src/client/components/TaskSetupMFA.tsx`, `packages/nextjs/src/index.ts`.
+- Notes/Links: PR #20 merged. M7 Phase C complete.
+
+## 2026-02-28 — M7 Phase E: User Object MFA Fields (PR #21)
+
+- Summary: Added MFA-related fields to User schema: `totp_enabled`, `backup_code_enabled`, `two_factor_enabled`. The `external_id` and `locked` fields were already present. Regenerated shared types from OpenAPI spec.
+- Tests run: `bun run openapi:lint`, `bun run build`, `bun run lint`
+- Files touched: `openapi/blerp.v1.yaml`, `packages/shared/src/schema.ts`.
+- Notes/Links: PR #21 merged. M7 Phase E complete.
+
+## 2026-02-28 — M5 Phase D: @blerp/testing Package (In Progress)
+
+- Summary: Creating `@blerp/testing` package with Playwright helpers and token minting utilities. Implemented `tokens.ts` with `createTestToken()`, `createTestUser()`, `createTestOrganization()`, `createTestSession()`, `mintTestTokens()`. Implemented `playwright.ts` with `BlerpTestHelper` class, `createTestHelper()`, `loginAsUser()`, `logout()` functions.
+- Tests run: Not yet (package incomplete)
+- Files touched: `packages/testing/package.json`, `packages/testing/tsconfig.json`, `packages/testing/src/tokens.ts`, `packages/testing/src/playwright.ts`.
+- Notes/Links: In progress - needs index.ts, build verification, and PR creation.

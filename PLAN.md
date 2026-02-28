@@ -79,9 +79,9 @@
 
 ## Milestone 5 — Remaining Tasks
 
-### Phase D — E2E Testing Helpers
+### Phase D — E2E Testing Helpers (In Progress)
 
-1. [ ] Implement `@blerp/testing` package with token minting helpers for Playwright.
+1. [x] Implement `@blerp/testing` package with token minting helpers for Playwright.
 2. [ ] Implement `global.setup.ts` pattern for monorepo E2E tests.
 
 ### Phase C — Remaining
