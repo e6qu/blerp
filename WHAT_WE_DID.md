@@ -294,9 +294,9 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Files touched: `openapi/blerp.v1.yaml`, `packages/shared/src/schema.ts`.
 - Notes/Links: PR #21 merged. M7 Phase E complete.
 
-## 2026-02-28 — M5 Phase D: @blerp/testing Package (In Progress)
+## 2026-02-28 — M5 Phase D: @blerp/testing Package (PR #22)
 
-- Summary: Creating `@blerp/testing` package with Playwright helpers and token minting utilities. Implemented `tokens.ts` with `createTestToken()`, `createTestUser()`, `createTestOrganization()`, `createTestSession()`, `mintTestTokens()`. Implemented `playwright.ts` with `BlerpTestHelper` class, `createTestHelper()`, `loginAsUser()`, `logout()` functions.
-- Tests run: Not yet (package incomplete)
-- Files touched: `packages/testing/package.json`, `packages/testing/tsconfig.json`, `packages/testing/src/tokens.ts`, `packages/testing/src/playwright.ts`.
-- Notes/Links: In progress - needs index.ts, build verification, and PR creation.
+- Summary: Created `@blerp/testing` package with Playwright helpers and token minting utilities. Implemented `tokens.ts` with `createTestToken()`, `createTestUser()`, `createTestOrganization()`, `createTestSession()`, `mintTestTokens()`. Implemented `playwright.ts` with `BlerpTestHelper` class, `createTestHelper()`, `loginAsUser()`, `logout()` functions. Package exports: `@blerp/testing`, `@blerp/testing/tokens`, `@blerp/testing/playwright`. Fixed Dockerfile to include new package in CI build.
+- Tests run: `bun run build`, `bun run lint`
+- Files touched: `packages/testing/package.json`, `packages/testing/tsconfig.json`, `packages/testing/src/tokens.ts`, `packages/testing/src/playwright.ts`, `packages/testing/src/index.ts`, `Dockerfile`.
+- Notes/Links: PR #22 merged. M5 Phase D Task 1 complete.

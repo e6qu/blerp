@@ -31,21 +31,7 @@ Prioritized list of upcoming actions based on Clerk parity gap analysis.
 
 ### Milestone 5 — Completion (Current)
 
-#### Task 14: `@blerp/testing` Package (In Progress)
-
-**Completed:**
-
-- `tokens.ts`: createTestToken(), createTestUser(), createTestOrganization(), createTestSession(), mintTestTokens()
-- `playwright.ts`: BlerpTestHelper class, loginAsUser(), logout()
-- `index.ts`: Export all public APIs
-- `package.json` with proper exports
-
-**Remaining:**
-
-- Build and lint verification
-- Add to turbo.json pipeline
-- Create PR
-
+14. ~~**`@blerp/testing` package**~~ — ✅ PR #22 merged
 15. **Global setup pattern** — E2E test infrastructure.
 
 ### Phase F — Engineering Standards
