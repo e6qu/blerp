@@ -21,4 +21,6 @@
 | 2026-02-28 | M7 Phase E — User Object         | completed   | PR #21 merged - externalId, MFA fields                                |
 | 2026-02-28 | M5 Phase D — Testing Package     | completed   | PR #22 merged - @blerp/testing with Playwright helpers, token minting |
 | 2026-02-28 | M5 Phase D — Global Setup        | completed   | PR #23 merged - E2E test infrastructure, authenticated fixtures       |
-| 2026-02-28 | Phase F — Engineering Standards  | ready       | Standardize error handling, CI/CD optimization                        |
+| 2026-02-28 | Phase F — Error Handling         | completed   | PR #24 merged - BlerpError classes, error handler middleware          |
+| 2026-02-28 | Phase F — CI/CD Optimization     | completed   | PR #25 merged - Parallel jobs, caching, E2E tests                     |
+| 2026-02-28 | v1.0.0 Release                   | ready       | Final tag and container deployment                                    |
