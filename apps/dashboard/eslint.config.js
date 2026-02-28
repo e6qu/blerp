@@ -6,7 +6,7 @@ import reactConfig from "@blerp/config/eslint-react";
 export default [
   ...reactConfig,
   {
-    ignores: ["dist/**"],
+    ignores: ["dist/**", "tests/**"],
   },
   ...storybook.configs["flat/recommended"],
   {
