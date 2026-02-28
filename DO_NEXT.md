@@ -42,4 +42,3 @@ Prioritized list of upcoming actions based on Clerk parity gap analysis.
 ### Production
 
 18. **v1.0.0 Release** — Final tag and container deployment.
-19. **Marketing & Launch** — Announce General Availability.
