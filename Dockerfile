@@ -23,7 +23,9 @@ RUN bun install --frozen-lockfile --ignore-scripts
 FROM install AS build-shared
 COPY packages/shared ./packages/shared
 COPY packages/config ./packages/config
-RUN bun run build --filter @blerp/shared
+COPY packages/backend ./packages/backend
+COPY packages/testing ./packages/testing
+RUN bun run build --filter @blerp/shared --filter @blerp/backend --filter @blerp/testing
 
 # Build dashboard
 FROM build-shared AS build-dashboard
