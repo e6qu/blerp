@@ -1,44 +1,41 @@
 # Do Next
 
-Prioritized list of upcoming actions based on Clerk parity gap analysis.
+### Current Milestone
 
-### Milestone 7 — Clerk SDK Parity (Priority)
+| Milestone | Description         | Status         |
+| --------- | ------------------- | -------------- |
+| M8        | UI Flow E2E Testing | 🔄 In Progress |
 
-#### Phase A — User Components ✅ COMPLETE
+### Completed in M8
 
-1. ~~**`<UserProfile />`**~~ — ✅ PR #15 merged
-2. ~~**`<UserButton />`**~~ — ✅ PR #16 merged
-3. ~~**`useUser()` hook**~~ — ✅ PR #17 merged
-4. ~~**`useClerk()` hook**~~ — ✅ PR #17 merged
+- Phase A: Auth flow tests (signup, signin, signout, password-reset)
+- Phase B: User profile tests (profile, sessions, security)
+- Phase C: Organization tests (crud, switching, members, domains)
+- Phase D: Access control tests (protected-routes, permissions)
+- Phase E Task 14: Shared fixtures
 
-#### Phase B — Control Components ✅ COMPLETE
+### Remaining in M8
 
-5. ~~**`<SignedIn />` / `<SignedOut />`**~~ — ✅ PR #19 merged
-6. ~~**`<ClerkLoaded />` / `<ClerkLoading />`**~~ — ✅ PR #19 merged
-7. ~~**Redirect components**~~ — ✅ PR #19 merged
+1. **Test Data Seeding** — Implement seed script for consistent test data (`tests/seed.ts`)
+2. **Visual Regression** — Configure Playwright snapshots (`tests/visual/*.spec.ts`)
+3. **E2E in CI** — Run E2E tests in GitHub Actions with artifact upload
 
-#### Phase C — Auth Flow ✅ COMPLETE
+### Completed Milestones
 
-8. ~~**`useSignIn()` / `useSignUp()`** hooks~~ — ✅ PR #20 merged
-9. ~~**`<TaskResetPassword />`**~~ — ✅ PR #20 merged
-10. ~~**`<TaskSetupMFA />`**~~ — ✅ PR #20 merged
+| Milestone  | Description                                                     | Status      |
+| ---------- | --------------------------------------------------------------- | ----------- |
+| M1-M6      | Core Platform, Enterprise, Scale, Next.js Parity, Monite Parity | ✅ Complete |
+| M7         | Clerk SDK Parity                                                | ✅ Complete |
+| M5 Phase D | E2E Testing                                                     | ✅ Complete |
+| Phase F    | Engineering Standards                                           | ✅ Complete |
 
-#### Phase E — User Object ✅ COMPLETE
+### Future Enhancements (Not Planned)
 
-11. ~~**Add `externalId`**~~ — ✅ Already in schema
-12. ~~**Add MFA fields**~~ — ✅ PR #21 merged
-13. ~~**Add `locked` field**~~ — ✅ Added in PR #15
+These items are documented but not currently prioritized:
 
-### Milestone 5 — Completion ✅ COMPLETE
-
-14. ~~**`@blerp/testing` package**~~ — ✅ PR #22 merged
-15. ~~**Global setup pattern**~~ — ✅ PR #23 merged
-
-### Phase F — Engineering Standards ✅ COMPLETE
-
-16. ~~**Standardize error handling**~~ — ✅ PR #24 merged
-17. ~~**CI/CD optimization**~~ — ✅ PR #25 merged
-
-### Production (Current)
-
-18. **v1.0.0 Release** — Final tag and container deployment.
+- M9: Production Infrastructure (multi-region, blue/green deploy)
+- M10: Multi-Language SDK Support (Python, Go, Ruby)
+- M11: Advanced Security & Compliance (SOC 2, GDPR tooling)
+- Billing Components
+- M2M Tokens
+- Web3 Authentication

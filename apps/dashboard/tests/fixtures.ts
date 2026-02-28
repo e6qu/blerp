@@ -1,7 +1,11 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Page } from "@playwright/test";
 import { createAuthenticatedPage, getTestUserId } from "@blerp/testing";
 
-export const test = base.extend({
+type DashboardFixtures = {
+  authenticatedPage: Page;
+};
+
+export const test = base.extend<DashboardFixtures>({
   authenticatedPage: async ({ page }, use) => {
     const userId = getTestUserId() || "e2e_dashboard_user";
 

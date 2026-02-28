@@ -6,19 +6,19 @@
 
 ## Milestones Overview
 
-| Milestone | Description                           | Status             |
-| --------- | ------------------------------------- | ------------------ |
-| M1        | Core Platform Foundations             | ✅ Complete        |
-| M2        | Enterprise & Ecosystem Expansion      | ✅ Complete        |
-| M3        | Experience & Scale                    | ✅ Complete        |
-| M4        | Framework Adapters (Next.js Parity)   | ✅ Complete        |
-| M5        | Monite SDK Parity & Advanced Metadata | 🔄 Phase D pending |
-| M6        | Monite SDK Full Feature Parity        | ✅ Complete        |
-| M7        | Clerk SDK Parity                      | 📋 Planned         |
-| M8        | E2E Testing & Quality Assurance       | 📋 Planned         |
-| M9        | Production Infrastructure             | 📋 Planned         |
-| M10       | Multi-Language SDK Support            | 📋 Planned         |
-| M11       | Advanced Security & Compliance        | 📋 Planned         |
+| Milestone | Description                           | Status      |
+| --------- | ------------------------------------- | ----------- |
+| M1        | Core Platform Foundations             | ✅ Complete |
+| M2        | Enterprise & Ecosystem Expansion      | ✅ Complete |
+| M3        | Experience & Scale                    | ✅ Complete |
+| M4        | Framework Adapters (Next.js Parity)   | ✅ Complete |
+| M5        | Monite SDK Parity & Advanced Metadata | ✅ Complete |
+| M6        | Monite SDK Full Feature Parity        | ✅ Complete |
+| M7        | Clerk SDK Parity                      | ✅ Complete |
+| M8        | UI Flow E2E Testing                   | 📋 Current  |
+| M9        | Production Infrastructure             | 📋 Planned  |
+| M10       | Multi-Language SDK Support            | 📋 Planned  |
+| M11       | Advanced Security & Compliance        | 📋 Planned  |
 
 ---
 
@@ -58,13 +58,14 @@
 - Pre-built UI components: `SignUp`, `SignIn`, `UserButton`, `OrganizationSwitcher`
 - Example apps validating Clerk tutorial compliance
 
-### Milestone 5 — Monite SDK Parity & Advanced Metadata ✅ (Phase D pending)
+### Milestone 5 — Monite SDK Parity & Advanced Metadata ✅
 
 - `@blerp/backend` with `blerpClient` (clerkClient parity)
 - Private/public/unsafe metadata endpoints
 - `Protect` component and `has` permission helper
 - `OrganizationProfile`, `CreateOrganization` components
 - Webhook handler middleware
+- `@blerp/testing` package with Playwright helpers
 
 ### Milestone 6 — Monite SDK Full Feature Parity ✅
 
@@ -75,231 +76,183 @@
 - Full `@monite/sdk-react` integration example
 - Clerk-to-Blerp mapping documentation
 
----
+### Milestone 7 — Clerk SDK Parity ✅
 
-## Milestone 5 — Remaining Tasks
-
-### Phase D — E2E Testing Helpers (In Progress)
-
-1. [x] Implement `@blerp/testing` package with token minting helpers for Playwright.
-2. [ ] Implement `global.setup.ts` pattern for monorepo E2E tests.
-
-### Phase C — Remaining
-
-1. [ ] Configure Terraform/DNS logic placeholders for custom domains.
+- User components: `<UserProfile />`, `<UserButton />`, `<UserAvatar />`
+- Control components: `<SignedIn />`, `<SignedOut />`, redirects
+- Auth flow components: `<TaskResetPassword />`, `<TaskSetupMFA />`
+- User object enhancements: MFA fields, `locked`, `externalId`
+- Hooks: `useUser()`, `useClerk()`, `useSignIn()`, `useSignUp()`
+- Standardized error handling with `BlerpError` classes
+- CI/CD optimization with parallel jobs and caching
 
 ---
 
-## Milestone 7 — Clerk SDK Parity
+## Milestone 8 — UI Flow E2E Testing
 
-_Objective_: Achieve full API and component parity with Clerk's SDK offerings.
+_Objective_: Implement comprehensive Playwright E2E tests for all UI flows to ensure production readiness.
 
-### Phase A — User Components & Hooks ✅ COMPLETE
+### Phase A — Authentication Flow Tests
 
-Tasks:
+1. [x] **Sign Up Flow**
+   - Test: User can create account with email
+   - Test: User sees validation errors for invalid inputs
+   - Test: User can verify email (if enabled)
+   - File: `tests/auth/signup.spec.ts`
 
-1. [x] Implement `<UserProfile />` component with full tab support (Account, Security, Connected Accounts).
-2. [x] Implement `<UserButton />` component with dropdown menu and actions.
-3. [x] Implement `<UserAvatar />` component.
-4. [x] Add `useUser()` hook with full User object access.
-5. [x] Add `useClerk()` hook exposing full Blerp client.
-6. [x] Add `useSession()` and `useSessionList()` hooks.
+2. [x] **Sign In Flow**
+   - Test: User can sign in with valid credentials
+   - Test: User sees error for invalid credentials
+   - Test: Redirect after successful sign in
+   - File: `tests/auth/signin.spec.ts`
 
-### Phase B — Control & Navigation Components ✅ COMPLETE
+3. [x] **Sign Out Flow**
+   - Test: User can sign out
+   - Test: Session is cleared after sign out
+   - Test: Protected routes redirect after sign out
+   - File: `tests/auth/signout.spec.ts`
 
-Tasks:
+4. [x] **Password Reset Flow**
+   - Test: User can request password reset
+   - Test: User receives reset email (mocked)
+   - Test: User can set new password
+   - File: `tests/auth/password-reset.spec.ts`
 
-1. [x] Implement `<SignedIn />` and `<SignedOut />` conditional rendering components.
-2. [x] Implement `<ClerkLoaded />` and `<ClerkLoading />` loading state components.
-3. [x] Implement `<RedirectToSignIn />`, `<RedirectToSignUp />`, `<RedirectToUserProfile />` components.
-4. [x] Implement `<RedirectToOrganizationProfile />`, `<RedirectToCreateOrganization />` components.
-5. [x] Implement `<AuthenticateWithRedirectCallback />` for OAuth flows.
-6. [ ] Add `buildSignInUrl()`, `buildSignUpUrl()`, `buildUserProfileUrl()` methods.
+### Phase B — User Profile Tests
 
-### Phase C — Auth Flow Components & Hooks
+5. [x] **Profile Management**
+   - Test: User can view their profile
+   - Test: User can update name and username
+   - Test: User can upload avatar
+   - File: `tests/user/profile.spec.ts`
 
-Tasks:
+6. [x] **Session Management**
+   - Test: User can view active sessions
+   - Test: User can revoke a session
+   - Test: Revoked session is invalidated
+   - File: `tests/user/sessions.spec.ts`
 
-1. [ ] Implement `<TaskResetPassword />` component.
-2. [ ] Implement `<TaskSetupMFA />` component.
-3. [ ] Implement `<TaskChooseOrganization />` component.
-4. [ ] Implement `<GoogleOneTap />` component.
-5. [ ] Implement `<Waitlist />` component for pre-launch signups.
-6. [ ] Add `useSignIn()` and `useSignUp()` hooks with full flow control.
-7. [ ] Add `useReverification()` hook for step-up auth.
+7. [x] **Security Settings**
+   - Test: User can view security settings
+   - Test: User can enable TOTP MFA
+   - Test: User can generate backup codes
+   - File: `tests/user/security.spec.ts`
 
-### Phase D — Organization Components
+### Phase C — Organization Flow Tests
 
-Tasks:
+8. [x] **Organization CRUD**
+   - Test: User can create organization
+   - Test: Organization appears in switcher after creation
+   - Test: User can update organization name
+   - Test: User can delete organization
+   - File: `tests/organizations/crud.spec.ts`
 
-1. [ ] Implement `<OrganizationList />` component.
-2. [ ] Add `useOrganizationList()` hook.
-3. [ ] Add `useOrganizationCreationDefaults()` hook.
-4. [ ] Implement organization-related redirect components.
+9. [x] **Organization Switching**
+   - Test: User can switch between organizations
+   - Test: Active org is persisted across page reloads
+   - Test: Data is isolated per organization
+   - File: `tests/organizations/switching.spec.ts`
 
-### Phase E — User Object Enhancements
+10. [x] **Member Management**
+    - Test: Owner can invite members
+    - Test: Invitee receives invitation
+    - Test: Member can accept invitation
+    - Test: Owner can change member role
+    - Test: Owner can remove member
+    - File: `tests/organizations/members.spec.ts`
 
-Tasks:
+11. [x] **Organization Domains**
+    - Test: Admin can add domain
+    - Test: Domain verification flow
+    - Test: Verified domain shows in org list
+    - File: `tests/organizations/domains.spec.ts`
 
-1. [ ] Add `externalId` field for external system ID mapping.
-2. [ ] Add MFA-related fields: `totpEnabled`, `backupCodeEnabled`, `twoFactorEnabled`.
-3. [x] Add `locked` and `lockout` fields for account lock management.
-4. [ ] Add `legalAcceptedAt` field for legal compliance tracking.
-5. [ ] Add `locale` field for user language preference.
-6. [ ] Add `web3Wallets` array for crypto wallet addresses.
+### Phase D — Access Control Tests
 
-### Phase F — Testing Tokens & Sign-in Tokens
+12. [x] **Protected Routes**
+    - Test: Unauthenticated user redirected to sign in
+    - Test: Authenticated user can access protected routes
+    - Test: Role-based access control works
+    - File: `tests/access/protected-routes.spec.ts`
 
-Tasks:
+13. [x] **Permission Checks**
+    - Test: `<SignedIn>` / `<SignedOut>` rendering
+    - Test: `has()` permission helper
+    - Test: Organization role permissions
+    - File: `tests/access/permissions.spec.ts`
 
-1. [ ] Implement Testing Tokens API for E2E test bot detection bypass.
-2. [ ] Implement Sign-in Tokens API for passwordless authentication.
-3. [ ] Add `createSignInToken()` and `revokeSignInToken()` to backend client.
-4. [ ] Add `createTestingToken()` to backend client.
+### Phase E — Test Infrastructure
 
-### Phase G — Allowlist & Redirect URLs
+14. [x] **Shared Fixtures**
 
-Tasks:
+- Create reusable test fixtures for users, orgs, sessions
+- File: `tests/fixtures/index.ts`
 
-1. [ ] Implement Allowlist Identifiers API (restrict signups by email/phone).
-2. [ ] Implement Redirect URLs API for whitelisted OAuth redirects.
-3. [ ] Add backend client methods for allowlist management.
-4. [ ] Add backend client methods for redirect URL management.
+15. [ ] **Test Data Seeding**
 
-### Phase H — SAML SSO (Enterprise)
+- Implement seed script for consistent test data
+- File: `tests/seed.ts`
 
-Tasks:
+16. [ ] **Visual Regression Setup**
 
-1. [ ] Implement SAML Connections API for organizations.
-2. [ ] Add `samlAccounts` to User object.
-3. [ ] Implement SAML SSO sign-in flow.
-4. [ ] Add SAML connection management to OrganizationProfile component.
+- Configure Playwright snapshots for key pages
+- File: `tests/visual/*.spec.ts`
 
----
+### Phase F — CI Integration
 
-## Milestone 8 — E2E Testing & Quality Assurance
+17. [ ] **E2E in CI Pipeline**
 
-_Objective_: establish comprehensive testing infrastructure for production confidence.
-
-### Phase A — Testing Package
-
-1. [ ] Create `@blerp/testing` package with Playwright utilities.
-2. [ ] Implement token minting helpers for authenticated E2E flows.
-3. [ ] Create mock fixtures for users, organizations, and sessions.
-4. [ ] Add visual regression testing with Playwright snapshots.
-
-### Phase B — Integration Test Suite
-
-1. [ ] Implement `global.setup.ts` pattern for monorepo E2E tests.
-2. [ ] Add API integration tests for all auth flows.
-3. [ ] Add webhook delivery verification tests.
-4. [ ] Create load testing harness with k6 or Artillery.
-
-### Phase C — Quality Gates
-
-1. [ ] Configure mutation testing (Stryker) for critical paths.
-2. [ ] Add security scanning (Snyk, Trivy) to CI pipeline.
-3. [ ] Implement coverage thresholds (80% minimum).
-4. [ ] Add bundle size monitoring for frontend packages.
+- Run E2E tests in GitHub Actions
+- Upload Playwright reports as artifacts
+- Fail CI on E2E test failures
 
 ---
 
 ## Milestone 9 — Production Infrastructure
 
-_Objective_: harden infrastructure for production deployment.
+_Objective_: Deploy Blerp to production infrastructure.
 
-### Phase A — Infrastructure Hardening
+### Phase A — Infrastructure Setup
 
-1. [ ] Implement blue/green deployment automation.
-2. [ ] Configure SSL/TLS certificates via AWS ACM.
-3. [ ] Set up CloudFront CDN for static assets.
-4. [ ] Implement secrets management via AWS Secrets Manager.
+1. [ ] Create `infra/task-definition.json` for ECS
+2. [ ] Create ECR repository
+3. [ ] Configure Route 53 domain
+4. [ ] Set up SSL certificates via ACM
 
-### Phase B — Observability
+### Phase B — Deployment
 
-1. [ ] Integrate Datadog/New Relic for APM.
-2. [ ] Configure log aggregation (CloudWatch Logs or Datadog).
-3. [ ] Set up alerting for critical metrics (error rate, latency).
-4. [ ] Implement distributed tracing across services.
-
-### Phase C — Disaster Recovery
-
-1. [ ] Implement automated backup for SQLite databases.
-2. [ ] Configure multi-region failover (Route 53 health checks).
-3. [ ] Document runbooks for common incident scenarios.
-4. [ ] Conduct chaos engineering exercises.
+5. [ ] Tag v1.0.0 release
+6. [ ] Configure AWS secrets
+7. [ ] Deploy to ECS
+8. [ ] Verify production health
 
 ---
 
 ## Milestone 10 — Multi-Language SDK Support
 
-_Objective_: provide official SDKs for major programming languages.
+_Objective_: Provide official SDKs for major programming languages.
 
-### Phase A — SDK Generation
-
-1. [ ] Configure OpenAPI Generator for TypeScript (existing).
-2. [ ] Generate Python SDK client.
-3. [ ] Generate Go SDK client.
-4. [ ] Generate Ruby SDK client.
-
-### Phase B — SDK Publishing
-
-1. [ ] Set up npm publishing for `@blerp/*` packages.
-2. [ ] Set up PyPI publishing for `blerp-python`.
-3. [ ] Set up Go module publishing.
-4. [ ] Configure versioning and changelog automation.
-
-### Phase C — SDK Documentation
-
-1. [ ] Generate API reference docs from OpenAPI spec.
-2. [ ] Create language-specific quickstart guides.
-3. [ ] Add code examples for common use cases.
-4. [ ] Create interactive API playground.
+1. [ ] Generate Python SDK from OpenAPI
+2. [ ] Generate Go SDK from OpenAPI
+3. [ ] Set up package publishing (npm, PyPI, Go modules)
 
 ---
 
 ## Milestone 11 — Advanced Security & Compliance
 
-_Objective_: achieve enterprise-grade security posture.
+_Objective_: Achieve enterprise-grade security posture.
 
-### Phase A — Security Enhancements
-
-1. [ ] Implement rate limiting per API key with configurable limits.
-2. [ ] Add IP allowlisting for enterprise customers.
-3. [ ] Implement API key rotation with zero-downtime.
-4. [ ] Add anomaly detection for suspicious login patterns.
-
-### Phase B — Compliance
-
-1. [ ] Complete SOC 2 Type I assessment preparation.
-2. [ ] Implement GDPR data export/deletion endpoints.
-3. [ ] Add audit log retention policies.
-4. [ ] Document security whitepaper.
-
-### Phase C — Penetration Testing
-
-1. [ ] Engage third-party security audit.
-2. [ ] Remediate all critical/high findings.
-3. [ ] Implement security headers validation in CI.
-4. [ ] Add dependency vulnerability scanning with blocking.
-
----
-
-## Phase F — Engineering Standards (Ongoing)
-
-1. [ ] Standardize error handling across all services.
-2. [ ] Optimize GitHub Actions workflows for faster feedback.
-3. [ ] Implement consistent logging patterns.
-4. [ ] Add pre-commit hooks for security scanning.
+1. [ ] Complete security audit
+2. [ ] Implement GDPR endpoints
+3. [ ] Add rate limiting per API key
+4. [ ] Configure anomaly detection
 
 ---
 
 ## Future Considerations (Not Currently Planned)
 
-The following features exist in Clerk but are not currently prioritized:
-
-- **Billing Components**: `<PricingTable />`, `<CheckoutButton />`, etc. (Beta in Clerk)
-- **M2M Tokens**: Machine-to-machine authentication (Beta in Clerk)
+- **Billing Components**: `<PricingTable />`, `<CheckoutButton />`
+- **M2M Tokens**: Machine-to-machine authentication
 - **OAuth Applications**: Blerp as an OAuth provider
 - **Web3 Authentication**: MetaMask, Coinbase Wallet, Solana wallets
 - **Native Mobile SDKs**: iOS (Swift), Android (Kotlin)
