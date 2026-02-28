@@ -20,4 +20,5 @@
 | 2026-02-28 | M7 Phase C — Auth Flow           | completed   | PR #20 merged - useSignIn, useSignUp, TaskResetPassword, TaskSetupMFA |
 | 2026-02-28 | M7 Phase E — User Object         | completed   | PR #21 merged - externalId, MFA fields                                |
 | 2026-02-28 | M5 Phase D — Testing Package     | completed   | PR #22 merged - @blerp/testing with Playwright helpers, token minting |
-| 2026-02-28 | M5 Phase D — Global Setup        | in-progress | E2E test infrastructure (global.setup.ts pattern)                     |
+| 2026-02-28 | M5 Phase D — Global Setup        | completed   | PR #23 merged - E2E test infrastructure, authenticated fixtures       |
+| 2026-02-28 | Phase F — Engineering Standards  | ready       | Standardize error handling, CI/CD optimization                        |

@@ -29,10 +29,10 @@ Prioritized list of upcoming actions based on Clerk parity gap analysis.
 12. ~~**Add MFA fields**~~ — ✅ PR #21 merged
 13. ~~**Add `locked` field**~~ — ✅ Added in PR #15
 
-### Milestone 5 — Completion (Current)
+### Milestone 5 — Completion ✅ COMPLETE
 
 14. ~~**`@blerp/testing` package**~~ — ✅ PR #22 merged
-15. **Global setup pattern** — E2E test infrastructure.
+15. ~~**Global setup pattern**~~ — ✅ PR #23 merged
 
 ### Phase F — Engineering Standards
 
