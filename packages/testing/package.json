@@ -1,0 +1,38 @@
+{
+  "name": "@blerp/testing",
+  "version": "1.0.0",
+  "description": "Testing utilities for Blerp SDK with Playwright helpers and token minting",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./playwright": {
+      "import": "./dist/playwright.js",
+      "types": "./dist/playwright.d.ts"
+    },
+    "./tokens": {
+      "import": "./dist/tokens.js",
+      "types": "./dist/tokens.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@blerp/backend": "workspace:*",
+    "@blerp/shared": "workspace:*"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40.0"
+  },
+  "devDependencies": {
+    "@blerp/config": "workspace:*",
+    "@playwright/test": "^1.50.0",
+    "typescript": "^5.7.2"
+  }
+}
