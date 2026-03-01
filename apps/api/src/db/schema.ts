@@ -203,6 +203,10 @@ export const apiKeys = sqliteTable("api_keys", {
   environment: text("environment", { enum: ["development", "staging", "production"] }).notNull(),
   type: text("type", { enum: ["publishable", "secret"] }).notNull(),
   key: text("key").notNull().unique(),
+  label: text("label"),
+  status: text("status", { enum: ["active", "revoked"] })
+    .notNull()
+    .default("active"),
   lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()

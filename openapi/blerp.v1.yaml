@@ -2340,6 +2340,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Project"
+    delete:
+      tags: [Projects]
+      summary: Delete project
+      description: Permanently deletes a project and all associated data.
+      operationId: deleteProject
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Project deleted
   /v1/projects/{project_id}/jwks:
     post:
       tags: [Projects]
@@ -2453,6 +2469,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/APIKey"
+  /v1/projects/{project_id}/keys/{key_id}:
+    delete:
+      tags: [Projects]
+      summary: Revoke API key
+      description: Revokes an API key, preventing it from being used for authentication.
+      operationId: revokeApiKey
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: API key revoked
   /v1/projects/{project_id}/keys/{key_id}/rotate:
     post:
       tags: [Projects]
