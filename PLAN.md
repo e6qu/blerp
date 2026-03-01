@@ -6,20 +6,20 @@
 
 ## Milestones Overview
 
-| Milestone | Description                           | Status         |
-| --------- | ------------------------------------- | -------------- |
-| M1        | Core Platform Foundations             | ✅ Complete    |
-| M2        | Enterprise & Ecosystem Expansion      | ✅ Complete    |
-| M3        | Experience & Scale                    | ✅ Complete    |
-| M4        | Framework Adapters (Next.js Parity)   | ✅ Complete    |
-| M5        | Monite SDK Parity & Advanced Metadata | ✅ Complete    |
-| M6        | Monite SDK Full Feature Parity        | ✅ Complete    |
-| M7        | Clerk SDK Parity                      | ✅ Complete    |
-| M8        | UI Flow E2E Testing                   | ✅ Complete    |
-| M9        | Production Infrastructure             | ⏸️ Blocked     |
-| M10       | Multi-Language SDK Support            | 📋 Planned     |
-| M11       | Advanced Security & Compliance        | 📋 Planned     |
-| M12       | Dashboard Feature Completion          | 🔄 In Progress |
+| Milestone | Description                           | Status      |
+| --------- | ------------------------------------- | ----------- |
+| M1        | Core Platform Foundations             | ✅ Complete |
+| M2        | Enterprise & Ecosystem Expansion      | ✅ Complete |
+| M3        | Experience & Scale                    | ✅ Complete |
+| M4        | Framework Adapters (Next.js Parity)   | ✅ Complete |
+| M5        | Monite SDK Parity & Advanced Metadata | ✅ Complete |
+| M6        | Monite SDK Full Feature Parity        | ✅ Complete |
+| M7        | Clerk SDK Parity                      | ✅ Complete |
+| M8        | UI Flow E2E Testing                   | ✅ Complete |
+| M9        | Production Infrastructure             | ⏸️ Blocked  |
+| M10       | Multi-Language SDK Support            | 📋 Planned  |
+| M11       | Advanced Security & Compliance        | 📋 Planned  |
+| M12       | Dashboard Feature Completion          | ✅ Complete |
 
 ---
 
@@ -329,7 +329,7 @@ _Objective_: Implement placeholder features in the dashboard UI.
    - Password strength indicator
    - File: `UserProfile.tsx`
 
-4. [ ] **2FA Enrollment**
+4. [x] **2FA Enrollment**
    - TOTP QR code display
    - Verification code input
    - Backup codes generation

@@ -8,6 +8,7 @@ import * as sessionController from "../controllers/session.controller";
 import * as webauthnController from "../controllers/webauthn.controller";
 import * as userController from "../controllers/user.controller";
 import * as emailController from "../controllers/email.controller";
+import * as totpController from "../controllers/totp.controller";
 import { authMiddleware } from "../../middleware/auth";
 
 const router = Router();
@@ -72,5 +73,15 @@ router.post(
   webauthnController.verifyRegistration,
 );
 router.get("/auth/webauthn/passkeys", authMiddleware, webauthnController.listPasskeys);
+
+// TOTP/MFA
+router.post("/users/:user_id/mfa/totp", authMiddleware, totpController.enrollTotp);
+router.post("/users/:user_id/mfa/totp/verify", authMiddleware, totpController.verifyTotp);
+router.post(
+  "/users/:user_id/mfa/backup_codes/regenerate",
+  authMiddleware,
+  totpController.regenerateBackupCodes,
+);
+router.delete("/users/:user_id/mfa/totp", authMiddleware, totpController.disableTotp);
 
 export { router as authRoutes };

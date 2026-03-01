@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { usePasskeys, useRegisterPasskey } from "../../hooks/usePasskeys";
+import { useCurrentUser } from "../../hooks/useUser";
 import { SessionsViewer } from "./SessionsViewer";
 import { ProfileEditForm } from "./ProfileEditForm";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+import { TwoFactorEnrollmentModal } from "./TwoFactorEnrollmentModal";
 import { EmailList } from "./EmailList";
 import { Key, ShieldCheck } from "lucide-react";
 import type { components } from "@blerp/shared";
@@ -81,8 +83,10 @@ function AccountTab() {
 
 function SecurityTab() {
   const { data: passkeys, isLoading } = usePasskeys();
+  const { data: user } = useCurrentUser();
   const registerPasskey = useRegisterPasskey();
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
 
   if (isLoading) return <div className="text-gray-500">Loading security settings...</div>;
 
@@ -142,10 +146,26 @@ function SecurityTab() {
           Add an extra layer of security to your account.
         </p>
         <div className="mt-3 flex items-center gap-3">
-          <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
-            Not enabled
-          </span>
-          <button className="text-sm text-blue-600 hover:underline">Enable 2FA</button>
+          {user?.totp_enabled ? (
+            <>
+              <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+                Enabled
+              </span>
+              <button className="text-sm text-blue-600 hover:underline">Manage 2FA</button>
+            </>
+          ) : (
+            <>
+              <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                Not enabled
+              </span>
+              <button
+                onClick={() => setIs2FAModalOpen(true)}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Enable 2FA
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -153,6 +173,7 @@ function SecurityTab() {
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
       />
+      <TwoFactorEnrollmentModal isOpen={is2FAModalOpen} onClose={() => setIs2FAModalOpen(false)} />
     </div>
   );
 }

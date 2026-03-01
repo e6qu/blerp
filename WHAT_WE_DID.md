@@ -328,3 +328,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bun run build` (all packages), lint checks
 - Files touched: `apps/dashboard/src/components/auth/ProjectSettingsForm.tsx`, `apps/dashboard/src/hooks/useProject.ts`, `apps/api/src/v1/services/totp.service.ts`, `PLAN.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`.
 - Notes/Links: M12 Phase B complete. Email management UI was already implemented (EmailList, AddEmailModal, hooks). All dashboard settings features are now production-ready.
+
+## 2026-03-02 — M12 Phase A: 2FA Enrollment Feature
+
+- Summary: Implemented complete Two-Factor Authentication (TOTP) enrollment flow for the dashboard. Created TOTP controller with enroll, verify, regenerate backup codes, and disable endpoints. Added frontend hooks for TOTP operations. Built enrollment modal with three-step flow: introduction, QR code display + verification, and backup codes. Integrated into UserProfile Security tab with status display.
+- Tests run: `bun run build` (all packages), `bun run lint` (all pass)
+- Files touched: `apps/api/src/v1/controllers/totp.controller.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `apps/dashboard/src/hooks/useTotp.ts`, `apps/dashboard/src/components/auth/TwoFactorEnrollmentModal.tsx`, `apps/dashboard/src/components/auth/UserProfile.tsx`, `PLAN.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`.
+- Notes/Links: M12 Phase A now complete with all user profile features implemented. TOTP enrollment uses QR code from Google Chart API, supports manual secret entry, and generates 10 backup codes. Milestone 12 is now fully complete.
