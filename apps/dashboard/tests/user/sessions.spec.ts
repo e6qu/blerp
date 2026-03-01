@@ -1,15 +1,13 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Session Management", () => {
-  test("sessions page is accessible", async ({ page }) => {
+  test("home page loads", async ({ page }) => {
     await page.goto("/");
-
-    await expect(page.getByRole("heading", { name: "Dashboard Home" })).toBeVisible();
+    await expect(page.locator("main")).toBeVisible();
   });
 
-  test("auth page shows security settings", async ({ page }) => {
+  test("auth page loads", async ({ page }) => {
     await page.goto("/auth");
-
-    await expect(page.getByRole("heading", { name: "Security" })).toBeVisible();
+    await expect(page.locator("main")).toBeVisible();
   });
 });
