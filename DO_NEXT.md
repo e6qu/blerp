@@ -1,51 +1,27 @@
 # Do Next
 
-### Current Milestone
-
-| Milestone  | Description             | Status         |
-| ---------- | ----------------------- | -------------- |
-| M8 Phase G | Critical Path E2E Tests | 🔄 In Progress |
-
-### In Progress — M8 Phase G Tasks
-
-1. **Authentication Tests** (Enhanced)
-   - Sign up form validation and submission
-   - Sign out flow (button, API call, redirect)
-   - Files: `tests/auth/signup.spec.ts`, `tests/auth/signout.spec.ts`
-
-2. **Organization CRUD Tests**
-   - Create org modal (from page and switcher)
-   - Form validation and submission
-   - File: `tests/organizations/crud.spec.ts`
-
-3. **Organization Switching Tests**
-   - Dropdown open/close behavior
-   - Org selection updates UI
-   - File: `tests/organizations/switching.spec.ts`
-
-4. **Member Management Tests**
-   - Edit role, delete member
-   - Loading/disabled states
-   - File: `tests/organizations/members.spec.ts`
-
-5. **Navigation & Access Tests**
-   - Sidebar navigation
-   - Tab navigation within pages
-   - File: `tests/access/navigation.spec.ts`
-
 ### Completed Milestones
 
-| Milestone     | Description                      | Status      |
-| ------------- | -------------------------------- | ----------- |
-| M1-M6         | Core Platform, Enterprise, Scale | ✅ Complete |
-| M7            | Clerk SDK Parity                 | ✅ Complete |
-| M8 Phases A-F | E2E Testing Infrastructure       | ✅ Complete |
+| Milestone | Description                      | Status      |
+| --------- | -------------------------------- | ----------- |
+| M1-M6     | Core Platform, Enterprise, Scale | ✅ Complete |
+| M7        | Clerk SDK Parity                 | ✅ Complete |
+| M8        | E2E Testing (Phases A-G)         | ✅ Complete |
 
 ### Blocked
 
 | Milestone | Description               | Status     | Reason                   |
 | --------- | ------------------------- | ---------- | ------------------------ |
 | M9        | Production Infrastructure | ⏸️ Blocked | Requires AWS credentials |
+
+### Future Work (M8 Phase H - Lower Priority E2E Tests)
+
+- Invitations Tests (requires invitation creation UI)
+- Webhooks Tests (requires webhook creation UI)
+- Domains Tests (requires domain creation UI)
+- Sessions Tests (enhanced with revoke)
+- Settings Tests (enhanced with actual settings)
+- Visual Regression Tests (snapshots)
 
 ### Future Work (M12 - Dashboard Feature Completion)
 
