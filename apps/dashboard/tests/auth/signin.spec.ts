@@ -23,4 +23,10 @@ test.describe("Sign In Flow", () => {
     await expect(githubButton).toBeVisible();
     await expect(googleButton).toBeVisible();
   });
+
+  test("form allows email entry for sign in", async ({ page }) => {
+    const emailInput = page.getByLabel("Email address");
+    await emailInput.fill("existing-user@example.com");
+    await expect(emailInput).toHaveValue("existing-user@example.com");
+  });
 });
