@@ -22,15 +22,19 @@
 | 2026-02-28 | Phase F — Error Handling         | completed | PR #24 merged                                  |
 | 2026-02-28 | Phase F — CI/CD Optimization     | completed | PR #25 merged                                  |
 | 2026-02-28 | v1.0.0 Release                   | ready     | All milestones complete, ready for release tag |
+| 2026-03-01 | M8 E2E Testing — Phase A-D       | completed | PR #26 merged                                  |
+| 2026-03-01 | M8 E2E Testing — CI Integration  | completed | E2E tests now gate CI                          |
+| 2026-03-01 | M8 Complete / M9 Blocked         | complete  | M8 done, M9 deferred pending AWS access        |
 | 2026-03-01 | M8 Phase A-D — E2E Tests         | completed | 13 test specs created for auth/user/org/access |
 
 ## Summary
 
-All planned development work is complete:
+All development work complete through M8:
 
-- **6 Core Milestones** (M1-M6): Platform foundations, enterprise features, Monite parity
-- **Clerk SDK Parity** (M7): User components, control components, auth flow, user object enhancements
-- **E2E Testing** (M5 Phase D): @blerp/testing package, global setup pattern
-- **Engineering Standards** (Phase F): Error handling, CI/CD optimization
+- **7 Core Milestones** (M1-M7): Platform foundations, enterprise features, Monite parity, Clerk SDK parity
+- **E2E Testing** (M8): Comprehensive Playwright tests, CI integration with artifact upload
+- **Engineering Standards**: Error handling, CI/CD optimization, strict type safety
+
+**Blocked**: M9 (Production Infrastructure) pending AWS credentials.
 
 **Next Step**: Create v1.0.0 release tag.
