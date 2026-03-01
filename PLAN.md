@@ -214,6 +214,55 @@ _Objective_: Implement comprehensive Playwright E2E tests for all UI flows to en
 - Upload Playwright reports as artifacts
 - Fail CI on E2E test failures
 
+### Phase G — Critical Path E2E Tests
+
+> **Status**: 🔄 In Progress
+> **Approach**: Use live API with seeded test data. Test both authenticated and unauthenticated states.
+
+18. [ ] **Authentication Tests** (Enhanced)
+    - Sign up form validation and submission
+    - OAuth button redirects (GitHub, Google)
+    - Sign out flow (button, API call, redirect)
+    - Loading/error states
+    - File: `tests/auth/signup.spec.ts`, `tests/auth/signout.spec.ts`
+
+19. [ ] **Organization CRUD Tests**
+    - Create org modal (from page and switcher)
+    - Form validation (name required, slug auto-gen)
+    - Submit creates org, appears in list
+    - Cancel/close modal behavior
+    - Loading/error states
+    - File: `tests/organizations/crud.spec.ts`
+
+20. [ ] **Organization Switching Tests**
+    - Dropdown open/close behavior
+    - Org selection updates UI
+    - Create org from dropdown
+    - File: `tests/organizations/switching.spec.ts`
+
+21. [ ] **Member Management Tests**
+    - Members list loads for selected org
+    - Edit role dropdown (owner/admin/member)
+    - Save updates role via API
+    - Delete member with confirmation
+    - Loading/disabled states
+    - File: `tests/organizations/members.spec.ts`
+
+22. [ ] **Navigation & Access Tests**
+    - Sidebar navigation to all pages
+    - Active state highlighting
+    - Tab navigation within pages
+    - File: `tests/access/navigation.spec.ts`
+
+### Phase H — Future E2E Tests (Lower Priority)
+
+23. [ ] **Invitations Tests** (requires invitation creation UI)
+24. [ ] **Webhooks Tests** (requires webhook creation UI)
+25. [ ] **Domains Tests** (requires domain creation UI)
+26. [ ] **Sessions Tests** (enhanced with revoke)
+27. [ ] **Settings Tests** (enhanced with actual settings)
+28. [ ] **Visual Regression Tests** (snapshots)
+
 ---
 
 ## Milestone 9 — Production Infrastructure ⏸️
@@ -256,6 +305,76 @@ _Objective_: Achieve enterprise-grade security posture.
 2. [ ] Implement GDPR endpoints
 3. [ ] Add rate limiting per API key
 4. [ ] Configure anomaly detection
+
+---
+
+## Milestone 12 — Dashboard Feature Completion
+
+_Objective_: Implement placeholder features in the dashboard UI.
+
+### Phase A — User Profile Features
+
+1. [ ] **Profile Editing**
+   - Edit first name, last name, username
+   - Form validation and submission
+   - File: `UserProfile.tsx`
+
+2. [ ] **Email Management**
+   - List email addresses
+   - Add/remove emails
+   - Email verification flow
+   - File: `UserProfile.tsx`
+
+3. [ ] **Password Change**
+   - Current password verification
+   - New password form
+   - Password strength indicator
+   - File: `UserProfile.tsx`
+
+4. [ ] **2FA Enrollment**
+   - TOTP QR code display
+   - Verification code input
+   - Backup codes generation
+   - File: `UserProfile.tsx`
+
+### Phase B — Settings Features
+
+5. [ ] **Project Settings**
+   - Project name editing
+   - Domain configuration
+   - File: `SettingsPage.tsx`
+
+6. [ ] **API Key Management**
+   - List keys (secret + publishable)
+   - Create new keys
+   - Revoke keys
+   - File: `SettingsPage.tsx`
+
+7. [ ] **Project Deletion**
+   - Confirmation dialog
+   - Type project name to confirm
+   - Cascade delete all data
+   - File: `SettingsPage.tsx`
+
+### Phase C — Organization Features
+
+8. [ ] **Invitation Creation**
+   - Invite by email form
+   - Role selection
+   - Resend invitation
+   - File: `OrganizationInvitations.tsx`
+
+9. [ ] **Webhook Creation**
+   - Add webhook endpoint form
+   - Event selection
+   - Secret generation
+   - File: `WebhookList.tsx`
+
+10. [ ] **Domain Management**
+    - Add domain form
+    - DNS verification instructions
+    - Verification check
+    - File: `OrganizationDomains.tsx` (new)
 
 ---
 
