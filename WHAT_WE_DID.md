@@ -307,3 +307,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bun run test:e2e` (81 passed)
 - Files touched: `apps/dashboard/tests/auth/signup.spec.ts`, `apps/dashboard/tests/auth/signout.spec.ts`, `apps/dashboard/tests/organizations/crud.spec.ts`, `apps/dashboard/tests/organizations/switching.spec.ts`, `apps/dashboard/tests/organizations/members.spec.ts`, `apps/dashboard/tests/access/navigation.spec.ts`, `apps/dashboard/tests/user/profile.spec.ts`, `apps/dashboard/tests/user/security.spec.ts`, `apps/dashboard/tests/user/sessions.spec.ts`.
 - Notes/Links: PR #29 merged. M8 Phase G complete.
+
+## 2026-03-01 — M12 Phase C: Dashboard Organization Features UI (PR #31)
+
+- Summary: Implemented Phase 1 (frontend-only) of M12 Dashboard Feature Completion. Added invitation creation UI with modal form and role selection. Added webhook creation UI with event type checkboxes and one-time secret display. Added domain management UI with DNS verification instructions. Created useDomains hook with CRUD operations.
+- Tests run: `bun run lint`, `bun run build`
+- Files touched: `apps/dashboard/src/components/auth/InviteMemberModal.tsx`, `apps/dashboard/src/components/auth/CreateWebhookModal.tsx`, `apps/dashboard/src/components/auth/AddDomainModal.tsx`, `apps/dashboard/src/components/auth/OrganizationDomains.tsx`, `apps/dashboard/src/components/auth/OrganizationInvitations.tsx`, `apps/dashboard/src/components/auth/WebhookList.tsx`, `apps/dashboard/src/components/auth/OrganizationsPage.tsx`, `apps/dashboard/src/hooks/useDomains.ts`, `apps/dashboard/src/hooks/useOrganizations.ts`.
+- Notes/Links: PR #31 merged. M12 Phase C complete.
