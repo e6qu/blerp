@@ -2,6 +2,14 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Organization CRUD", () => {
   test.beforeEach(async ({ page }) => {
+    await page.route("**/v1/organizations**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
     await page.goto("/users");
   });
 
@@ -47,11 +55,11 @@ test.describe("Organization CRUD", () => {
     await expect(page.getByRole("heading", { name: "Create organization" })).not.toBeVisible();
   });
 
-  test("X button closes modal", async ({ page }) => {
+  test("close button in modal header closes modal", async ({ page }) => {
     const createButton = page.getByRole("button", { name: /create organization/i });
     await createButton.click();
 
-    const closeButton = page.locator("button").filter({ hasText: /^$/ }).first();
+    const closeButton = page.locator(".fixed.inset-0.z-50 button").filter({ hasText: "" }).first();
     await closeButton.click();
 
     await expect(page.getByRole("heading", { name: "Create organization" })).not.toBeVisible();
@@ -82,7 +90,7 @@ test.describe("Organization CRUD", () => {
     await expect(slugInput).toHaveValue("custom-slug");
   });
 
-  test("create button is disabled while submitting", async ({ page }) => {
+  test("create button shows loading state while submitting", async ({ page }) => {
     await page.route("**/v1/organizations", (route) => {
       route.fulfill({
         status: 201,
@@ -103,21 +111,21 @@ test.describe("Organization CRUD", () => {
     await expect(page.getByRole("button", { name: /creating/i })).toBeVisible();
   });
 
-  test("create organization success closes modal and shows org", async ({ page }) => {
+  test("create organization success closes modal", async ({ page }) => {
     await page.route("**/v1/organizations", (route) => {
-      route.fulfill({
-        status: 201,
-        contentType: "application/json",
-        body: JSON.stringify({ id: "test-org-id", name: "Test Org" }),
-      });
-    });
-
-    await page.route("**/v1/organizations**", (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: [{ id: "test-org-id", name: "Test Org" }] }),
-      });
+      if (route.request().method() === "POST") {
+        route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({ id: "test-org-id", name: "Test Org" }),
+        });
+      } else {
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: [{ id: "test-org-id", name: "Test Org" }] }),
+        });
+      }
     });
 
     const createButton = page.getByRole("button", { name: /create organization/i });
@@ -135,16 +143,6 @@ test.describe("Organization CRUD", () => {
   });
 
   test("empty state shown when no org selected", async ({ page }) => {
-    await page.route("**/v1/organizations**", (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: [] }),
-      });
-    });
-
-    await page.goto("/users");
-
     await expect(page.getByText("Select an organization")).toBeVisible();
   });
 });

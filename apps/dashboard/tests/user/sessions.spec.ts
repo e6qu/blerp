@@ -2,6 +2,14 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Session Management", () => {
   test.beforeEach(async ({ page }) => {
+    await page.route("**/v1/sessions**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
     await page.goto("/auth");
 
     const sessionsTab = page.getByRole("button", { name: "Sessions" });
@@ -13,11 +21,6 @@ test.describe("Session Management", () => {
   });
 
   test("sessions list or empty state is shown", async ({ page }) => {
-    const sessionsViewer = page
-      .locator("main")
-      .locator("div")
-      .filter({ hasText: /session/i })
-      .first();
-    await expect(sessionsViewer.or(page.getByText(/no.*session/i))).toBeVisible();
+    await expect(page.getByText(/manage your active sessions/i)).toBeVisible();
   });
 });

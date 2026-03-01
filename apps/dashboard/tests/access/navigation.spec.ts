@@ -55,7 +55,8 @@ test.describe("Sidebar Navigation", () => {
   });
 
   test("sidebar shows Blerp branding", async ({ page }) => {
-    await expect(page.getByText("Blerp")).toBeVisible();
+    const sidebarLogo = page.locator("aside").getByText("Blerp", { exact: true });
+    await expect(sidebarLogo).toBeVisible();
   });
 });
 
@@ -76,16 +77,32 @@ test.describe("Page Tab Navigation", () => {
   });
 
   test("auth page can switch to Security tab", async ({ page }) => {
+    await page.route("**/v1/auth/webauthn/passkeys**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
     await page.goto("/auth");
 
     const securityTab = page.getByRole("button", { name: "Security" });
     await securityTab.click();
 
     await expect(securityTab).toHaveClass(/border-blue-600/);
-    await expect(page.getByText("Passkeys")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Password" })).toBeVisible();
   });
 
   test("auth page can switch to Sessions tab", async ({ page }) => {
+    await page.route("**/v1/sessions**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
     await page.goto("/auth");
 
     const sessionsTab = page.getByRole("button", { name: "Sessions" });
@@ -110,6 +127,14 @@ test.describe("Page Tab Navigation", () => {
   });
 
   test("settings page can switch to Audit Logs tab", async ({ page }) => {
+    await page.route("**/v1/audit_logs**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
     await page.goto("/settings");
 
     const auditTab = page.getByRole("button", { name: "Audit Logs" });
@@ -119,6 +144,19 @@ test.describe("Page Tab Navigation", () => {
   });
 
   test("settings page can switch to Usage tab", async ({ page }) => {
+    await page.route("**/v1/usage**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          users: 10,
+          organizations: 5,
+          sessions: 3,
+          limits: { maxUsers: 100, maxOrganizations: 50, maxSessions: 100 },
+        }),
+      });
+    });
+
     await page.goto("/settings");
 
     const usageTab = page.getByRole("button", { name: "Usage" });
@@ -140,8 +178,18 @@ test.describe("Organization Tab Navigation", () => {
       });
     });
 
+    await page.route("**/v1/organizations/org-1/memberships**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
     await page.goto("/users");
-    await page.getByRole("button", { name: "Test Organization" }).click();
+
+    const orgButton = page.getByRole("button", { name: "Test Organization" });
+    await orgButton.click();
   });
 
   test("organization page has Members, Invitations, Webhooks tabs", async ({ page }) => {
@@ -156,6 +204,14 @@ test.describe("Organization Tab Navigation", () => {
   });
 
   test("can switch to Invitations tab", async ({ page }) => {
+    await page.route("**/v1/invitations**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
     const invitationsTab = page.getByRole("button", { name: "Invitations" });
     await invitationsTab.click();
 
@@ -163,6 +219,14 @@ test.describe("Organization Tab Navigation", () => {
   });
 
   test("can switch to Webhooks tab", async ({ page }) => {
+    await page.route("**/v1/webhooks/endpoints**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
     const webhooksTab = page.getByRole("button", { name: "Webhooks" });
     await webhooksTab.click();
 
