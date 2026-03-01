@@ -149,6 +149,26 @@ components:
     PrivateMetadata:
       type: object
       additionalProperties: true
+    UsageResponse:
+      type: object
+      required: [users, organizations, sessions, limits]
+      properties:
+        users:
+          type: integer
+        organizations:
+          type: integer
+        sessions:
+          type: integer
+        limits:
+          type: object
+          required: [maxUsers, maxOrganizations, maxSessions]
+          properties:
+            maxUsers:
+              type: integer
+            maxOrganizations:
+              type: integer
+            maxSessions:
+              type: integer
     User:
       type: object
       required:
@@ -1565,6 +1585,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Membership"
+  /v1/organizations/{organization_id}/memberships/{membership_id}:
+    patch:
+      tags: [Organizations]
+      summary: Update membership
+      description: Updates a membership's role or permissions.
+      operationId: updateMembership
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: membership_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                permissions:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Membership updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "404":
+          description: Not found
+    delete:
+      tags: [Organizations]
+      summary: Delete membership
+      description: Removes a user from an organization.
+      operationId: deleteMembership
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: membership_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Membership deleted
+        "404":
+          description: Not found
   /v1/organizations/{organization_id}/roles:
     patch:
       tags: [Organizations]
@@ -2556,8 +2640,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/UsageResponse"
 
   /v1/auth/webauthn/passkeys:
     get:

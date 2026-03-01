@@ -174,6 +174,18 @@ export interface paths {
      */
     post: operations["createMembership"];
   };
+  "/v1/organizations/{organization_id}/memberships/{membership_id}": {
+    /**
+     * Delete membership
+     * @description Removes a user from an organization.
+     */
+    delete: operations["deleteMembership"];
+    /**
+     * Update membership
+     * @description Updates a membership's role or permissions.
+     */
+    patch: operations["updateMembership"];
+  };
   "/v1/organizations/{organization_id}/roles": {
     /**
      * Update custom roles
@@ -489,6 +501,16 @@ export interface components {
     };
     PrivateMetadata: {
       [key: string]: unknown;
+    };
+    UsageResponse: {
+      users: number;
+      organizations: number;
+      sessions: number;
+      limits: {
+        maxUsers: number;
+        maxOrganizations: number;
+        maxSessions: number;
+      };
     };
     User: {
       /** Format: uuid */
@@ -1487,6 +1509,60 @@ export interface operations {
     };
   };
   /**
+   * Delete membership
+   * @description Removes a user from an organization.
+   */
+  deleteMembership: {
+    parameters: {
+      path: {
+        organization_id: string;
+        membership_id: string;
+      };
+    };
+    responses: {
+      /** @description Membership deleted */
+      204: {
+        content: never;
+      };
+      /** @description Not found */
+      404: {
+        content: never;
+      };
+    };
+  };
+  /**
+   * Update membership
+   * @description Updates a membership's role or permissions.
+   */
+  updateMembership: {
+    parameters: {
+      path: {
+        organization_id: string;
+        membership_id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          role?: string;
+          permissions?: string[];
+        };
+      };
+    };
+    responses: {
+      /** @description Membership updated */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Membership"];
+        };
+      };
+      /** @description Not found */
+      404: {
+        content: never;
+      };
+    };
+  };
+  /**
    * Update custom roles
    * @description Replaces the custom role definitions for an organization.
    */
@@ -2268,9 +2344,7 @@ export interface operations {
       /** @description Usage stats */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": components["schemas"]["UsageResponse"];
         };
       };
     };

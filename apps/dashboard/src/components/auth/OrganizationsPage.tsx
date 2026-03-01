@@ -4,6 +4,7 @@ import { useState } from "react";
 import { OrganizationMembers } from "./OrganizationMembers";
 import { OrganizationInvitations } from "./OrganizationInvitations";
 import { WebhookList } from "./WebhookList";
+import { CreateOrganizationModal } from "./CreateOrganizationModal";
 import type { components } from "@blerp/shared";
 
 type Organization = components["schemas"]["Organization"];
@@ -12,21 +13,28 @@ export function OrganizationsPage() {
   const { data: organizations, isLoading } = useOrganizations();
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"members" | "invitations" | "webhooks">("members");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   if (isLoading) return <div className="p-8">Loading organizations...</div>;
+
+  const handleCreateSuccess = (orgId: string) => {
+    setSelectedOrgId(orgId);
+  };
 
   return (
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Organizations</h1>
-        <button className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Create Organization
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
-        {/* Org List */}
         <div className="space-y-2 lg:col-span-1">
           {organizations?.map((org: Organization) => (
             <button
@@ -43,7 +51,6 @@ export function OrganizationsPage() {
           ))}
         </div>
 
-        {/* Org Details */}
         <div className="lg:col-span-3">
           {selectedOrgId ? (
             <div className="space-y-6">
@@ -95,6 +102,12 @@ export function OrganizationsPage() {
           )}
         </div>
       </div>
+
+      <CreateOrganizationModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleCreateSuccess}
+      />
     </div>
   );
 }

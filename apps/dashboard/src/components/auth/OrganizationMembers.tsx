@@ -1,12 +1,47 @@
-import { useMemberships } from "../../hooks/useOrganizations";
+import { useState } from "react";
+import {
+  useMemberships,
+  useUpdateMembership,
+  useDeleteMembership,
+} from "../../hooks/useOrganizations";
+import { Pencil, Trash2, X, Check } from "lucide-react";
 import type { components } from "@blerp/shared";
 
 type Membership = components["schemas"]["Membership"];
 
+const ROLES = ["owner", "admin", "member"];
+
 export function OrganizationMembers({ organizationId }: { organizationId: string }) {
   const { data: memberships, isLoading } = useMemberships(organizationId);
+  const updateMembership = useUpdateMembership(organizationId);
+  const deleteMembership = useDeleteMembership(organizationId);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string>("");
 
   if (isLoading) return <div className="p-4 text-sm text-gray-500">Loading members...</div>;
+
+  const handleEditClick = (membership: Membership) => {
+    setEditingId(membership.id);
+    setSelectedRole(membership.role);
+  };
+
+  const handleSave = (membershipId: string) => {
+    updateMembership.mutate(
+      { membershipId, role: selectedRole },
+      { onSuccess: () => setEditingId(null) },
+    );
+  };
+
+  const handleCancel = () => {
+    setEditingId(null);
+    setSelectedRole("");
+  };
+
+  const handleDelete = (membershipId: string) => {
+    if (confirm("Are you sure you want to remove this member?")) {
+      deleteMembership.mutate(membershipId);
+    }
+  };
 
   return (
     <div className="overflow-hidden rounded-lg border bg-white">
@@ -38,20 +73,63 @@ export function OrganizationMembers({ organizationId }: { organizationId: string
                 </div>
               </td>
               <td className="whitespace-nowrap px-6 py-4">
-                <span
-                  className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                    membership.role === "owner"
-                      ? "bg-purple-100 text-purple-800"
-                      : membership.role === "admin"
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-green-100 text-green-800"
-                  }`}
-                >
-                  {membership.role}
-                </span>
+                {editingId === membership.id ? (
+                  <select
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                    className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                  >
+                    {ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span
+                    className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                      membership.role === "owner"
+                        ? "bg-purple-100 text-purple-800"
+                        : membership.role === "admin"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-green-100 text-green-800"
+                    }`}
+                  >
+                    {membership.role}
+                  </span>
+                )}
               </td>
               <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
-                <button className="text-blue-600 hover:text-blue-900">Edit</button>
+                {editingId === membership.id ? (
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => handleSave(membership.id)}
+                      disabled={updateMembership.isPending}
+                      className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => handleEditClick(membership)}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(membership.id)}
+                      disabled={deleteMembership.isPending}
+                      className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </td>
             </tr>
           ))}
