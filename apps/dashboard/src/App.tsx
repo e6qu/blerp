@@ -2,7 +2,8 @@ import { Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { SignUp } from "./components/auth/SignUp";
 import { OrganizationsPage } from "./components/auth/OrganizationsPage";
-import { SecurityPage } from "./components/auth/SecurityPage";
+import { UserProfile } from "./components/auth/UserProfile";
+import { SettingsPage } from "./components/auth/SettingsPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const queryClient = new QueryClient();
@@ -19,15 +20,6 @@ function Home() {
   );
 }
 
-function Settings() {
-  return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold">Settings</h1>
-      <p className="mt-4 text-gray-600">Manage your project settings here.</p>
-    </div>
-  );
-}
-
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -35,8 +27,8 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="users" element={<OrganizationsPage />} />
-          <Route path="auth" element={<SecurityPage />} />
-          <Route path="settings" element={<Settings />} />
+          <Route path="auth" element={<UserProfile />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </QueryClientProvider>

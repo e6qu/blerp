@@ -41,6 +41,48 @@ export function useMemberships(organizationId: string) {
   });
 }
 
+export function useUpdateMembership(organizationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ membershipId, role }: { membershipId: string; role: string }) => {
+      const { data, error } = await client.PATCH(
+        "/v1/organizations/{organization_id}/memberships/{membership_id}",
+        {
+          params: {
+            path: { organization_id: organizationId, membership_id: membershipId },
+          },
+          body: { role },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["memberships", organizationId] });
+    },
+  });
+}
+
+export function useDeleteMembership(organizationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (membershipId: string) => {
+      const { error } = await client.DELETE(
+        "/v1/organizations/{organization_id}/memberships/{membership_id}",
+        {
+          params: {
+            path: { organization_id: organizationId, membership_id: membershipId },
+          },
+        },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["memberships", organizationId] });
+    },
+  });
+}
+
 export function useInvitations(organizationId: string) {
   return useQuery({
     queryKey: ["invitations", organizationId],
@@ -52,5 +94,22 @@ export function useInvitations(organizationId: string) {
       return (data as { data?: components["schemas"]["Invitation"][] })?.data || [];
     },
     enabled: !!organizationId,
+  });
+}
+
+export function useRevokeInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (invitationId: string) => {
+      const { data, error } = await client.POST("/v1/invitations/{invitation_id}/revoke", {
+        params: { path: { invitation_id: invitationId } },
+        body: {},
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invitations"] });
+    },
   });
 }

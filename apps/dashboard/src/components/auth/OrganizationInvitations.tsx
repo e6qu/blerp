@@ -1,12 +1,19 @@
-import { useInvitations } from "../../hooks/useOrganizations";
+import { useInvitations, useRevokeInvitation } from "../../hooks/useOrganizations";
 import type { components } from "@blerp/shared";
 
 type Invitation = components["schemas"]["Invitation"];
 
 export function OrganizationInvitations({ organizationId }: { organizationId: string }) {
   const { data: invitations, isLoading } = useInvitations(organizationId);
+  const revokeInvitation = useRevokeInvitation();
 
   if (isLoading) return <div className="p-4 text-sm text-gray-500">Loading invitations...</div>;
+
+  const handleRevoke = (invitationId: string) => {
+    if (confirm("Are you sure you want to revoke this invitation?")) {
+      revokeInvitation.mutate(invitationId);
+    }
+  };
 
   return (
     <div className="overflow-hidden rounded-lg border bg-white">
@@ -51,7 +58,13 @@ export function OrganizationInvitations({ organizationId }: { organizationId: st
               </td>
               <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                 {invitation.status === "pending" && (
-                  <button className="text-red-600 hover:text-red-900">Revoke</button>
+                  <button
+                    onClick={() => handleRevoke(invitation.id)}
+                    disabled={revokeInvitation.isPending}
+                    className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                  >
+                    Revoke
+                  </button>
                 )}
               </td>
             </tr>

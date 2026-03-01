@@ -1,9 +1,11 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, Settings, Users, Shield, LogOut } from "lucide-react";
 import { OrganizationSwitcher } from "./auth/OrganizationSwitcher";
+import { useSignOut } from "../hooks/useSignOut";
 
 export function Layout() {
   const location = useLocation();
+  const signOut = useSignOut();
 
   const navItems = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -12,9 +14,12 @@ export function Layout() {
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
+  const handleSignOut = () => {
+    signOut.mutate();
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
       <aside className="w-64 border-r bg-white">
         <div className="flex h-16 items-center border-b px-6">
           <span className="text-xl font-bold tracking-tight text-blue-600">Blerp</span>
@@ -41,14 +46,17 @@ export function Layout() {
           ))}
         </nav>
         <div className="absolute bottom-0 w-64 border-t p-4">
-          <button className="flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-700">
+          <button
+            onClick={handleSignOut}
+            disabled={signOut.isPending}
+            className="flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+          >
             <LogOut className="mr-3 h-5 w-5" />
-            Sign Out
+            {signOut.isPending ? "Signing out..." : "Sign Out"}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         <header className="flex h-16 items-center border-b bg-white px-8">
           <div className="ml-auto flex items-center space-x-4">
