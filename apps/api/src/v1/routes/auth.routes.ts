@@ -7,6 +7,7 @@ import * as identityController from "../controllers/identity.controller";
 import * as sessionController from "../controllers/session.controller";
 import * as webauthnController from "../controllers/webauthn.controller";
 import * as userController from "../controllers/user.controller";
+import * as emailController from "../controllers/email.controller";
 import { authMiddleware } from "../../middleware/auth";
 
 const router = Router();
@@ -27,6 +28,20 @@ router.get("/users", authMiddleware, userController.listUsers);
 router.get("/users/:user_id", authMiddleware, userController.getUser);
 router.patch("/users/:user_id", authMiddleware, userController.updateUser);
 router.delete("/users/:user_id", authMiddleware, userController.deleteUser);
+
+// User Email Addresses
+router.get("/users/:user_id/email_addresses", authMiddleware, emailController.listEmails);
+router.post("/users/:user_id/email_addresses", authMiddleware, emailController.addEmail);
+router.delete(
+  "/users/:user_id/email_addresses/:email_address_id",
+  authMiddleware,
+  emailController.deleteEmail,
+);
+router.post(
+  "/users/:user_id/email_addresses/:email_address_id/set_primary",
+  authMiddleware,
+  emailController.setPrimaryEmail,
+);
 
 // User Identities
 router.get("/users/:user_id/identities", authMiddleware, identityController.listIdentities);

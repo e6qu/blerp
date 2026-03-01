@@ -3,6 +3,7 @@ import { usePasskeys, useRegisterPasskey } from "../../hooks/usePasskeys";
 import { SessionsViewer } from "./SessionsViewer";
 import { ProfileEditForm } from "./ProfileEditForm";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+import { EmailList } from "./EmailList";
 import { Key, ShieldCheck } from "lucide-react";
 import type { components } from "@blerp/shared";
 
@@ -68,6 +69,11 @@ function AccountTab() {
       <div className="border rounded-lg p-4">
         <h3 className="text-sm font-medium text-gray-900 mb-3">Profile Information</h3>
         <ProfileEditForm />
+      </div>
+
+      <div className="border rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Email Addresses</h3>
+        <EmailList />
       </div>
     </div>
   );

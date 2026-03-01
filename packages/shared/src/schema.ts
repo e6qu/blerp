@@ -110,6 +110,32 @@ export interface paths {
      */
     patch: operations["updateUser"];
   };
+  "/v1/users/{user_id}/email_addresses": {
+    /**
+     * List user email addresses
+     * @description Returns all email addresses associated with a user.
+     */
+    get: operations["listUserEmailAddresses"];
+    /**
+     * Add email address
+     * @description Adds a new email address to the user.
+     */
+    post: operations["addUserEmailAddress"];
+  };
+  "/v1/users/{user_id}/email_addresses/{email_address_id}": {
+    /**
+     * Delete email address
+     * @description Removes an email address from the user.
+     */
+    delete: operations["deleteUserEmailAddress"];
+  };
+  "/v1/users/{user_id}/email_addresses/{email_address_id}/set_primary": {
+    /**
+     * Set primary email address
+     * @description Sets an email address as the primary for the user.
+     */
+    post: operations["setPrimaryEmailAddress"];
+  };
   "/v1/users/{user_id}/metadata": {
     /**
      * Update user metadata
@@ -1257,6 +1283,92 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["User"];
+        };
+      };
+    };
+  };
+  /**
+   * List user email addresses
+   * @description Returns all email addresses associated with a user.
+   */
+  listUserEmailAddresses: {
+    parameters: {
+      path: {
+        user_id: string;
+      };
+    };
+    responses: {
+      /** @description Email addresses */
+      200: {
+        content: {
+          "application/json": {
+            data?: components["schemas"]["EmailAddress"][];
+          };
+        };
+      };
+    };
+  };
+  /**
+   * Add email address
+   * @description Adds a new email address to the user.
+   */
+  addUserEmailAddress: {
+    parameters: {
+      path: {
+        user_id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** Format: email */
+          email: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Email address added */
+      201: {
+        content: {
+          "application/json": components["schemas"]["EmailAddress"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete email address
+   * @description Removes an email address from the user.
+   */
+  deleteUserEmailAddress: {
+    parameters: {
+      path: {
+        user_id: string;
+        email_address_id: string;
+      };
+    };
+    responses: {
+      /** @description Email address deleted */
+      204: {
+        content: never;
+      };
+    };
+  };
+  /**
+   * Set primary email address
+   * @description Sets an email address as the primary for the user.
+   */
+  setPrimaryEmailAddress: {
+    parameters: {
+      path: {
+        user_id: string;
+        email_address_id: string;
+      };
+    };
+    responses: {
+      /** @description Primary email set */
+      200: {
+        content: {
+          "application/json": components["schemas"]["EmailAddress"];
         };
       };
     };
