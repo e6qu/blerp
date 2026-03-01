@@ -23,7 +23,7 @@ export function useProject() {
 export function useUpdateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { name?: string }) => {
+    mutationFn: async (body: { name?: string; allowed_origins?: string[] }) => {
       const { data, error } = await client.PUT("/v1/projects/{project_id}", {
         params: { path: { project_id: PROJECT_ID } },
         body,

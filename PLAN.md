@@ -317,7 +317,7 @@ _Objective_: Implement placeholder features in the dashboard UI.
    - Form validation and submission
    - File: `UserProfile.tsx`
 
-2. [ ] **Email Management**
+2. [x] **Email Management**
    - List email addresses
    - Add/remove emails
    - Email verification flow
@@ -337,18 +337,18 @@ _Objective_: Implement placeholder features in the dashboard UI.
 
 ### Phase B — Settings Features
 
-5. [ ] **Project Settings**
+5. [x] **Project Settings**
    - Project name editing
    - Domain configuration
    - File: `SettingsPage.tsx`
 
-6. [ ] **API Key Management**
+6. [x] **API Key Management**
    - List keys (secret + publishable)
    - Create new keys
    - Revoke keys
    - File: `SettingsPage.tsx`
 
-7. [ ] **Project Deletion**
+7. [x] **Project Deletion**
    - Confirmation dialog
    - Type project name to confirm
    - Cascade delete all data

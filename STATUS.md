@@ -30,15 +30,16 @@
 | 2026-03-01 | M8 Phase G — Critical Path Tests | completed | PR #29 merged - 81 E2E tests passing             |
 | 2026-03-01 | M12 Phase C — Org Features UI    | completed | PR #31 merged - invitations, webhooks, domains   |
 | 2026-03-01 | M12 Phase A Batch 1              | completed | PR #33 merged - profile editing, password change |
+| 2026-03-02 | M12 Phase B - Settings Features  | completed | Project settings, API keys, project deletion     |
 
 ## Summary
 
 All development work complete through M8, M12 in progress:
 
 - **8 Core Milestones** (M1-M8): Platform foundations, enterprise features, SDKs, E2E testing
-- **M12 Dashboard Features** (In Progress): Phase A Batch 1 complete, Phase C complete
+- **M12 Dashboard Features** (In Progress): Phase A & B complete
 - **Engineering Standards**: Error handling, CI/CD optimization, strict type safety
 
 **Blocked**: M9 (Production Infrastructure) pending AWS credentials.
 
-**Next Step**: Complete M12 remaining tasks (email management, 2FA, API keys, project settings, project deletion).
+**Next Step**: Complete M12 remaining task (2FA Enrollment - deferred) or proceed to future milestones.
