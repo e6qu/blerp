@@ -314,3 +314,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bun run lint`, `bun run build`
 - Files touched: `apps/dashboard/src/components/auth/InviteMemberModal.tsx`, `apps/dashboard/src/components/auth/CreateWebhookModal.tsx`, `apps/dashboard/src/components/auth/AddDomainModal.tsx`, `apps/dashboard/src/components/auth/OrganizationDomains.tsx`, `apps/dashboard/src/components/auth/OrganizationInvitations.tsx`, `apps/dashboard/src/components/auth/WebhookList.tsx`, `apps/dashboard/src/components/auth/OrganizationsPage.tsx`, `apps/dashboard/src/hooks/useDomains.ts`, `apps/dashboard/src/hooks/useOrganizations.ts`.
 - Notes/Links: PR #31 merged. M12 Phase C complete.
+
+## 2026-03-01 — M12 Phase A Batch 1: User Profile Backend & Frontend (PR #33)
+
+- Summary: Implemented user profile editing and password change features. Added username field to users schema with unique constraint. Added PATCH/DELETE /v1/users/:user_id backend routes with updateUser service method. Created ProfileEditForm component with inline editing. Created ChangePasswordModal with password strength indicator and validation checklist.
+- Tests run: `bun run test` (API), `bun run lint`, `bun run build`
+- Files touched: `apps/api/src/db/schema.ts`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `apps/api/src/__tests__/users.integration.test.ts`, `apps/api/drizzle/0009_illegal_next_avengers.sql`, `apps/dashboard/src/hooks/useUser.ts`, `apps/dashboard/src/lib/api.ts`, `apps/dashboard/src/components/auth/ProfileEditForm.tsx`, `apps/dashboard/src/components/auth/ChangePasswordModal.tsx`, `apps/dashboard/src/components/auth/UserProfile.tsx`.
+- Notes/Links: PR #33 merged. M12 Phase A tasks 1 and 3 complete.

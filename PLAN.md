@@ -312,7 +312,7 @@ _Objective_: Implement placeholder features in the dashboard UI.
 
 ### Phase A — User Profile Features
 
-1. [ ] **Profile Editing**
+1. [x] **Profile Editing**
    - Edit first name, last name, username
    - Form validation and submission
    - File: `UserProfile.tsx`
@@ -323,7 +323,7 @@ _Objective_: Implement placeholder features in the dashboard UI.
    - Email verification flow
    - File: `UserProfile.tsx`
 
-3. [ ] **Password Change**
+3. [x] **Password Change**
    - Current password verification
    - New password form
    - Password strength indicator
