@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { usePasskeys, useRegisterPasskey } from "../../hooks/usePasskeys";
 import { SessionsViewer } from "./SessionsViewer";
+import { ProfileEditForm } from "./ProfileEditForm";
 import { Key, ShieldCheck } from "lucide-react";
 import type { components } from "@blerp/shared";
 
@@ -63,25 +64,9 @@ export function UserProfile() {
 function AccountTab() {
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-600">
-        Account management features coming soon. This will include profile editing, email
-        management, and connected accounts.
-      </p>
-
       <div className="border rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-900">Profile Information</h3>
-        <p className="text-sm text-gray-500 mt-1">
-          Update your personal information and preferences.
-        </p>
-        <button className="mt-3 text-sm text-blue-600 hover:underline">Edit profile</button>
-      </div>
-
-      <div className="border rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-900">Email Addresses</h3>
-        <p className="text-sm text-gray-500 mt-1">
-          Manage your email addresses and verification status.
-        </p>
-        <button className="mt-3 text-sm text-blue-600 hover:underline">Manage emails</button>
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Profile Information</h3>
+        <ProfileEditForm />
       </div>
     </div>
   );
