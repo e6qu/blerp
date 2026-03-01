@@ -9,3 +9,6 @@ storybook-static
 **/dist/
 **/.turbo/
 **/.next/
+
+playwright-report/
+test-results/
