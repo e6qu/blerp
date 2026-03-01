@@ -321,3 +321,10 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bun run test` (API), `bun run lint`, `bun run build`
 - Files touched: `apps/api/src/db/schema.ts`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `apps/api/src/__tests__/users.integration.test.ts`, `apps/api/drizzle/0009_illegal_next_avengers.sql`, `apps/dashboard/src/hooks/useUser.ts`, `apps/dashboard/src/lib/api.ts`, `apps/dashboard/src/components/auth/ProfileEditForm.tsx`, `apps/dashboard/src/components/auth/ChangePasswordModal.tsx`, `apps/dashboard/src/components/auth/UserProfile.tsx`.
 - Notes/Links: PR #33 merged. M12 Phase A tasks 1 and 3 complete.
+
+## 2026-03-02 — M12 Phase B: Settings Features UI
+
+- Summary: Completed all Phase B tasks for Dashboard Feature Completion. Enhanced ProjectSettingsForm with domain configuration (allowed_origins) management. Fixed otplib v13 compatibility issues in TotpService (replaced deprecated authenticator import with TOTP class). All settings features now functional: project name editing, allowed origins configuration, API key management (list, create, rotate, revoke), and project deletion with confirmation.
+- Tests run: `bun run build` (all packages), lint checks
+- Files touched: `apps/dashboard/src/components/auth/ProjectSettingsForm.tsx`, `apps/dashboard/src/hooks/useProject.ts`, `apps/api/src/v1/services/totp.service.ts`, `PLAN.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`.
+- Notes/Links: M12 Phase B complete. Email management UI was already implemented (EmailList, AddEmailModal, hooks). All dashboard settings features are now production-ready.
