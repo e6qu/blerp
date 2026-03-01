@@ -28,15 +28,16 @@
 | 2026-03-01 | M8 Phase A-D — E2E Tests         | completed | 13 test specs created for auth/user/org/access |
 | 2026-03-01 | Working UI Flows                 | completed | PR #28 merged - all buttons functional         |
 | 2026-03-01 | M8 Phase G — Critical Path Tests | completed | PR #29 merged - 81 E2E tests passing           |
+| 2026-03-01 | M12 Phase C — Org Features UI    | completed | PR #31 merged - invitations, webhooks, domains |
 
 ## Summary
 
-All development work complete through M8:
+All development work complete through M8, M12 in progress:
 
-- **7 Core Milestones** (M1-M7): Platform foundations, enterprise features, Monite parity, Clerk SDK parity
-- **E2E Testing** (M8): Comprehensive Playwright tests, CI integration with artifact upload
+- **8 Core Milestones** (M1-M8): Platform foundations, enterprise features, SDKs, E2E testing
+- **M12 Dashboard Features** (In Progress): Phase C complete (invitations, webhooks, domains UI)
 - **Engineering Standards**: Error handling, CI/CD optimization, strict type safety
 
 **Blocked**: M9 (Production Infrastructure) pending AWS credentials.
 
-**Next Step**: Create v1.0.0 release tag.
+**Next Step**: Complete M12 Phases A & B (profile editing, email management, password change, 2FA, API keys, project settings).
