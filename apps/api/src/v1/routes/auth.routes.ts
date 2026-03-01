@@ -24,6 +24,9 @@ router.get("/userinfo", userinfoController.getUserInfo);
 
 // Users
 router.get("/users", authMiddleware, userController.listUsers);
+router.get("/users/:user_id", authMiddleware, userController.getUser);
+router.patch("/users/:user_id", authMiddleware, userController.updateUser);
+router.delete("/users/:user_id", authMiddleware, userController.deleteUser);
 
 // User Identities
 router.get("/users/:user_id/identities", authMiddleware, identityController.listIdentities);

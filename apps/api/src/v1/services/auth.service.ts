@@ -4,6 +4,7 @@ import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { deepMerge, Metadata } from "../../lib/metadata";
+import { crypto } from "../../lib/crypto";
 
 export class AuthService {
   constructor(
@@ -72,6 +73,47 @@ export class AuthService {
         emailAddresses: true,
       },
     });
+  }
+
+  async updateUser(
+    userId: string,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      username?: string;
+      password?: string;
+      status?: "active" | "inactive" | "banned";
+    },
+  ) {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+
+    const updateData: Partial<typeof schema.users.$inferInsert> = { updatedAt: new Date() };
+
+    if (data.firstName !== undefined) {
+      updateData.firstName = data.firstName;
+    }
+    if (data.lastName !== undefined) {
+      updateData.lastName = data.lastName;
+    }
+    if (data.username !== undefined) {
+      const existing = await this.db.query.users.findFirst({
+        where: and(eq(schema.users.username, data.username), sql`${schema.users.id} != ${userId}`),
+      });
+      if (existing) throw new Error("Username already taken");
+      updateData.username = data.username;
+    }
+    if (data.password !== undefined) {
+      updateData.passwordDigest = await crypto.hashPassword(data.password);
+      updateData.hasPassword = true;
+    }
+    if (data.status !== undefined) {
+      updateData.status = data.status;
+    }
+
+    await this.db.update(schema.users).set(updateData).where(eq(schema.users.id, userId));
+
+    return this.getUser(userId);
   }
 
   async updateUserMetadata(

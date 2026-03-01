@@ -118,4 +118,62 @@ describe("Users Integration", () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(0);
   });
+
+  it("should get a single user by id", async () => {
+    const res = await request(app)
+      .get(`/v1/users/${userId1}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId1);
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(userId1);
+    expect(res.body.first_name).toBe("User");
+    expect(res.body.last_name).toBe("One");
+  });
+
+  it("should update user profile fields", async () => {
+    const res = await request(app)
+      .patch(`/v1/users/${userId1}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId1)
+      .send({ first_name: "Updated", last_name: "Name", username: "updateduser" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.first_name).toBe("Updated");
+    expect(res.body.last_name).toBe("Name");
+    expect(res.body.username).toBe("updateduser");
+  });
+
+  it("should reject duplicate username", async () => {
+    await request(app)
+      .patch(`/v1/users/${userId2}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId2)
+      .send({ username: "updateduser" });
+
+    const res = await request(app)
+      .patch(`/v1/users/${userId2}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId2)
+      .send({ username: "updateduser" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toBe("Username already taken");
+  });
+
+  it("should soft delete a user", async () => {
+    const res = await request(app)
+      .delete(`/v1/users/${userId2}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId1);
+
+    expect(res.status).toBe(204);
+
+    const getRes = await request(app)
+      .get(`/v1/users/${userId2}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId1);
+
+    expect(getRes.body.deleted_at).toBeDefined();
+  });
 });

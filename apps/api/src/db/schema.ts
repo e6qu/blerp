@@ -25,6 +25,7 @@ export const users = sqliteTable("users", {
   passwordDigest: text("password_digest"),
   firstName: text("first_name"),
   lastName: text("last_name"),
+  username: text("username").unique(),
   imageUrl: text("image_url"),
   hasPassword: integer("has_password", { mode: "boolean" }).notNull().default(false),
   publicMetadata: text("public_metadata", { mode: "json" }).notNull().default("{}"),
