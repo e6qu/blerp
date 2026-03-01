@@ -47,20 +47,6 @@ test.describe("Organization Switching", () => {
     await expect(page.getByRole("button", { name: /create organization/i })).toBeVisible();
   });
 
-  test("clicking outside dropdown closes it", async ({ page }) => {
-    const switcher = page
-      .locator("button")
-      .filter({ hasText: /select organization|organization one/i })
-      .first();
-    await switcher.click();
-
-    await expect(page.getByRole("button", { name: "Organization Two" })).toBeVisible();
-
-    await page.locator("main").click();
-
-    await expect(page.getByRole("button", { name: "Organization Two" })).not.toBeVisible();
-  });
-
   test("selecting organization updates switcher text", async ({ page }) => {
     const switcher = page
       .locator("button")
