@@ -1,73 +1,99 @@
-# Blerp Identity Service Documents
+# Blerp Identity Service
 
-This repository contains the planning and specification artifacts for the Blerp Identity Service (clean-room Clerk reimplementation). Start with the overview and follow links for deeper details:
+Blerp is a clean-room reimplementation of the Clerk Identity Service, built for high performance, multi-tenancy, and self-hosting.
 
-- `DESIGN_DOCUMENT.md` — architecture, API surface, data models, security posture.
-- `PLAN.md` — milestone/phase breakdown with the current execution order (including Milestone 6 — Monite SDK Full Parity).
-- `FEATURES.md` — canonical feature list covering backend, frontend flows, security, DevEx.
-- `USER_STORIES.md` — persona-based requirements (including Milestone 6 stories).
-- `ACCEPTANCE_CRITERIA.md` — definition of “acceptable” outcomes per task.
-- `DEFINITION_OF_DONE.md` — checklist every deliverable must satisfy before completion.
-- `STATUS.md` — rolling status log (update as work progresses).
-- `WHAT_WE_DID.md` — chronological notes about completed work.
-- `DO_NEXT.md` — prioritized roadmap for next actions.
-- `MONITE_SDK_CLERK_DATA.md` — detailed mapping of Monite metadata in Clerk.
-- `MONITE_SDK_CLERK_LIVE_DEPENDENCIES.md` — specific Clerk features used by Monite.
-- `AGENTS.md` — instructions for any automation/agent picking up the work.
-- `openapi/blerp.v1.yaml` — authoritative REST contract.
+## Documentation
 
-_After each milestone, compress older entries in `PLAN.md`, `STATUS.md`, and `WHAT_WE_DID.md` so the history stays readable (retain only essential context)._
+📖 **[Full Documentation](https://blerp.dev)** | 📚 **[API Reference](https://blerp.dev/api/)** | 🚀 **[Tutorials](https://blerp.dev/tutorials/)**
 
-For quick navigation, `CLAUDE.md` points to `PLAN.md`, and the developer CLI/docs will reference these files to keep implementation aligned with the plan.
+### Quick Links
+
+- **[Getting Started Tutorial](https://blerp.dev/tutorials/getting-started)** - Set up and run Blerp locally
+- **[API Usage Guide](https://blerp.dev/tutorials/api-usage)** - Learn how to use the REST API
+- **[Data Setup Guide](https://blerp.dev/tutorials/data-setup)** - Set up projects, organizations, and users
+- **[Next.js Integration](https://blerp.dev/tutorials/nextjs-integration)** - Add Blerp to your Next.js app
+
+### Core Documentation
+
+- `DESIGN_DOCUMENT.md` — Architecture, API surface, data models, security posture
+- `PLAN.md` — Milestone/phase breakdown with current execution status
+- `FEATURES.md` — Canonical feature list (backend, frontend, security, DevEx)
+- `USER_STORIES.md` — Persona-based requirements
+- `ACCEPTANCE_CRITERIA.md` — Definition of "acceptable" outcomes
+- `DEFINITION_OF_DONE.md` — Checklist for completed deliverables
+- `STATUS.md` — Rolling status log
+- `WHAT_WE_DID.md` — Chronological notes about completed work
+- `DO_NEXT.md` — Prioritized roadmap
+- `AGENTS.md` — Instructions for automation/agents
+- `openapi/blerp.v1.yaml` — Authoritative REST contract
 
 ## Project Status
 
-- **Current Goal**: Achieving 100% feature parity with the Monite SDK's integration of Clerk (Milestone 6).
-- **Core Platform**: Milestone 1-3 complete. Foundations for multi-tenancy, auth, and dashboard are solid.
-- **Frameworks**: Milestone 4-5 complete. `@blerp/nextjs` and `@blerp/backend` packages are operational.
-- **Documentation**: Comprehensive guides for SDK repointing and Monite metadata mapping are available.
+- **Current Status**: All planned milestones complete through M12! 🎉
+- **Core Platform**: Milestones 1-3 complete. Multi-tenancy, auth, and dashboard foundations are solid.
+- **Frameworks**: Milestones 4-5 complete. `@blerp/nextjs` and `@blerp/backend` packages are operational.
+- **SDK Parity**: Milestones 6-7 complete. Full Monite SDK and Clerk SDK compatibility achieved.
+- **Testing**: Milestone 8 complete. Comprehensive E2E testing with 81+ passing tests.
+- **Dashboard**: Milestone 12 complete. All user profile, settings, and organization features implemented.
 
-## Repository & Contact
+**Blocked**: M9 (Production Infrastructure) pending AWS credentials.
 
-- Canonical Git repository: [github.com/e6qu/blerp](https://github.com/e6qu/blerp)
-- Primary contact for coordination: `adi11235@gmail.com`
-
-## SDK Generation
-
-The OpenAPI schema is used as the single source of truth to generate TypeScript SDK clients. To regenerate the SDK after updating the `openapi/blerp.v1.yaml` schema, run:
-
-```bash
-bun run sdk:generate
-# or
-make generate-sdk
-```
-
-The generated client is output to `packages/shared/src/schema.ts` and exported via `packages/shared/src/index.ts`.
+**Next**: M10 (Multi-Language SDK Support) or M11 (Advanced Security & Compliance).
 
 ## Workspace Structure
 
-- `apps/api` — Express/Node.js backend service.
-- `apps/dashboard` — React SPA dashboard.
-- `packages/shared` — Shared TypeScript logic, types, and generated OpenAPI client.
-- `packages/config` — Shared configuration (TSConfig, ESLint, etc.).
-- `openapi/` — API specifications and documentation.
+```
+blerp/
+├── apps/
+│   ├── api/              # Express API server (port 3000)
+│   ├── dashboard/        # React admin dashboard (port 5173)
+│   └── docs/             # VitePress documentation site
+├── packages/
+│   ├── shared/           # Shared types, utilities, and generated OpenAPI client
+│   ├── nextjs/           # Next.js SDK for client apps
+│   ├── backend/          # Backend SDK for server apps
+│   └── config/           # Shared configuration (TSConfig, ESLint, etc.)
+├── openapi/              # OpenAPI 3.1 specifications
+├── examples/             # Example applications and integrations
+└── docs/                 # Additional markdown documentation
+```
 
-## Local Setup & Development
+## Quick Start
 
-### Prerequisites
-
-- [Bun](https://bun.sh) (v1.2.19+)
-
-### Installation & Setup
+### 1. Install Dependencies
 
 ```bash
-# Clone and install dependencies
-git clone git@github.com:e6qu/blerp.git
-cd blerp
 bun install
 ```
 
-### Common Commands
+### 2. Run in Development Mode
+
+```bash
+bun run dev
+```
+
+This starts:
+
+- **API Server** at `http://localhost:3000`
+- **Dashboard** at `http://localhost:5173`
+- **Docs** at `http://localhost:5174` (if running)
+
+### 3. Create Your First User
+
+```bash
+curl -X POST http://localhost:3000/v1/auth/signups \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: demo-project" \
+  -d '{
+    "email": "user@example.com",
+    "strategy": "password",
+    "password": "SecurePassword123!"
+  }'
+```
+
+For a detailed walkthrough, see the **[Getting Started Tutorial](https://blerp.dev/tutorials/getting-started)**.
+
+## Common Commands
 
 | Command                | Description                                              |
 | ---------------------- | -------------------------------------------------------- |
@@ -78,7 +104,17 @@ bun install
 | `bun run openapi:lint` | Validate the OpenAPI specification.                      |
 | `bun run sdk:generate` | Regenerate the shared SDK client from the OpenAPI spec.  |
 
-### Adding Dependencies
+## SDK Generation
+
+The OpenAPI schema is used as the single source of truth to generate TypeScript SDK clients:
+
+```bash
+bun run sdk:generate
+```
+
+The generated client is output to `packages/shared/src/schema.ts` and exported via `packages/shared/src/index.ts`.
+
+## Adding Dependencies
 
 To add a package to a specific workspace:
 
@@ -87,3 +123,23 @@ bun add <package> --filter @blerp/api
 ```
 
 > **Note:** Do not use `npm`, `pnpm`, or `yarn`. This project is standardized on Bun. Use `bunx turbo <cmd>` if you need to run turbo commands directly outside of scripts.
+
+## Repository & Contact
+
+- **Repository**: [github.com/e6qu/blerp](https://github.com/e6qu/blerp)
+- **Issues**: [github.com/e6qu/blerp/issues](https://github.com/e6qu/blerp/issues)
+- **Primary Contact**: `adi11235@gmail.com`
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting: `bun run test && bun run lint`
+5. Submit a pull request
+
+## License
+
+[MIT License](LICENSE)

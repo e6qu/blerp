@@ -7,6 +7,7 @@ export default defineConfig({
     nav: [
       { text: "Home", link: "/" },
       { text: "Guide", link: "/guide/" },
+      { text: "Tutorials", link: "/tutorials/" },
       { text: "API", link: "/api/" },
     ],
     sidebar: [
@@ -22,6 +23,16 @@ export default defineConfig({
         items: [
           { text: "Local Setup", link: "/guide/local-setup" },
           { text: "SDK Repointing", link: "/guide/sdk-repointing" },
+        ],
+      },
+      {
+        text: "Tutorials",
+        items: [
+          { text: "Overview", link: "/tutorials/" },
+          { text: "Getting Started", link: "/tutorials/getting-started" },
+          { text: "API Usage", link: "/tutorials/api-usage" },
+          { text: "Data Setup", link: "/tutorials/data-setup" },
+          { text: "Next.js Integration", link: "/tutorials/nextjs-integration" },
         ],
       },
     ],
