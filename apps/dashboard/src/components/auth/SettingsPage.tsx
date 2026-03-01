@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { AuditLogViewer } from "./AuditLogViewer";
 import { UsageDashboard } from "./UsageDashboard";
+import { ApiKeysList } from "./ApiKeysList";
+import { ProjectSettingsForm } from "./ProjectSettingsForm";
+import { DeleteProjectModal } from "./DeleteProjectModal";
+import { useProject } from "../../hooks/useProject";
 
 type TabKey = "general" | "audit" | "usage";
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("general");
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const { data: project } = useProject();
 
   return (
     <div className="p-8">
@@ -48,36 +54,45 @@ export function SettingsPage() {
         </div>
 
         <div className="p-8">
-          {activeTab === "general" && <GeneralTab />}
+          {activeTab === "general" && (
+            <GeneralTab onDeleteClick={() => setIsDeleteModalOpen(true)} />
+          )}
           {activeTab === "audit" && <AuditTab />}
           {activeTab === "usage" && <UsageTab />}
         </div>
       </div>
+
+      <DeleteProjectModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        projectName={project?.name || "demo-project"}
+      />
     </div>
   );
 }
 
-function GeneralTab() {
+function GeneralTab({ onDeleteClick }: { onDeleteClick: () => void }) {
   return (
     <div className="space-y-6">
       <div className="border rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-900">Project Settings</h3>
-        <p className="text-sm text-gray-500 mt-1">
-          Configure your project name, domain, and other settings.
-        </p>
-        <button className="mt-3 text-sm text-blue-600 hover:underline">Edit settings</button>
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Project Settings</h3>
+        <ProjectSettingsForm />
       </div>
 
       <div className="border rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-900">API Keys</h3>
-        <p className="text-sm text-gray-500 mt-1">Manage your secret and publishable API keys.</p>
-        <button className="mt-3 text-sm text-blue-600 hover:underline">Manage keys</button>
+        <h3 className="text-sm font-medium text-gray-900 mb-3">API Keys</h3>
+        <ApiKeysList />
       </div>
 
       <div className="border rounded-lg p-4 border-red-200 bg-red-50">
         <h3 className="text-sm font-medium text-red-900">Danger Zone</h3>
         <p className="text-sm text-red-700 mt-1">Delete this project and all associated data.</p>
-        <button className="mt-3 text-sm text-red-600 hover:underline">Delete project</button>
+        <button
+          onClick={onDeleteClick}
+          className="mt-3 text-sm text-red-600 hover:underline font-medium"
+        >
+          Delete project
+        </button>
       </div>
     </div>
   );

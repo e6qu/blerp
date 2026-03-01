@@ -1281,6 +1281,112 @@ paths:
         "204":
           description: Deleted
 
+  /v1/users/{user_id}/email_addresses:
+    get:
+      tags: [Users]
+      summary: List user email addresses
+      description: Returns all email addresses associated with a user.
+      operationId: listUserEmailAddresses
+      security:
+        - SecretKey: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Email addresses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailAddress"
+    post:
+      tags: [Users]
+      summary: Add email address
+      description: Adds a new email address to the user.
+      operationId: addUserEmailAddress
+      security:
+        - SecretKey: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "201":
+          description: Email address added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailAddress"
+  /v1/users/{user_id}/email_addresses/{email_address_id}:
+    delete:
+      tags: [Users]
+      summary: Delete email address
+      description: Removes an email address from the user.
+      operationId: deleteUserEmailAddress
+      security:
+        - SecretKey: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: email_address_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Email address deleted
+  /v1/users/{user_id}/email_addresses/{email_address_id}/set_primary:
+    post:
+      tags: [Users]
+      summary: Set primary email address
+      description: Sets an email address as the primary for the user.
+      operationId: setPrimaryEmailAddress
+      security:
+        - SecretKey: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: email_address_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Primary email set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailAddress"
+
   /v1/users/{user_id}/metadata:
     patch:
       tags: [Users]
@@ -2340,6 +2446,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Project"
+    delete:
+      tags: [Projects]
+      summary: Delete project
+      description: Permanently deletes a project and all associated data.
+      operationId: deleteProject
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Project deleted
   /v1/projects/{project_id}/jwks:
     post:
       tags: [Projects]
@@ -2453,6 +2575,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/APIKey"
+  /v1/projects/{project_id}/keys/{key_id}:
+    delete:
+      tags: [Projects]
+      summary: Revoke API key
+      description: Revokes an API key, preventing it from being used for authentication.
+      operationId: revokeApiKey
+      security:
+        - SecretKey: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: API key revoked
   /v1/projects/{project_id}/keys/{key_id}/rotate:
     post:
       tags: [Projects]

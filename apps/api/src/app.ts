@@ -8,6 +8,7 @@ import { tenantMiddleware } from "./middleware/tenant";
 import { authRoutes } from "./v1/routes/auth.routes";
 import { organizationRoutes } from "./v1/routes/organization.routes";
 import { webhookRoutes } from "./v1/routes/webhook.routes";
+import { projectRoutes } from "./v1/routes/project.routes";
 import { scimRoutes } from "./v1/routes/scim.routes";
 import * as auditController from "./v1/controllers/audit.controller";
 import * as quotaController from "./v1/controllers/quota.controller";
@@ -59,6 +60,7 @@ app.use("/v1", doubleCsrfProtection);
 app.use("/v1", authRoutes);
 app.use("/v1", organizationRoutes);
 app.use("/v1", webhookRoutes);
+app.use("/v1", projectRoutes);
 
 // Metadata
 app.patch("/v1/users/:user_id/metadata", authMiddleware, userMetadataController.updateMetadata);

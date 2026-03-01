@@ -110,6 +110,32 @@ export interface paths {
      */
     patch: operations["updateUser"];
   };
+  "/v1/users/{user_id}/email_addresses": {
+    /**
+     * List user email addresses
+     * @description Returns all email addresses associated with a user.
+     */
+    get: operations["listUserEmailAddresses"];
+    /**
+     * Add email address
+     * @description Adds a new email address to the user.
+     */
+    post: operations["addUserEmailAddress"];
+  };
+  "/v1/users/{user_id}/email_addresses/{email_address_id}": {
+    /**
+     * Delete email address
+     * @description Removes an email address from the user.
+     */
+    delete: operations["deleteUserEmailAddress"];
+  };
+  "/v1/users/{user_id}/email_addresses/{email_address_id}/set_primary": {
+    /**
+     * Set primary email address
+     * @description Sets an email address as the primary for the user.
+     */
+    post: operations["setPrimaryEmailAddress"];
+  };
   "/v1/users/{user_id}/metadata": {
     /**
      * Update user metadata
@@ -339,6 +365,11 @@ export interface paths {
      * @description Updates project-level configuration values and secrets.
      */
     put: operations["updateProjectConfig"];
+    /**
+     * Delete project
+     * @description Permanently deletes a project and all associated data.
+     */
+    delete: operations["deleteProject"];
   };
   "/v1/projects/{project_id}/jwks": {
     /**
@@ -358,6 +389,13 @@ export interface paths {
      * @description Creates an API key scoped to the requested permissions and environment.
      */
     post: operations["createApiKey"];
+  };
+  "/v1/projects/{project_id}/keys/{key_id}": {
+    /**
+     * Revoke API key
+     * @description Revokes an API key, preventing it from being used for authentication.
+     */
+    delete: operations["revokeApiKey"];
   };
   "/v1/projects/{project_id}/keys/{key_id}/rotate": {
     /**
@@ -1250,6 +1288,92 @@ export interface operations {
     };
   };
   /**
+   * List user email addresses
+   * @description Returns all email addresses associated with a user.
+   */
+  listUserEmailAddresses: {
+    parameters: {
+      path: {
+        user_id: string;
+      };
+    };
+    responses: {
+      /** @description Email addresses */
+      200: {
+        content: {
+          "application/json": {
+            data?: components["schemas"]["EmailAddress"][];
+          };
+        };
+      };
+    };
+  };
+  /**
+   * Add email address
+   * @description Adds a new email address to the user.
+   */
+  addUserEmailAddress: {
+    parameters: {
+      path: {
+        user_id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** Format: email */
+          email: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Email address added */
+      201: {
+        content: {
+          "application/json": components["schemas"]["EmailAddress"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete email address
+   * @description Removes an email address from the user.
+   */
+  deleteUserEmailAddress: {
+    parameters: {
+      path: {
+        user_id: string;
+        email_address_id: string;
+      };
+    };
+    responses: {
+      /** @description Email address deleted */
+      204: {
+        content: never;
+      };
+    };
+  };
+  /**
+   * Set primary email address
+   * @description Sets an email address as the primary for the user.
+   */
+  setPrimaryEmailAddress: {
+    parameters: {
+      path: {
+        user_id: string;
+        email_address_id: string;
+      };
+    };
+    responses: {
+      /** @description Primary email set */
+      200: {
+        content: {
+          "application/json": components["schemas"]["EmailAddress"];
+        };
+      };
+    };
+  };
+  /**
    * Update user metadata
    * @description Updates the public, private, or unsafe metadata for a user.
    */
@@ -2112,6 +2236,23 @@ export interface operations {
     };
   };
   /**
+   * Delete project
+   * @description Permanently deletes a project and all associated data.
+   */
+  deleteProject: {
+    parameters: {
+      path: {
+        project_id: string;
+      };
+    };
+    responses: {
+      /** @description Project deleted */
+      204: {
+        content: never;
+      };
+    };
+  };
+  /**
    * Rotate signing keys
    * @description Rotates the signing keys and returns updated JWKS metadata.
    */
@@ -2193,6 +2334,24 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["APIKey"];
         };
+      };
+    };
+  };
+  /**
+   * Revoke API key
+   * @description Revokes an API key, preventing it from being used for authentication.
+   */
+  revokeApiKey: {
+    parameters: {
+      path: {
+        project_id: string;
+        key_id: string;
+      };
+    };
+    responses: {
+      /** @description API key revoked */
+      204: {
+        content: never;
       };
     };
   };
