@@ -4,7 +4,7 @@ Welcome to the Blerp tutorials! These guides will help you get started with Bler
 
 ## Tutorial Series
 
-### [Getting Started](./getting-started/)
+### [Getting Started](./getting-started)
 
 Learn how to run Blerp locally for development and testing.
 
@@ -13,7 +13,7 @@ Learn how to run Blerp locally for development and testing.
 - Understanding the project structure
 - Basic configuration
 
-### [API Usage](./api-usage/)
+### [API Usage](./api-usage)
 
 Learn how to use the Blerp REST API directly.
 
@@ -23,7 +23,7 @@ Learn how to use the Blerp REST API directly.
 - Session management
 - Webhook integration
 
-### [Data Setup](./data-setup/)
+### [Data Setup](./data-setup)
 
 Learn how to set up and manage data in Blerp.
 
@@ -32,7 +32,7 @@ Learn how to set up and manage data in Blerp.
 - Configuring authentication strategies
 - Managing user data
 
-### [Next.js Integration](./nextjs-integration/)
+### [Next.js Integration](./nextjs-integration)
 
 Learn how to integrate Blerp into a Next.js application.
 
@@ -55,9 +55,8 @@ Before starting these tutorials, ensure you have:
 
 If you run into issues:
 
-1. Check the [API Reference](/api/) for detailed endpoint documentation
-2. Review the [Architecture Guide](/guide/architecture) for system design
-3. Open an issue on [GitHub](https://github.com/e6qu/blerp/issues)
+1. Check the Architecture Guide for system design
+2. Open an issue on [GitHub](https://github.com/e6qu/blerp/issues)
 
 ## Contributing
 

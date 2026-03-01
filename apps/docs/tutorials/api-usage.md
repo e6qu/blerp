@@ -380,12 +380,10 @@ if (error) {
 
 ## Next Steps
 
-- **[Data Setup Tutorial](../data-setup/)** - Learn how to structure your data
-- **[Next.js Integration](../nextjs-integration/)** - Add Blerp to your Next.js app
-- **[API Reference](/api/)** - Complete endpoint documentation
+- **Data Setup Tutorial** - Learn how to structure your data in the [Data Setup](../data-setup) tutorial
+- **Next.js Integration** - Add Blerp to your Next.js app with the [Next.js Integration](../nextjs-integration) tutorial
 
 ## Additional Resources
 
 - [OpenAPI Specification](https://github.com/e6qu/blerp/blob/main/openapi/blerp.v1.yaml)
-- [Architecture Guide](/guide/architecture)
 - [GitHub Examples](https://github.com/e6qu/blerp/tree/main/examples)

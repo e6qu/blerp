@@ -416,6 +416,6 @@ for (const user of users) {
 
 ## Next Steps
 
-- **[Next.js Integration](../nextjs-integration/)** - Add Blerp to your Next.js app
-- **[API Usage Tutorial](../api-usage/)** - Learn more API operations
-- **[API Reference](/api/)** - Complete endpoint documentation
+- **Next.js Integration** - Add Blerp to your Next.js app
+- **API Usage Tutorial** - Learn more API operations
+- \*\*

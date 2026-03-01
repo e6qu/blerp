@@ -213,12 +213,11 @@ docker-compose up -d redis
 
 Now that Blerp is running, you can:
 
-1. **[Use the API](../api-usage/)** - Learn how to make authenticated API calls
-2. **[Set Up Data](../data-setup/)** - Create projects, organizations, and users
-3. **[Integrate with Next.js](../nextjs-integration/)** - Add authentication to your app
+1. **Use the API** - Learn how to make authenticated API calls in the [API Usage](../api-usage) tutorial
+2. **Set Up Data** - Create projects, organizations, and users in the [Data Setup](../data-setup) tutorial
+3. **Integrate with Next.js** - Add authentication to your app with the [Next.js Integration](../nextjs-integration) tutorial
 
 ## Additional Resources
 
-- [API Reference](/api/) - Complete API documentation
-- [Architecture Guide](/guide/architecture) - System design overview
 - [GitHub Repository](https://github.com/e6qu/blerp) - Source code and issues
+- [Guide](/guide/) - Getting started guide

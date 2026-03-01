@@ -577,9 +577,9 @@ function UserProfile({ user }: { user: User }) {
 
 ## Next Steps
 
-- **[API Usage Tutorial](../api-usage/)** - Learn more about available endpoints
-- **[Data Setup Tutorial](../data-setup/)** - Set up organizations and users
-- **[API Reference](/api/)** - Complete endpoint documentation
+- **API Usage Tutorial** - Learn more about available endpoints
+- **Data Setup Tutorial** - Set up organizations and users
+- **API Reference** - Complete endpoint documentation
 
 ## Troubleshooting
 

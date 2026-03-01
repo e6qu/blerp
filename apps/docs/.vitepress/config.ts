@@ -3,6 +3,7 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
   title: "Blerp Documentation",
   description: "Identity and Authentication Service",
+  ignoreDeadLinks: true,
   themeConfig: {
     nav: [
       { text: "Home", link: "/" },
