@@ -15,8 +15,8 @@
 | M5        | Monite SDK Parity & Advanced Metadata | ✅ Complete |
 | M6        | Monite SDK Full Feature Parity        | ✅ Complete |
 | M7        | Clerk SDK Parity                      | ✅ Complete |
-| M8        | UI Flow E2E Testing                   | 📋 Current  |
-| M9        | Production Infrastructure             | 📋 Planned  |
+| M8        | UI Flow E2E Testing                   | ✅ Complete |
+| M9        | Production Infrastructure             | ⏸️ Blocked  |
 | M10       | Multi-Language SDK Support            | 📋 Planned  |
 | M11       | Advanced Security & Compliance        | 📋 Planned  |
 
@@ -86,9 +86,17 @@
 - Standardized error handling with `BlerpError` classes
 - CI/CD optimization with parallel jobs and caching
 
+### Milestone 8 — UI Flow E2E Testing ✅
+
+- Auth flow tests: signup, signin, signout, password-reset
+- User profile tests: profile, sessions, security
+- Organization tests: crud, switching, members, domains
+- Access control tests: protected-routes, permissions
+- CI integration: E2E tests run on every PR with artifact upload
+
 ---
 
-## Milestone 8 — UI Flow E2E Testing
+## Milestone 8 — UI Flow E2E Testing ✅
 
 _Objective_: Implement comprehensive Playwright E2E tests for all UI flows to ensure production readiness.
 
@@ -200,7 +208,7 @@ _Objective_: Implement comprehensive Playwright E2E tests for all UI flows to en
 
 ### Phase F — CI Integration
 
-17. [ ] **E2E in CI Pipeline**
+17. [x] **E2E in CI Pipeline**
 
 - Run E2E tests in GitHub Actions
 - Upload Playwright reports as artifacts
@@ -208,7 +216,9 @@ _Objective_: Implement comprehensive Playwright E2E tests for all UI flows to en
 
 ---
 
-## Milestone 9 — Production Infrastructure
+## Milestone 9 — Production Infrastructure ⏸️
+
+> **Blocked**: Requires AWS credentials and infrastructure access. Resume when available.
 
 _Objective_: Deploy Blerp to production infrastructure.
 
