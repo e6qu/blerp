@@ -2,35 +2,39 @@
 
 ### Current Milestone
 
-| Milestone | Description                  | Status         |
-| --------- | ---------------------------- | -------------- |
-| M12       | Dashboard Feature Completion | 🔄 In Progress |
+| Milestone | Description                  | Status      |
+| --------- | ---------------------------- | ----------- |
+| M12       | Dashboard Feature Completion | ✅ Complete |
 
-### In Progress — M12 Remaining Tasks
+### Completed — M12 Dashboard Features
 
 **Phase A — User Profile Features**
 
-1. ~~Profile Editing~~ - ✅ Complete (PR #33)
-2. ~~Email Management~~ - ✅ Complete (list, add, remove, verification status)
-3. ~~Password Change~~ - ✅ Complete (PR #33)
-4. 2FA Enrollment - TOTP QR code, verification, backup codes (deferred)
+1. ~~Profile Editing~~ - ✅ Complete
+2. ~~Email Management~~ - ✅ Complete
+3. ~~Password Change~~ - ✅ Complete
+4. ~~2FA Enrollment~~ - ✅ Complete (TOTP QR code, verification, backup codes)
 
 **Phase B — Settings Features**
 
-5. ~~Project Settings~~ - ✅ Complete (name editing, domain configuration)
-6. ~~API Key Management~~ - ✅ Complete (list, create, rotate, revoke)
-7. ~~Project Deletion~~ - ✅ Complete (confirmation dialog, cascade delete)
+5. ~~Project Settings~~ - ✅ Complete
+6. ~~API Key Management~~ - ✅ Complete
+7. ~~Project Deletion~~ - ✅ Complete
+
+**Phase C — Organization Features**
+
+8. ~~Invitation Creation~~ - ✅ Complete
+9. ~~Webhook Creation~~ - ✅ Complete
+10. ~~Domain Management~~ - ✅ Complete
 
 ### Completed
 
-| Milestone   | Description                                  | Status      |
-| ----------- | -------------------------------------------- | ----------- |
-| M1-M6       | Core Platform, Enterprise                    | ✅ Complete |
-| M7          | Clerk SDK Parity                             | ✅ Complete |
-| M8          | E2E Testing (Phases A-G)                     | ✅ Complete |
-| M12 Phase A | Profile Editing, Email Management, Password  | ✅ Complete |
-| M12 Phase B | Project Settings, API Keys, Project Deletion | ✅ Complete |
-| M12 Phase C | Organization Features UI                     | ✅ Complete |
+| Milestone | Description                  | Status      |
+| --------- | ---------------------------- | ----------- |
+| M1-M6     | Core Platform, Enterprise    | ✅ Complete |
+| M7        | Clerk SDK Parity             | ✅ Complete |
+| M8        | E2E Testing (Phases A-G)     | ✅ Complete |
+| M12       | Dashboard Feature Completion | ✅ Complete |
 
 ### Blocked
 

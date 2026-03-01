@@ -43,3 +43,4 @@ All development work complete through M8, M12 in progress:
 **Blocked**: M9 (Production Infrastructure) pending AWS credentials.
 
 **Next Step**: Complete M12 remaining task (2FA Enrollment - deferred) or proceed to future milestones.
+| 2026-03-02 | M12 Phase A - 2FA Enrollment | completed | TOTP enrollment, QR code, backup codes |
