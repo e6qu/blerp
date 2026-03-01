@@ -14,6 +14,57 @@ Template:
 
 Please append new entries chronologically (latest at bottom) and keep descriptions concise but informative. This log should mirror the updates in `STATUS.md` while providing extra technical context when needed.
 
+---
+
+## Summary of Major Milestones
+
+### Milestone 12 — Dashboard Feature Completion ✅ (2026-03-01 to 2026-03-02)
+
+**Phase A — User Profile Features**
+
+- Profile editing, email management, password change (PR #33)
+- 2FA enrollment with TOTP, QR codes, backup codes (PR #37)
+
+**Phase B — Settings Features**
+
+- Project settings with domain configuration, API keys, project deletion (PR #36)
+
+**Phase C — Organization Features**
+
+- Invitation creation, webhook creation, domain management (PR #31)
+
+### Milestone 8 — E2E Testing ✅ (2026-03-01)
+
+- 81+ E2E tests for critical user flows (auth, organizations, navigation, profile)
+- CI integration with Playwright
+- Working UI flows with functional buttons (PRs #26, #28, #29)
+
+### Milestone 7 — Clerk SDK Parity ✅ (2026-02-28)
+
+- User components, control components, auth flow components
+- User object compatibility layer
+- Complete Clerk SDK feature coverage (PRs #15-21)
+
+### Milestone 6 — Monite SDK Full Parity ✅ (2026-02-26)
+
+- Deep metadata merging, domain auto-enrollment
+- Organization domains management, multi-entity user mapping
+
+### Milestones 1-5 — Core Platform ✅ (2026-02-25 to 2026-02-26)
+
+- Multi-tenant SQLite architecture
+- Express API with Drizzle ORM
+- React dashboard with Vite
+- Redis caching and queues
+- Docker/ECS infrastructure
+- E2E testing framework
+
+---
+
+## Detailed Work Log
+
+### 2026-03-02 — M12 Phase A: 2FA Enrollment Feature
+
 ## 2026-02-25 — Milestone 1 Backlog Setup
 
 - Summary: Generated 32 milestone task files (Phase 0–E) inside `tasks/to-do`, each detailing scope, related user stories, DoD/AC expectations, dependencies, and blocking relationships per PLAN.md and USER_STORIES.md.
