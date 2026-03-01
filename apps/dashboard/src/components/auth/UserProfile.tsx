@@ -2,6 +2,7 @@ import { useState } from "react";
 import { usePasskeys, useRegisterPasskey } from "../../hooks/usePasskeys";
 import { SessionsViewer } from "./SessionsViewer";
 import { ProfileEditForm } from "./ProfileEditForm";
+import { ChangePasswordModal } from "./ChangePasswordModal";
 import { Key, ShieldCheck } from "lucide-react";
 import type { components } from "@blerp/shared";
 
@@ -75,6 +76,7 @@ function AccountTab() {
 function SecurityTab() {
   const { data: passkeys, isLoading } = usePasskeys();
   const registerPasskey = useRegisterPasskey();
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   if (isLoading) return <div className="text-gray-500">Loading security settings...</div>;
 
@@ -85,7 +87,12 @@ function SecurityTab() {
         <p className="text-sm text-gray-500 mt-1">
           Change your password to keep your account secure.
         </p>
-        <button className="mt-3 text-sm text-blue-600 hover:underline">Change password</button>
+        <button
+          onClick={() => setIsPasswordModalOpen(true)}
+          className="mt-3 text-sm text-blue-600 hover:underline"
+        >
+          Change password
+        </button>
       </div>
 
       <div className="border rounded-lg p-4">
@@ -135,6 +142,11 @@ function SecurityTab() {
           <button className="text-sm text-blue-600 hover:underline">Enable 2FA</button>
         </div>
       </div>
+
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
     </div>
   );
 }
