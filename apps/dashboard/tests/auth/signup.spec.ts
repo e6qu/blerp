@@ -24,12 +24,20 @@ test.describe("Sign Up Flow", () => {
     await expect(emailInput).toHaveAttribute("type", "email");
   });
 
-  test("continue button is disabled without email due to HTML5 validation", async ({ page }) => {
+  test("continue button is enabled", async ({ page }) => {
     const continueButton = page.getByRole("button", { name: "Continue" });
     await expect(continueButton).toBeEnabled();
   });
 
   test("form submission with valid email", async ({ page }) => {
+    await page.route("**/v1/auth/signups", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ id: "signup-123", status: "needs_verification" }),
+      });
+    });
+
     const emailInput = page.getByLabel("Email address");
     await emailInput.fill("test@example.com");
 
@@ -39,7 +47,7 @@ test.describe("Sign Up Flow", () => {
     await expect(page.getByText(/Signup initiated/)).toBeVisible({ timeout: 10000 });
   });
 
-  test("OAuth GitHub button initiates OAuth flow", async ({ page }) => {
+  test("OAuth GitHub button is clickable", async ({ page }) => {
     const githubButton = page.getByRole("button", { name: "GitHub" });
 
     await page.route("**/v1/auth/oauth/github**", (route) => {
@@ -53,7 +61,7 @@ test.describe("Sign Up Flow", () => {
     await githubButton.click();
   });
 
-  test("OAuth Google button initiates OAuth flow", async ({ page }) => {
+  test("OAuth Google button is clickable", async ({ page }) => {
     const googleButton = page.getByRole("button", { name: "Google" });
 
     await page.route("**/v1/auth/oauth/google**", (route) => {

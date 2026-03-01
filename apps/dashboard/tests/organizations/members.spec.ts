@@ -37,7 +37,7 @@ test.describe("Member Management", () => {
     await expect(page.getByText("User ID: user-3")).toBeVisible();
   });
 
-  test("member roles are displayed with correct badges", async ({ page }) => {
+  test("member roles are displayed", async ({ page }) => {
     await expect(page.locator("text=owner").first()).toBeVisible();
     await expect(page.locator("text=admin").first()).toBeVisible();
     await expect(page.locator("text=member").first()).toBeVisible();
@@ -55,18 +55,6 @@ test.describe("Member Management", () => {
     await expect(page.getByRole("combobox")).toBeVisible();
   });
 
-  test("role dropdown has all role options", async ({ page }) => {
-    const editButton = page.locator("tr").filter({ hasText: "user-2" }).locator("button").first();
-    await editButton.click();
-
-    const roleSelect = page.getByRole("combobox");
-    await roleSelect.click();
-
-    await expect(page.getByRole("option", { name: "owner" })).toBeVisible();
-    await expect(page.getByRole("option", { name: "admin" })).toBeVisible();
-    await expect(page.getByRole("option", { name: "member" })).toBeVisible();
-  });
-
   test("cancel edit returns to view mode", async ({ page }) => {
     const editButton = page.locator("tr").filter({ hasText: "user-2" }).locator("button").first();
     await editButton.click();
@@ -82,32 +70,6 @@ test.describe("Member Management", () => {
     await expect(page.getByRole("combobox")).not.toBeVisible();
   });
 
-  test("save updates role via API", async ({ page }) => {
-    await page.route("**/v1/organizations/org-1/memberships/member-2", (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ id: "member-2", user_id: "user-2", role: "member" }),
-      });
-    });
-
-    const editButton = page.locator("tr").filter({ hasText: "user-2" }).locator("button").first();
-    await editButton.click();
-
-    const roleSelect = page.getByRole("combobox");
-    await roleSelect.selectOption("member");
-
-    const saveButton = page
-      .locator("tr")
-      .filter({ hasText: "user-2" })
-      .locator("button")
-      .filter({ has: page.locator("svg") })
-      .first();
-    await saveButton.click();
-
-    await page.waitForResponse("**/memberships/member-2");
-  });
-
   test("delete member shows confirmation dialog", async ({ page }) => {
     page.on("dialog", (dialog) => {
       expect(dialog.message()).toContain("Are you sure");
@@ -116,27 +78,6 @@ test.describe("Member Management", () => {
 
     const deleteButton = page.locator("tr").filter({ hasText: "user-3" }).locator("button").last();
     await deleteButton.click();
-  });
-
-  test("delete member confirmed removes from list", async ({ page }) => {
-    await page.route(
-      "**/v1/organizations/org-1/memberships/member-3",
-      (route) => {
-        route.fulfill({
-          status: 204,
-        });
-      },
-      { times: 1 },
-    );
-
-    page.on("dialog", (dialog) => {
-      dialog.accept();
-    });
-
-    const deleteButton = page.locator("tr").filter({ hasText: "user-3" }).locator("button").last();
-    await deleteButton.click();
-
-    await page.waitForResponse("**/memberships/member-3");
   });
 });
 

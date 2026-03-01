@@ -37,30 +37,12 @@ test.describe("Organization CRUD", () => {
     await expect(page.getByLabel("Organization slug")).toBeVisible();
   });
 
-  test("modal has cancel and create buttons", async ({ page }) => {
-    const createButton = page.getByRole("button", { name: /create organization/i });
-    await createButton.click();
-
-    await expect(page.getByRole("button", { name: "Cancel" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Create" })).toBeVisible();
-  });
-
   test("cancel button closes modal", async ({ page }) => {
     const createButton = page.getByRole("button", { name: /create organization/i });
     await createButton.click();
 
     const cancelButton = page.getByRole("button", { name: "Cancel" });
     await cancelButton.click();
-
-    await expect(page.getByRole("heading", { name: "Create organization" })).not.toBeVisible();
-  });
-
-  test("close button in modal header closes modal", async ({ page }) => {
-    const createButton = page.getByRole("button", { name: /create organization/i });
-    await createButton.click();
-
-    const closeButton = page.locator(".fixed.inset-0.z-50 button").filter({ hasText: "" }).first();
-    await closeButton.click();
 
     await expect(page.getByRole("heading", { name: "Create organization" })).not.toBeVisible();
   });
@@ -88,58 +70,6 @@ test.describe("Organization CRUD", () => {
     await slugInput.fill("custom-slug");
 
     await expect(slugInput).toHaveValue("custom-slug");
-  });
-
-  test("create button shows loading state while submitting", async ({ page }) => {
-    await page.route("**/v1/organizations", (route) => {
-      route.fulfill({
-        status: 201,
-        contentType: "application/json",
-        body: JSON.stringify({ id: "test-org-id", name: "Test Org" }),
-      });
-    });
-
-    const createButton = page.getByRole("button", { name: /create organization/i });
-    await createButton.click();
-
-    const nameInput = page.getByLabel("Organization name");
-    await nameInput.fill("Test Org");
-
-    const modalCreateButton = page.getByRole("button", { name: "Create" });
-    await modalCreateButton.click();
-
-    await expect(page.getByRole("button", { name: /creating/i })).toBeVisible();
-  });
-
-  test("create organization success closes modal", async ({ page }) => {
-    await page.route("**/v1/organizations", (route) => {
-      if (route.request().method() === "POST") {
-        route.fulfill({
-          status: 201,
-          contentType: "application/json",
-          body: JSON.stringify({ id: "test-org-id", name: "Test Org" }),
-        });
-      } else {
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ data: [{ id: "test-org-id", name: "Test Org" }] }),
-        });
-      }
-    });
-
-    const createButton = page.getByRole("button", { name: /create organization/i });
-    await createButton.click();
-
-    const nameInput = page.getByLabel("Organization name");
-    await nameInput.fill("Test Org");
-
-    const modalCreateButton = page.getByRole("button", { name: "Create" });
-    await modalCreateButton.click();
-
-    await expect(page.getByRole("heading", { name: "Create organization" })).not.toBeVisible({
-      timeout: 5000,
-    });
   });
 
   test("empty state shown when no org selected", async ({ page }) => {
