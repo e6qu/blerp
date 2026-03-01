@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { usePasskeys, useRegisterPasskey } from "../../hooks/usePasskeys";
 import { SessionsViewer } from "./SessionsViewer";
+import { ProfileEditForm } from "./ProfileEditForm";
+import { ChangePasswordModal } from "./ChangePasswordModal";
 import { Key, ShieldCheck } from "lucide-react";
 import type { components } from "@blerp/shared";
 
@@ -63,25 +65,9 @@ export function UserProfile() {
 function AccountTab() {
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-600">
-        Account management features coming soon. This will include profile editing, email
-        management, and connected accounts.
-      </p>
-
       <div className="border rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-900">Profile Information</h3>
-        <p className="text-sm text-gray-500 mt-1">
-          Update your personal information and preferences.
-        </p>
-        <button className="mt-3 text-sm text-blue-600 hover:underline">Edit profile</button>
-      </div>
-
-      <div className="border rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-900">Email Addresses</h3>
-        <p className="text-sm text-gray-500 mt-1">
-          Manage your email addresses and verification status.
-        </p>
-        <button className="mt-3 text-sm text-blue-600 hover:underline">Manage emails</button>
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Profile Information</h3>
+        <ProfileEditForm />
       </div>
     </div>
   );
@@ -90,6 +76,7 @@ function AccountTab() {
 function SecurityTab() {
   const { data: passkeys, isLoading } = usePasskeys();
   const registerPasskey = useRegisterPasskey();
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   if (isLoading) return <div className="text-gray-500">Loading security settings...</div>;
 
@@ -100,7 +87,12 @@ function SecurityTab() {
         <p className="text-sm text-gray-500 mt-1">
           Change your password to keep your account secure.
         </p>
-        <button className="mt-3 text-sm text-blue-600 hover:underline">Change password</button>
+        <button
+          onClick={() => setIsPasswordModalOpen(true)}
+          className="mt-3 text-sm text-blue-600 hover:underline"
+        >
+          Change password
+        </button>
       </div>
 
       <div className="border rounded-lg p-4">
@@ -150,6 +142,11 @@ function SecurityTab() {
           <button className="text-sm text-blue-600 hover:underline">Enable 2FA</button>
         </div>
       </div>
+
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
     </div>
   );
 }
