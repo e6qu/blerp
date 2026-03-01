@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { OrganizationMembers } from "./OrganizationMembers";
 import { OrganizationInvitations } from "./OrganizationInvitations";
+import { OrganizationDomains } from "./OrganizationDomains";
 import { WebhookList } from "./WebhookList";
 import { CreateOrganizationModal } from "./CreateOrganizationModal";
 import type { components } from "@blerp/shared";
@@ -12,7 +13,9 @@ type Organization = components["schemas"]["Organization"];
 export function OrganizationsPage() {
   const { data: organizations, isLoading } = useOrganizations();
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"members" | "invitations" | "webhooks">("members");
+  const [activeTab, setActiveTab] = useState<"members" | "invitations" | "domains" | "webhooks">(
+    "members",
+  );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   if (isLoading) return <div className="p-8">Loading organizations...</div>;
@@ -77,6 +80,16 @@ export function OrganizationsPage() {
                     Invitations
                   </button>
                   <button
+                    onClick={() => setActiveTab("domains")}
+                    className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+                      activeTab === "domains"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    }`}
+                  >
+                    Domains
+                  </button>
+                  <button
                     onClick={() => setActiveTab("webhooks")}
                     className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
                       activeTab === "webhooks"
@@ -93,11 +106,12 @@ export function OrganizationsPage() {
               {activeTab === "invitations" && (
                 <OrganizationInvitations organizationId={selectedOrgId} />
               )}
+              {activeTab === "domains" && <OrganizationDomains organizationId={selectedOrgId} />}
               {activeTab === "webhooks" && <WebhookList />}
             </div>
           ) : (
             <div className="flex h-64 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-500">
-              Select an organization to manage its members, invitations, and webhooks.
+              Select an organization to manage its members, invitations, domains, and webhooks.
             </div>
           )}
         </div>

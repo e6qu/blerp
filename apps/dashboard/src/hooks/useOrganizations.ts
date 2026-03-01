@@ -113,3 +113,23 @@ export function useRevokeInvitation() {
     },
   });
 }
+
+export function useCreateInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      email: string;
+      organization_id: string;
+      role: string;
+      permissions?: string[];
+      redirect_url?: string;
+    }) => {
+      const { data, error } = await client.POST("/v1/invitations", { body });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invitations"] });
+    },
+  });
+}
