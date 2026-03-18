@@ -335,3 +335,93 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bun run build` (all packages), `bun run lint` (all pass)
 - Files touched: `apps/api/src/v1/controllers/totp.controller.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `apps/dashboard/src/hooks/useTotp.ts`, `apps/dashboard/src/components/auth/TwoFactorEnrollmentModal.tsx`, `apps/dashboard/src/components/auth/UserProfile.tsx`, `PLAN.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`.
 - Notes/Links: M12 Phase A now complete with all user profile features implemented. TOTP enrollment uses QR code from Google Chart API, supports manual secret entry, and generates 10 backup codes. Milestone 12 is now fully complete.
+
+## 2026-03-19 — Dashboard UI Gaps: Close Critical Clerk/Monite Parity (9 Phases)
+
+- Summary: Implemented 9 phases from the GAP_ANALYSIS.md plan to close critical dashboard UI gaps for Clerk/Monite parity. All P0 and P1 items addressed. Fixed 7 test bugs (BUG-11 through BUG-17) discovered during implementation. Updated AGENTS.md with zero-tolerance policy for ignored issues.
+
+### Phase 1: Sign In Page (P0)
+
+- Backend: Added `createSignin()`/`attemptSignin()` to `auth.service.ts`, controller methods, routes (`POST /auth/signins`, `POST /auth/signins/:signin_id/attempt`)
+- Frontend: `SignIn.tsx` with email→password two-step flow, OAuth buttons, back navigation
+- Route `/sign-in` added, home page shows both SignUp and SignIn side-by-side
+- Files: `auth.service.ts`, `auth.controller.ts`, `auth.routes.ts`, `SignIn.tsx`, `App.tsx`
+
+### Phase 2: Organization Deletion + Account Deletion (P0)
+
+- `DeleteOrganizationModal.tsx` — type-to-confirm pattern, cascades memberships/invitations/domains
+- `DeleteAccountModal.tsx` — type "DELETE MY ACCOUNT", redirects to `/sign-in`
+- Danger Zone sections added to OrganizationsPage and UserProfile AccountTab
+- Added `deleteOrganization` operation to OpenAPI schema (`packages/shared/src/schema.ts`)
+- Files: `DeleteOrganizationModal.tsx`, `DeleteAccountModal.tsx`, `useDeleteOrganization.ts`, `useDeleteAccount.ts`, `OrganizationsPage.tsx`, `UserProfile.tsx`, `schema.ts`
+
+### Phase 3: Connected Accounts (OAuth) UI (P0)
+
+- `ConnectedAccounts.tsx` — shows GitHub/Google providers with connect/disconnect buttons
+- Uses existing `useUserIdentities`/`useUnlinkIdentity` hooks
+- Integrated into UserProfile AccountTab after Email Addresses section
+- Files: `ConnectedAccounts.tsx`, `UserProfile.tsx`
+
+### Phase 4: Pagination (P0)
+
+- `Pagination.tsx` — Previous/Next buttons + page size selector (10/20/50/100)
+- `usePagination.ts` — cursor stack management hook
+- Integrated into `SessionsViewer.tsx` and `AuditLogViewer.tsx`
+- Files: `Pagination.tsx`, `usePagination.ts`, `SessionsViewer.tsx`, `AuditLogViewer.tsx`
+
+### Phase 5: Toast Notification System (P1)
+
+- `Toast.tsx` — `ToastProvider` + `useToast` context with auto-dismiss (4s), success/error/info types
+- Wrapped entire app in `<ToastProvider>`
+- Integrated into ProfileEditForm (save success) and DeleteOrganizationModal (delete success)
+- Files: `Toast.tsx`, `App.tsx`, `ProfileEditForm.tsx`, `DeleteOrganizationModal.tsx`
+
+### Phase 6: Loading Skeletons (P1)
+
+- `Skeleton.tsx` — `SkeletonLine`, `SkeletonCircle`, `TableSkeleton`, `CardSkeleton`, `ProfileSkeleton`
+- Replaced "Loading..." text in 10 components: SessionsViewer, AuditLogViewer, OrganizationMembers, OrganizationInvitations, ApiKeysList, WebhookList, ProfileEditForm, OrganizationsPage, UserProfile SecurityTab, ConnectedAccounts
+- Files: `Skeleton.tsx`, plus all listed components
+
+### Phase 7: Session Info, Backup Codes, Passkey Management (P1)
+
+- `userAgent.ts` — UA string parser (browser/OS/device detection)
+- SessionsViewer now shows "Chrome on macOS" with device icons instead of raw UA strings
+- `BackupCodesModal.tsx` — generate, display, and copy backup codes
+- Passkey delete: added `useDeletePasskey` hook + backend `DELETE /auth/webauthn/passkeys/:passkey_id`
+- SecurityTab: added delete button on passkeys, backup codes section
+- Files: `userAgent.ts`, `SessionsViewer.tsx`, `BackupCodesModal.tsx`, `usePasskeys.ts`, `webauthn.controller.ts`, `auth.routes.ts`, `UserProfile.tsx`
+
+### Phase 8: Admin User Management Page (P1)
+
+- `UsersListPage.tsx` — table with avatar (initials fallback), name, email, status badge, username, created date
+- Search input (filters by name/email), status filter dropdown, pagination
+- `useUsers.ts` hook wrapping `GET /v1/users`
+- Route `/admin/users`, "User Management" nav item with UserCog icon in sidebar
+- Files: `UsersListPage.tsx`, `useUsers.ts`, `App.tsx`, `Layout.tsx`
+
+### Phase 9: Avatar Upload (P1)
+
+- Backend: `POST /v1/uploads/avatar` — accepts base64 data URL, stores to disk, returns URL
+- Static file serving: `/uploads` mapped to `uploads/` directory
+- `AvatarUpload.tsx` — click-to-upload with file validation (image type, 2MB max), camera overlay
+- `useUpload.ts` — FileReader→base64→POST hook
+- Integrated into ProfileEditForm (shows avatar + name above form) and Layout header (shows user avatar/initials)
+- Files: `upload.controller.ts`, `app.ts`, `AvatarUpload.tsx`, `useUpload.ts`, `ProfileEditForm.tsx`, `Layout.tsx`
+
+### Bug Fixes (BUG-11 through BUG-17)
+
+- BUG-11: Strict-mode violations from parallel data accumulation in webhook/API key tests — fixed with `.first()`
+- BUG-12: Toast tests mutate profile without cleanup — fixed with `resetProfileName()` helper
+- BUG-13: Profile tests run in parallel causing data races — fixed with `test.describe.configure({ mode: "serial" })`
+- BUG-14: Invitations empty state assumes no invitations — fixed with `emptyState.or(table)` assertion
+- BUG-15: "Account" button locators match "Delete account" — fixed with `{ exact: true }`
+- BUG-16: OAuth button locators match both SignUp/SignIn forms — fixed with ID selectors and `/sign-in` route
+- BUG-17: Navigation tests reference old "Users" label — fixed with updated names
+
+### AGENTS.md Update
+
+- Added Section 7 "ZERO TOLERANCE for Ignored Issues" — strong language prohibiting dismissal of any failure
+
+- Tests run: `bunx tsc --noEmit` (both projects, 0 errors), `bun run test` (46/46 API tests pass), `bun run test:e2e` (155/155 E2E tests pass)
+- Files touched: 40+ files across `apps/api`, `apps/dashboard`, `packages/shared`, `tests/`, `AGENTS.md`, `BUGS.md`
+- Notes/Links: All P0 and P1 items from GAP_ANALYSIS.md addressed. Dashboard now has Clerk-quality auth flows, deletion workflows, connected accounts, pagination, toast notifications, loading skeletons, enhanced session/security management, user admin page, and avatar upload.

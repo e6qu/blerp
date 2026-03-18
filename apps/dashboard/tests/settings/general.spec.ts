@@ -67,8 +67,11 @@ test.describe("Settings General Tab", () => {
   });
 
   test("seeded API key shows correct type and environment", async ({ page }) => {
-    await expect(page.getByText("publishable", { exact: true })).toBeVisible({ timeout: 5000 });
-    await expect(page.locator("td").getByText("development", { exact: true })).toBeVisible({
+    // Multiple API keys may exist from parallel test runs, so use .first()
+    await expect(page.getByText("publishable", { exact: true }).first()).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.locator("td").getByText("development", { exact: true }).first()).toBeVisible({
       timeout: 5000,
     });
   });

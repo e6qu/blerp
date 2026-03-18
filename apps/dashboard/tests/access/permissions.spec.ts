@@ -8,7 +8,8 @@ test.describe("Permission Checks", () => {
     await expect(sidebar).toBeVisible();
 
     await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Users" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Organizations" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "User Management" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Auth" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
   });

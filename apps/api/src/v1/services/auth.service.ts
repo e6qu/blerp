@@ -149,6 +149,97 @@ export class AuthService {
     return this.getUser(userId);
   }
 
+  async createSignin(data: { identifier: string; strategy: string }) {
+    // Look up user by email
+    const emailRecord = await this.db.query.emailAddresses.findFirst({
+      where: eq(schema.emailAddresses.emailAddress, data.identifier),
+    });
+
+    if (!emailRecord) {
+      throw new Error("No account found with that email address");
+    }
+
+    const user = await this.getUser(emailRecord.userId);
+    if (!user) {
+      throw new Error("No account found with that email address");
+    }
+
+    if (user.status !== "active") {
+      throw new Error("Account is not active");
+    }
+
+    const signinId = `sin_${nanoid()}`;
+    const mfaRequired = user.totpEnabled ?? false;
+
+    return {
+      id: signinId,
+      identifier: data.identifier,
+      status: "needs_first_factor" as const,
+      strategy: data.strategy,
+      mfa_required: mfaRequired,
+      available_strategies: [data.strategy],
+    };
+  }
+
+  async attemptSignin(_signinId: string, identifier: string, password: string) {
+    // Look up user by email
+    const emailRecord = await this.db.query.emailAddresses.findFirst({
+      where: eq(schema.emailAddresses.emailAddress, identifier),
+    });
+
+    if (!emailRecord) {
+      throw new Error("Invalid email or password");
+    }
+
+    const user = await this.getUser(emailRecord.userId);
+    if (!user) {
+      throw new Error("Invalid email or password");
+    }
+
+    if (!user.passwordDigest) {
+      throw new Error("No password set for this account");
+    }
+
+    const valid = await crypto.verifyPassword(user.passwordDigest, password);
+    if (!valid) {
+      throw new Error("Invalid email or password");
+    }
+
+    // Create a session
+    const sessionId = `ses_${nanoid()}`;
+    const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const abandonAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.db.insert(schema.sessions).values({
+      id: sessionId,
+      userId: user.id,
+      status: "active",
+      expireAt,
+      abandonAt,
+    });
+
+    // Update last sign in
+    await this.db
+      .update(schema.users)
+      .set({ lastSignInAt: new Date(), updatedAt: new Date() })
+      .where(eq(schema.users.id, user.id));
+
+    return {
+      session: {
+        id: sessionId,
+        user_id: user.id,
+        status: "active" as const,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      tokens: {
+        access_token: `tok_${nanoid()}`,
+        refresh_token: `ref_${nanoid()}`,
+        expires_in: 3600,
+        session_id: sessionId,
+      },
+    };
+  }
+
   async listUsers(filters: {
     email?: string;
     status?: "active" | "inactive" | "banned";

@@ -15,6 +15,7 @@ import * as auditController from "./v1/controllers/audit.controller";
 import * as quotaController from "./v1/controllers/quota.controller";
 import * as userMetadataController from "./v1/controllers/user-metadata.controller";
 import * as organizationMetadataController from "./v1/controllers/organization-metadata.controller";
+import * as uploadController from "./v1/controllers/upload.controller";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
@@ -75,6 +76,9 @@ app.patch(
 // Audit Logs
 app.get("/v1/audit_logs", authMiddleware, auditController.listAuditLogs);
 
+// Uploads
+app.post("/v1/uploads/avatar", authMiddleware, uploadController.uploadAvatar);
+
 // Quotas & Usage
 app.get("/v1/usage", authMiddleware, quotaController.getUsage);
 
@@ -84,6 +88,10 @@ app.use("/scim/v2", scimRoutes);
 app.get("/v1/ping", (req, res) => {
   res.json({ message: "pong", tenantId: req.tenantId });
 });
+
+// Serve uploaded files
+const uploadsDir = path.resolve(process.cwd(), "uploads");
+app.use("/uploads", express.static(uploadsDir));
 
 // Serve dashboard static assets in production
 const dashboardDist = path.resolve(__dirname, "../../dashboard/dist");

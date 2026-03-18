@@ -2,6 +2,7 @@ import { useState } from "react";
 import { UserPlus } from "lucide-react";
 import { useInvitations, useRevokeInvitation } from "../../hooks/useOrganizations";
 import { InviteMemberModal } from "./InviteMemberModal";
+import { TableSkeleton } from "../ui/Skeleton";
 import type { components } from "@blerp/shared";
 
 type Invitation = components["schemas"]["Invitation"];
@@ -17,7 +18,7 @@ export function OrganizationInvitations({ organizationId }: { organizationId: st
     }
   };
 
-  if (isLoading) return <div className="p-4 text-sm text-gray-500">Loading invitations...</div>;
+  if (isLoading) return <TableSkeleton rows={3} columns={4} />;
 
   return (
     <div className="space-y-4">

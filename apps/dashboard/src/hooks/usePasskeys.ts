@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { client } from "../lib/api";
+import { client, getCsrfToken, DEMO_USER_ID } from "../lib/api";
 
 export function usePasskeys() {
   return useQuery({
@@ -54,6 +54,33 @@ export function useRegisterPasskey() {
       });
       if (error) throw error;
       return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["passkeys"] });
+    },
+  });
+}
+
+export function useDeletePasskey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (passkeyId: string) => {
+      const token = await getCsrfToken();
+      const headers: Record<string, string> = {
+        "X-Tenant-Id": "demo-tenant",
+        "X-User-Id": DEMO_USER_ID,
+      };
+      if (token) {
+        headers["x-csrf-token"] = token;
+      }
+      const response = await fetch(`/v1/auth/webauthn/passkeys/${passkeyId}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Failed to delete passkey");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["passkeys"] });

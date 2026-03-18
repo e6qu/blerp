@@ -15,9 +15,9 @@ test.describe("Protected Routes", () => {
 
   test("auth page loads user profile", async ({ page }) => {
     await page.goto("/auth");
-    await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Security" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sessions" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Account", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Security", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sessions", exact: true })).toBeVisible();
   });
 
   test("settings page loads project settings", async ({ page }) => {

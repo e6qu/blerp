@@ -3,6 +3,7 @@ import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+import { logger } from "./logger";
 
 const sdk = new NodeSDK({
   resource: resourceFromAttributes({
@@ -17,14 +18,14 @@ const sdk = new NodeSDK({
 export const startOtel = () => {
   if (process.env.ENABLE_OTEL === "true") {
     sdk.start();
-    console.warn("OpenTelemetry initialized");
+    logger.info("OpenTelemetry initialized");
   }
 };
 
 process.on("SIGTERM", () => {
   sdk
     .shutdown()
-    .then(() => console.warn("Tracing terminated"))
-    .catch((error) => console.error("Error terminating tracing", error))
+    .then(() => logger.info("Tracing terminated"))
+    .catch((error) => logger.error(error, "Error terminating tracing"))
     .finally(() => process.exit(0));
 });

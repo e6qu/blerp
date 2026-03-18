@@ -1,26 +1,33 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("User Profile", () => {
+  // These tests share mutable user state — serialize to prevent parallel interference
+  test.describe.configure({ mode: "serial" });
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/auth");
   });
 
   test("profile page shows all three tabs", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Security" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sessions" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Account", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Security", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sessions", exact: true })).toBeVisible();
   });
 
   test("Account tab is active by default", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Account" })).toHaveClass(/border-blue-600/);
+    await expect(page.getByRole("button", { name: "Account", exact: true })).toHaveClass(
+      /border-blue-600/,
+    );
   });
 
   test("profile displays seeded user data", async ({ page }) => {
     // The seeded user has firstName "Admin" and lastName "User"
-    // In view mode these appear as text inside <p> elements
-    const profileSection = page.locator("text=Profile Information").locator("..");
-    await expect(profileSection.getByText("Admin")).toBeVisible();
-    await expect(profileSection.getByText("User", { exact: true })).toBeVisible();
+    // Check the First Name label-value pair and avatar name display
+    await expect(page.locator("label:has-text('First Name')")).toBeVisible();
+    const firstNameValue = page.locator("label:has-text('First Name') + p");
+    await expect(firstNameValue).toHaveText("Admin");
+    const lastNameValue = page.locator("label:has-text('Last Name') + p");
+    await expect(lastNameValue).toHaveText("User");
   });
 
   test("edit profile button enters edit mode", async ({ page }) => {
@@ -113,5 +120,11 @@ test.describe("User Profile", () => {
 
   test("email shows verified status", async ({ page }) => {
     await expect(page.getByText("Verified")).toBeVisible();
+  });
+
+  test("avatar displays initials when no image is set", async ({ page }) => {
+    // The profile form should show an avatar with initials
+    const avatar = page.locator(".rounded-full").filter({ hasText: /^[A-Z]{1,2}$/ });
+    await expect(avatar.first()).toBeVisible();
   });
 });

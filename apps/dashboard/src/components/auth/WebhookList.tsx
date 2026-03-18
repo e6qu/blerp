@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Trash2, ShieldAlert, Plus } from "lucide-react";
 import { useWebhooks, useDeleteWebhook } from "../../hooks/useWebhooks";
 import { CreateWebhookModal } from "./CreateWebhookModal";
+import { TableSkeleton } from "../ui/Skeleton";
 import type { components } from "@blerp/shared";
 
 type WebhookEndpoint = components["schemas"]["WebhookEndpoint"];
@@ -17,7 +18,7 @@ export function WebhookList() {
     }
   };
 
-  if (isLoading) return <div className="p-4 text-sm text-gray-500">Loading webhooks...</div>;
+  if (isLoading) return <TableSkeleton rows={3} columns={3} />;
 
   return (
     <div className="space-y-4">

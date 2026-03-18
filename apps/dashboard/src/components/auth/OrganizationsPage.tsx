@@ -1,11 +1,12 @@
 import { useOrganizations } from "../../hooks/useOrganizations";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { OrganizationMembers } from "./OrganizationMembers";
 import { OrganizationInvitations } from "./OrganizationInvitations";
 import { OrganizationDomains } from "./OrganizationDomains";
 import { WebhookList } from "./WebhookList";
 import { CreateOrganizationModal } from "./CreateOrganizationModal";
+import { DeleteOrganizationModal } from "./DeleteOrganizationModal";
 import type { components } from "@blerp/shared";
 
 type Organization = components["schemas"]["Organization"];
@@ -17,8 +18,18 @@ export function OrganizationsPage() {
     "members",
   );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  if (isLoading) return <div className="p-8">Loading organizations...</div>;
+  if (isLoading)
+    return (
+      <div className="p-8 space-y-4">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="h-10 rounded bg-gray-200 animate-pulse" />
+        ))}
+      </div>
+    );
+
+  const selectedOrg = organizations?.find((org: Organization) => org.id === selectedOrgId);
 
   const handleCreateSuccess = (orgId: string) => {
     setSelectedOrgId(orgId);
@@ -108,6 +119,20 @@ export function OrganizationsPage() {
               )}
               {activeTab === "domains" && <OrganizationDomains organizationId={selectedOrgId} />}
               {activeTab === "webhooks" && <WebhookList />}
+
+              <div className="mt-8 border border-red-200 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-red-900">Danger Zone</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Permanently delete this organization and all of its data.
+                </p>
+                <button
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="mt-3 inline-flex items-center gap-2 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete organization
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex h-64 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-500">
@@ -122,6 +147,16 @@ export function OrganizationsPage() {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
       />
+
+      {selectedOrg && (
+        <DeleteOrganizationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          organizationName={selectedOrg.name}
+          organizationId={selectedOrg.id}
+          onSuccess={() => setSelectedOrgId(null)}
+        />
+      )}
     </div>
   );
 }

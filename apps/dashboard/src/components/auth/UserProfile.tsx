@@ -1,12 +1,16 @@
 import { useState } from "react";
-import { usePasskeys, useRegisterPasskey } from "../../hooks/usePasskeys";
+import { usePasskeys, useRegisterPasskey, useDeletePasskey } from "../../hooks/usePasskeys";
 import { useCurrentUser } from "../../hooks/useUser";
 import { SessionsViewer } from "./SessionsViewer";
 import { ProfileEditForm } from "./ProfileEditForm";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { TwoFactorEnrollmentModal } from "./TwoFactorEnrollmentModal";
+import { BackupCodesModal } from "./BackupCodesModal";
+import { DeleteAccountModal } from "./DeleteAccountModal";
+import { ConnectedAccounts } from "./ConnectedAccounts";
 import { EmailList } from "./EmailList";
-import { Key, ShieldCheck } from "lucide-react";
+import { useToast } from "../ui/Toast";
+import { Key, ShieldCheck, Trash2 } from "lucide-react";
 import type { components } from "@blerp/shared";
 
 type PasskeyCredential = components["schemas"]["PasskeyCredential"];
@@ -66,6 +70,8 @@ export function UserProfile() {
 }
 
 function AccountTab() {
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+
   return (
     <div className="space-y-6">
       <div className="border rounded-lg p-4">
@@ -77,6 +83,30 @@ function AccountTab() {
         <h3 className="text-sm font-medium text-gray-900 mb-3">Email Addresses</h3>
         <EmailList />
       </div>
+
+      <div className="border rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Connected Accounts</h3>
+        <ConnectedAccounts />
+      </div>
+
+      <div className="border border-red-200 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-red-900">Danger Zone</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Permanently delete your account and all associated data.
+        </p>
+        <button
+          onClick={() => setIsDeleteAccountOpen(true)}
+          className="mt-3 inline-flex items-center gap-2 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete account
+        </button>
+      </div>
+
+      <DeleteAccountModal
+        isOpen={isDeleteAccountOpen}
+        onClose={() => setIsDeleteAccountOpen(false)}
+      />
     </div>
   );
 }
@@ -85,10 +115,29 @@ function SecurityTab() {
   const { data: passkeys, isLoading } = usePasskeys();
   const { data: user } = useCurrentUser();
   const registerPasskey = useRegisterPasskey();
+  const deletePasskey = useDeletePasskey();
+  const { toast } = useToast();
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
+  const [isBackupCodesOpen, setIsBackupCodesOpen] = useState(false);
 
-  if (isLoading) return <div className="text-gray-500">Loading security settings...</div>;
+  if (isLoading)
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="h-24 rounded-lg border bg-white animate-pulse" />
+        ))}
+      </div>
+    );
+
+  const handleDeletePasskey = async (passkeyId: string) => {
+    try {
+      await deletePasskey.mutateAsync(passkeyId);
+      toast("Passkey deleted", "success");
+    } catch {
+      toast("Failed to delete passkey", "error");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -129,7 +178,16 @@ function SecurityTab() {
                   <div className="text-xs text-gray-500">ID: {pk.id}</div>
                 </div>
               </div>
-              <ShieldCheck className="h-4 w-4 text-green-500" />
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-green-500" />
+                <button
+                  onClick={() => handleDeletePasskey(pk.id)}
+                  disabled={deletePasskey.isPending}
+                  className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
           {passkeys?.length === 0 && (
@@ -169,11 +227,25 @@ function SecurityTab() {
         </div>
       </div>
 
+      <div className="border rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-900">Backup Codes</h3>
+        <p className="text-sm text-gray-500 mt-1">
+          Generate backup codes for account recovery when 2FA is unavailable.
+        </p>
+        <button
+          onClick={() => setIsBackupCodesOpen(true)}
+          className="mt-3 text-sm text-blue-600 hover:underline"
+        >
+          View backup codes
+        </button>
+      </div>
+
       <ChangePasswordModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
       />
       <TwoFactorEnrollmentModal isOpen={is2FAModalOpen} onClose={() => setIs2FAModalOpen(false)} />
+      <BackupCodesModal isOpen={isBackupCodesOpen} onClose={() => setIsBackupCodesOpen(false)} />
     </div>
   );
 }

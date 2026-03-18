@@ -21,8 +21,9 @@ test.describe("Organization Webhooks", () => {
   });
 
   test("webhook events are displayed", async ({ page }) => {
-    await expect(page.getByText("organization.created")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("user.created")).toBeVisible({ timeout: 5000 });
+    // Multiple webhooks may exist from parallel test runs, so use .first()
+    await expect(page.getByText("organization.created").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("user.created").first()).toBeVisible({ timeout: 5000 });
   });
 
   test("clicking add opens modal", async ({ page }) => {
