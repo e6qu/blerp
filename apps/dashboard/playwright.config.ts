@@ -20,7 +20,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "cd ../api && npx tsx --watch src/index.ts",
+      command: "cd ../api && bun run dev",
       url: "http://localhost:3000/health",
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
