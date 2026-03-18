@@ -1,11 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Permission Checks", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-  });
-
   test("sidebar renders with all navigation", async ({ page }) => {
+    await page.goto("/");
+
     const sidebar = page.locator("aside");
     await expect(sidebar).toBeVisible();
 
@@ -16,15 +14,11 @@ test.describe("Permission Checks", () => {
   });
 
   test("main content area is present", async ({ page }) => {
-    const mainContent = page.locator("main");
-    await expect(mainContent).toBeVisible();
+    await page.goto("/");
+    await expect(page.locator("main")).toBeVisible();
   });
 
-  test("sign up component renders on home page", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
-  });
-
-  test("all pages are accessible without authentication", async ({ page }) => {
+  test("all pages are accessible", async ({ page }) => {
     await page.goto("/users");
     await expect(page.locator("main")).toBeVisible();
 

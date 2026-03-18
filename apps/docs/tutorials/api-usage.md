@@ -6,7 +6,7 @@ This tutorial covers how to use the Blerp REST API to manage users, organization
 
 Blerp provides a comprehensive REST API with:
 
-- **Base URL**: `http://localhost:3000/v1` (development)
+- **Base URL**: `http://localhost:${BLERP_API_PORT:-3000}/v1` (development, default port 3000)
 - **Authentication**: Bearer tokens (API keys or session tokens)
 - **Format**: JSON requests and responses
 - **Spec**: OpenAPI 3.1 compliant
@@ -380,10 +380,10 @@ if (error) {
 
 ## Next Steps
 
-- **Data Setup Tutorial** - Learn how to structure your data in the [Data Setup](../data-setup) tutorial
-- **Next.js Integration** - Add Blerp to your Next.js app with the [Next.js Integration](../nextjs-integration) tutorial
+- **Data Setup Tutorial** — Learn how to structure your data in the [Data Setup](./data-setup) tutorial
+- **Next.js Integration** — Add Blerp to your Next.js app with the [Next.js Integration](./nextjs-integration) tutorial
 
 ## Additional Resources
 
-- [OpenAPI Specification](https://github.com/e6qu/blerp/blob/main/openapi/blerp.v1.yaml)
-- [GitHub Examples](https://github.com/e6qu/blerp/tree/main/examples)
+- [OpenAPI Specification](https://github.com/e6qu/blerp/blob/main/openapi/blerp.v1.yaml) — Full API contract
+- [Examples](https://github.com/e6qu/blerp/tree/main/examples) — Working example apps

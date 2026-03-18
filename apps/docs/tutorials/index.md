@@ -49,7 +49,7 @@ Before starting these tutorials, ensure you have:
 - **Bun** v1.2.19+ installed ([install Bun](https://bun.sh))
 - Basic knowledge of TypeScript/JavaScript
 - Familiarity with REST APIs
-- For Next.js tutorials: Node.js 18+ and Next.js 13+
+- For Next.js tutorials: Next.js 13+ with App Router
 
 ## Getting Help
 

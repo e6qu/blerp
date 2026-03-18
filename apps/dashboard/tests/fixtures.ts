@@ -1,5 +1,4 @@
 import { test as base, expect, type Page } from "@playwright/test";
-import { createAuthenticatedPage, getTestUserId } from "@blerp/testing";
 
 type DashboardFixtures = {
   authenticatedPage: Page;
@@ -7,13 +6,10 @@ type DashboardFixtures = {
 
 export const test = base.extend<DashboardFixtures>({
   authenticatedPage: async ({ page }, use) => {
-    const userId = getTestUserId() || "e2e_dashboard_user";
-
-    await createAuthenticatedPage(page, {
-      userId,
-      email: "e2e-dashboard@blerp.test",
-    });
-
+    // The dashboard uses hardcoded demo_user/demo-tenant headers,
+    // so every page is effectively "authenticated" via those headers.
+    // Navigate to home to initialize the app.
+    await page.goto("/");
     await use(page);
   },
 });

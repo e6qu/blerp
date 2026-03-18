@@ -1,15 +1,36 @@
-# nextjs
+# @blerp/nextjs
 
-To install dependencies:
+Next.js SDK for integrating Blerp authentication into your application.
 
-```bash
-bun install
-```
-
-To run:
+## Installation
 
 ```bash
-bun run index.ts
+bun add @blerp/nextjs
 ```
 
-This project was created using `bun init` in bun v1.2.19. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Usage
+
+Wrap your app with `BlerpProvider`:
+
+```tsx
+import { BlerpProvider } from "@blerp/nextjs";
+
+export default function App({ children }) {
+  return (
+    <BlerpProvider publishableKey={process.env.NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY!}>
+      {children}
+    </BlerpProvider>
+  );
+}
+```
+
+See the [Next.js Integration Tutorial](../../apps/docs/tutorials/nextjs-integration.md) for a full walkthrough.
+
+## Development
+
+From the monorepo root:
+
+```bash
+bun run dev          # Start all services (builds dependencies first)
+bun run build        # Build all packages
+```

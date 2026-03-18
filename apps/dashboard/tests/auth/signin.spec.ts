@@ -6,8 +6,7 @@ test.describe("Sign In Flow", () => {
   });
 
   test("sign in form is accessible from home page", async ({ page }) => {
-    const signUpHeading = page.getByRole("heading", { name: "Create your account" });
-    await expect(signUpHeading).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
   });
 
   test("email input accepts valid email", async ({ page }) => {
@@ -17,16 +16,13 @@ test.describe("Sign In Flow", () => {
   });
 
   test("OAuth buttons are present", async ({ page }) => {
-    const githubButton = page.getByRole("button", { name: "GitHub" });
-    const googleButton = page.getByRole("button", { name: "Google" });
-
-    await expect(githubButton).toBeVisible();
-    await expect(googleButton).toBeVisible();
+    await expect(page.getByRole("button", { name: /GitHub/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Google/i })).toBeVisible();
   });
 
-  test("form allows email entry for sign in", async ({ page }) => {
+  test("form allows email entry", async ({ page }) => {
     const emailInput = page.getByLabel("Email address");
-    await emailInput.fill("existing-user@example.com");
-    await expect(emailInput).toHaveValue("existing-user@example.com");
+    await emailInput.fill("different-user@example.com");
+    await expect(emailInput).toHaveValue("different-user@example.com");
   });
 });

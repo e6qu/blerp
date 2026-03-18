@@ -5,7 +5,7 @@ This tutorial shows how to integrate Blerp authentication into a Next.js applica
 ## Prerequisites
 
 - Next.js 13+ (App Router recommended)
-- Node.js 18+
+- Bun v1.2.19+ ([install Bun](https://bun.sh))
 - A running Blerp instance
 - API keys from your Blerp dashboard
 
@@ -14,8 +14,6 @@ This tutorial shows how to integrate Blerp authentication into a Next.js applica
 Install the Blerp Next.js SDK:
 
 ```bash
-npm install @blerp/nextjs
-# or
 bun add @blerp/nextjs
 ```
 
@@ -29,11 +27,9 @@ Create a `.env.local` file in your Next.js project:
 # Blerp Configuration
 NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY=pk_test_demo
 BLERP_SECRET_KEY=sk_test_demo
+# Blerp API URL (use BLERP_API_PORT to change the port, default 3000)
 NEXT_PUBLIC_BLERP_API_URL=http://localhost:3000
 BLERP_TENANT_ID=demo-project
-
-# Optional: JWT verification
-BLERP_JWT_SECRET=your-jwt-secret
 ```
 
 ### 2. Create Blerp Client
@@ -96,8 +92,8 @@ export default function SignInPage() {
         // User is signed in
         router.push('/dashboard');
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign in');
     }
   };
 
@@ -183,8 +179,8 @@ export default function VerifyPage() {
         localStorage.setItem('blerp_session', result.session_token!);
         router.push('/dashboard');
       }
-    } catch (err: any) {
-      setError(err.message || 'Invalid code');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid code');
     }
   };
 

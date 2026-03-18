@@ -38,6 +38,17 @@ export async function getTenantDb(tenantId: string): Promise<TenantDb> {
   }
 
   dbCache.set(tenantId, db);
+
+  // Auto-seed new databases in development mode
+  if (isNew && process.env.NODE_ENV !== "production") {
+    try {
+      const { seedTenant } = await import("./seed");
+      await seedTenant(tenantId, db);
+    } catch (error) {
+      logger.warn({ tenantId, error }, "Dev auto-seed failed (non-fatal)");
+    }
+  }
+
   return db;
 }
 

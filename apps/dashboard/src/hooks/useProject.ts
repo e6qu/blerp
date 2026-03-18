@@ -5,7 +5,7 @@ import type { components } from "@blerp/shared";
 type APIKey = components["schemas"]["APIKey"];
 type Project = components["schemas"]["Project"];
 
-const PROJECT_ID = "demo-project";
+export const PROJECT_ID = "demo-project";
 
 export function useProject() {
   return useQuery({

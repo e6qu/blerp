@@ -13,21 +13,30 @@ export function EmailList() {
   const deleteEmail = useDeleteEmail();
   const setPrimaryEmail = useSetPrimaryEmail();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [confirmingPrimaryId, setConfirmingPrimaryId] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
   const handleDelete = (emailId: string) => {
     if (user?.primary_email_id === emailId) {
-      alert("Cannot delete primary email address");
+      setInlineError("Cannot delete primary email address");
       return;
     }
-    if (confirm("Are you sure you want to delete this email address?")) {
-      deleteEmail.mutate(emailId);
-    }
+    setConfirmingDeleteId(emailId);
+  };
+
+  const confirmDelete = (emailId: string) => {
+    deleteEmail.mutate(emailId);
+    setConfirmingDeleteId(null);
   };
 
   const handleSetPrimary = (emailId: string) => {
-    if (confirm("Set this as your primary email address?")) {
-      setPrimaryEmail.mutate(emailId);
-    }
+    setConfirmingPrimaryId(emailId);
+  };
+
+  const confirmSetPrimary = (emailId: string) => {
+    setPrimaryEmail.mutate(emailId);
+    setConfirmingPrimaryId(null);
   };
 
   if (isLoading) return <div className="p-4 text-sm text-gray-500">Loading emails...</div>;
@@ -43,6 +52,15 @@ export function EmailList() {
           Add email
         </button>
       </div>
+
+      {inlineError && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          {inlineError}
+          <button onClick={() => setInlineError(null)} className="ml-2 font-medium underline">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {emails && emails.length > 0 ? (
         <div className="overflow-hidden rounded-lg border bg-white">
@@ -99,25 +117,60 @@ export function EmailList() {
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
-                        {!isPrimary && email.verification.status === "verified" && (
-                          <button
-                            onClick={() => handleSetPrimary(email.id)}
-                            disabled={setPrimaryEmail.isPending}
-                            className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
-                            title="Set as primary"
-                          >
-                            <Star className="h-4 w-4" />
-                          </button>
-                        )}
-                        {!isPrimary && (
-                          <button
-                            onClick={() => handleDelete(email.id)}
-                            disabled={deleteEmail.isPending}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                        {confirmingPrimaryId === email.id ? (
+                          <>
+                            <button
+                              onClick={() => confirmSetPrimary(email.id)}
+                              className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setConfirmingPrimaryId(null)}
+                              className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : confirmingDeleteId === email.id ? (
+                          <>
+                            <span className="text-xs text-gray-500">Delete?</span>
+                            <button
+                              onClick={() => confirmDelete(email.id)}
+                              className="text-xs font-medium text-red-600 hover:text-red-800"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setConfirmingDeleteId(null)}
+                              className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                            >
+                              No
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {!isPrimary && email.verification.status === "verified" && (
+                              <button
+                                onClick={() => handleSetPrimary(email.id)}
+                                disabled={setPrimaryEmail.isPending}
+                                className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
+                                title="Set as primary"
+                              >
+                                <Star className="h-4 w-4" />
+                              </button>
+                            )}
+                            {!isPrimary && (
+                              <button
+                                onClick={() => handleDelete(email.id)}
+                                disabled={deleteEmail.isPending}
+                                className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

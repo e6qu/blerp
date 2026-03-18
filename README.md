@@ -4,14 +4,14 @@ Blerp is a clean-room reimplementation of the Clerk Identity Service, built for 
 
 ## Documentation
 
-📖 **[Full Documentation](https://blerp.dev)** | 📚 **[API Reference](https://blerp.dev/api/)** | 🚀 **[Tutorials](https://blerp.dev/tutorials/)**
+Documentation lives in `apps/docs/` and can be browsed locally via `bun run dev` (starts a VitePress site). Tutorials and guides are also readable as markdown files:
 
-### Quick Links
-
-- **[Getting Started Tutorial](https://blerp.dev/tutorials/getting-started)** - Set up and run Blerp locally
-- **[API Usage Guide](https://blerp.dev/tutorials/api-usage)** - Learn how to use the REST API
-- **[Data Setup Guide](https://blerp.dev/tutorials/data-setup)** - Set up projects, organizations, and users
-- **[Next.js Integration](https://blerp.dev/tutorials/nextjs-integration)** - Add Blerp to your Next.js app
+- **[Getting Started](apps/docs/tutorials/getting-started.md)** — Set up and run Blerp locally
+- **[API Usage Guide](apps/docs/tutorials/api-usage.md)** — Learn how to use the REST API
+- **[Data Setup Guide](apps/docs/tutorials/data-setup.md)** — Set up projects, organizations, and users
+- **[Next.js Integration](apps/docs/tutorials/nextjs-integration.md)** — Add Blerp to your Next.js app
+- **[Monite Integration](apps/docs/guide/monite-integration.md)** — Integrate with the Monite SDK
+- **[SDK Repointing](apps/docs/guide/sdk-repointing.md)** — Point Clerk SDKs at Blerp
 
 ### Core Documentation
 
@@ -29,7 +29,7 @@ Blerp is a clean-room reimplementation of the Clerk Identity Service, built for 
 
 ## Project Status
 
-- **Current Status**: All planned milestones complete through M12! 🎉
+- **Current Status**: All planned milestones complete through M12!
 - **Core Platform**: Milestones 1-3 complete. Multi-tenancy, auth, and dashboard foundations are solid.
 - **Frameworks**: Milestones 4-5 complete. `@blerp/nextjs` and `@blerp/backend` packages are operational.
 - **SDK Parity**: Milestones 6-7 complete. Full Monite SDK and Clerk SDK compatibility achieved.
@@ -45,8 +45,8 @@ Blerp is a clean-room reimplementation of the Clerk Identity Service, built for 
 ```
 blerp/
 ├── apps/
-│   ├── api/              # Express API server (port 3000)
-│   ├── dashboard/        # React admin dashboard (port 5173)
+│   ├── api/              # Express API server
+│   ├── dashboard/        # React admin dashboard
 │   └── docs/             # VitePress documentation site
 ├── packages/
 │   ├── shared/           # Shared types, utilities, and generated OpenAPI client
@@ -72,15 +72,20 @@ bun install
 bun run dev
 ```
 
-This starts:
+This builds dependencies (like `@blerp/shared`) automatically, then starts:
 
-- **API Server** at `http://localhost:3000`
-- **Dashboard** at `http://localhost:5173`
-- **Docs** at `http://localhost:5174` (if running)
+| Service    | Default URL                 | Port override env var  |
+| ---------- | --------------------------- | ---------------------- |
+| API Server | `http://localhost:3000`     | `BLERP_API_PORT`       |
+| Dashboard  | `http://localhost:3001`     | `BLERP_DASHBOARD_PORT` |
+| Docs       | VitePress on next free port | —                      |
+
+Redis is **optional** — the API runs without it. Caching, rate limiting, and event streaming are simply disabled. To enable them: `docker run -d -p 6379:6379 redis:7-alpine`.
 
 ### 3. Create Your First User
 
 ```bash
+# Uses default port 3000. Set BLERP_API_PORT to change it.
 curl -X POST http://localhost:3000/v1/auth/signups \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo-project" \
@@ -91,7 +96,7 @@ curl -X POST http://localhost:3000/v1/auth/signups \
   }'
 ```
 
-For a detailed walkthrough, see the **[Getting Started Tutorial](https://blerp.dev/tutorials/getting-started)**.
+For a detailed walkthrough, see the **[Getting Started Tutorial](apps/docs/tutorials/getting-started.md)**.
 
 ## Common Commands
 

@@ -1,15 +1,26 @@
-# nextjs-quickstart
+# Next.js Quickstart Example
 
-To install dependencies:
+Demonstrates basic Blerp authentication in a Next.js app.
+
+## Running
+
+From the monorepo root:
 
 ```bash
 bun install
+bun run dev
 ```
 
-To run:
+The example starts on the next available port (typically `http://localhost:3002`).
+
+## Configuration
+
+Copy `.env.example` to `.env.local` and set your Blerp API keys:
 
 ```bash
-bun run index.ts
+NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY=pk_test_demo
+BLERP_SECRET_KEY=sk_test_demo
+# Default API port is 3000; override with BLERP_API_PORT
+NEXT_PUBLIC_BLERP_API_URL=http://localhost:3000
+BLERP_TENANT_ID=demo-project
 ```
-
-This project was created using `bun init` in bun v1.2.19. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.

@@ -23,6 +23,7 @@ export function CreateOrganizationModal({
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const createOrg = useCreateOrganization();
 
   const handleNameChange = (newName: string) => {
@@ -39,11 +40,12 @@ export function CreateOrganizationModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     try {
       const result = await createOrg.mutateAsync({
         name,
         slug,
-        project_id: "default",
+        project_id: "demo-project",
       });
       setName("");
       setSlug("");
@@ -51,7 +53,7 @@ export function CreateOrganizationModal({
       onClose();
       onSuccess?.(result?.id || "");
     } catch {
-      alert("Failed to create organization");
+      setError("Failed to create organization. Please try again.");
     }
   };
 
@@ -67,6 +69,8 @@ export function CreateOrganizationModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {error && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

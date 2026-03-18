@@ -8,7 +8,7 @@ Before you begin, ensure you have the following installed:
 
 - **Bun** v1.2.19 or higher - [Install Bun](https://bun.sh)
 - **Git** - for cloning the repository
-- **Docker** (optional) - for running with Docker Compose
+- **Docker** (optional) - for Redis or Docker Compose
 
 ## Installation
 
@@ -29,21 +29,11 @@ bun install
 
 This will install dependencies for all packages in the monorepo.
 
-### 3. Build the Project
-
-Build all apps and packages:
-
-```bash
-bun run build
-```
-
-This compiles TypeScript and builds the frontend applications.
-
 ## Running Blerp
 
 ### Option 1: Development Mode (Recommended)
 
-Run both the API and dashboard in development mode with hot reload:
+Run the API, dashboard, and docs in development mode with hot reload:
 
 ```bash
 bun run dev
@@ -51,9 +41,13 @@ bun run dev
 
 This starts:
 
-- **API Server** at `http://localhost:3000`
-- **Dashboard** at `http://localhost:5173`
-- **Redis** (if using Docker Compose)
+| Service    | Default URL                 | Port override env var  |
+| ---------- | --------------------------- | ---------------------- |
+| API Server | `http://localhost:3000`     | `BLERP_API_PORT`       |
+| Dashboard  | `http://localhost:3001`     | `BLERP_DASHBOARD_PORT` |
+| Docs       | VitePress on next free port | —                      |
+
+Dependencies like `@blerp/shared` are built automatically before dev servers start. Redis is **optional** — the API runs without it, with caching and event streaming disabled.
 
 ### Option 2: Docker Compose
 
@@ -74,8 +68,8 @@ This starts:
 Run services separately for more control:
 
 ```bash
-# Run only the API
-bun run dev --filter @blerp/api
+# Run only the API (on custom port)
+BLERP_API_PORT=4000 bun run dev --filter @blerp/api
 
 # Run only the dashboard
 bun run dev --filter @blerp/dashboard
@@ -107,11 +101,13 @@ blerp/
 Create a `.env` file in the root directory:
 
 ```bash
-# API Configuration
-PORT=3000
-NODE_ENV=development
+# API port (default: 3000)
+BLERP_API_PORT=3000
 
-# Redis (if using)
+# Dashboard port (default: 3001)
+BLERP_DASHBOARD_PORT=3001
+
+# Redis (optional — API works without it)
 REDIS_URL=redis://localhost:6379
 
 # JWT Configuration
@@ -159,7 +155,7 @@ curl -X POST http://localhost:3000/v1/auth/signups \
 
 ### 3. Access the Dashboard
 
-Open your browser to `http://localhost:5173` to access the admin dashboard.
+Open your browser to `http://localhost:3001` to access the admin dashboard.
 
 ## Common Commands
 
@@ -175,14 +171,14 @@ Open your browser to `http://localhost:5173` to access the admin dashboard.
 
 ### Port Already in Use
 
-If port 3000 is already in use:
+If the default port is already in use:
 
 ```bash
 # Find and kill the process
 lsof -ti:3000 | xargs kill -9
 
 # Or use a different port
-PORT=3001 bun run dev
+BLERP_API_PORT=4000 bun run dev
 ```
 
 ### Database Issues
@@ -199,7 +195,7 @@ bun run dev
 
 ### Redis Connection Issues
 
-If Redis is not running:
+Redis is optional for development. The API works without it — caching, rate limiting, and event streaming are simply disabled. If you want Redis:
 
 ```bash
 # Start Redis with Docker
@@ -213,11 +209,11 @@ docker-compose up -d redis
 
 Now that Blerp is running, you can:
 
-1. **Use the API** - Learn how to make authenticated API calls in the [API Usage](../api-usage) tutorial
-2. **Set Up Data** - Create projects, organizations, and users in the [Data Setup](../data-setup) tutorial
-3. **Integrate with Next.js** - Add authentication to your app with the [Next.js Integration](../nextjs-integration) tutorial
+1. **Use the API** — Learn how to make authenticated API calls in the [API Usage](./api-usage) tutorial
+2. **Set Up Data** — Create projects, organizations, and users in the [Data Setup](./data-setup) tutorial
+3. **Integrate with Next.js** — Add authentication to your app with the [Next.js Integration](./nextjs-integration) tutorial
 
 ## Additional Resources
 
-- [GitHub Repository](https://github.com/e6qu/blerp) - Source code and issues
-- [Guide](/guide/) - Getting started guide
+- [GitHub Repository](https://github.com/e6qu/blerp) — Source code and issues
+- [Guide](/guide/) — Architecture and integration guides
