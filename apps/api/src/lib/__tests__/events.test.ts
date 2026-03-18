@@ -3,6 +3,7 @@ import { eventBus } from "../events";
 import { redis } from "../redis";
 
 vi.mock("../redis", () => ({
+  isRedisAvailable: vi.fn().mockReturnValue(true),
   redis: {
     xadd: vi.fn().mockResolvedValue("123-0"),
   },

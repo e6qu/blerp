@@ -16,6 +16,7 @@ vi.mock("../lib/redis", () => ({
     smembers: vi.fn().mockResolvedValue([]),
     on: vi.fn(),
   },
+  isRedisAvailable: vi.fn().mockReturnValue(true),
   cache: {
     get: vi.fn(),
     set: vi.fn(),

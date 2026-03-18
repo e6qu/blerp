@@ -17,6 +17,7 @@ vi.mock("../lib/redis", () => ({
     incr: vi.fn().mockResolvedValue(1),
     expire: vi.fn(),
   },
+  isRedisAvailable: vi.fn().mockReturnValue(true),
   cache: {
     get: vi.fn(),
     set: vi.fn(),
@@ -70,7 +71,7 @@ describe("Webhook Integration", () => {
       .send({ enabled: false });
 
     expect(update.status).toBe(200);
-    expect(update.body.enabled).toBe(false); // SQLite boolean is 0/1
+    expect(update.body.status).toBe("paused");
 
     // 4. Delete Webhook
     const del = await request(app)
