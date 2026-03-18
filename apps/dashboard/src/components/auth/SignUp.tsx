@@ -43,7 +43,7 @@ export function SignUp() {
     if (apiError) {
       setError("Failed to initiate OAuth");
     } else if (data.url) {
-      window.location.href = data.url;
+      window.location.assign(data.url);
     }
   };
 

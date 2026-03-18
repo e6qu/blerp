@@ -12,7 +12,7 @@ export function useDeleteAccount() {
     },
     onSuccess: () => {
       queryClient.clear();
-      window.location.href = "/sign-in";
+      window.location.assign("/sign-in");
     },
   });
 }

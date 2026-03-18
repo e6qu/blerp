@@ -72,7 +72,7 @@ export function BackupCodesModal({ isOpen, onClose }: BackupCodesModalProps) {
           <div className="space-y-4">
             <div className="rounded-lg bg-amber-50 p-3">
               <p className="text-sm font-medium text-amber-700">
-                Save these codes now. You won't be able to see them again.
+                Save these codes now. You won&apos;t be able to see them again.
               </p>
             </div>
 

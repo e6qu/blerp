@@ -12,6 +12,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "cd apps/dashboard && bun run test:e2e",
     "openapi:lint:spectral": "spectral lint openapi/blerp.v1.yaml --fail-severity=warn",

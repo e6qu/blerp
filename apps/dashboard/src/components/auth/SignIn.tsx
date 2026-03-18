@@ -53,7 +53,7 @@ export function SignIn() {
         const errorData = apiError as { error?: { message?: string } };
         setError(errorData.error?.message || "Invalid credentials");
       } else if (data.session) {
-        window.location.href = "/";
+        window.location.assign("/");
       }
     } finally {
       setIsSubmitting(false);
@@ -71,7 +71,7 @@ export function SignIn() {
     if (apiError) {
       setError("Failed to initiate OAuth");
     } else if (data.url) {
-      window.location.href = data.url;
+      window.location.assign(data.url);
     }
   };
 

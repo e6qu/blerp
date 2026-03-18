@@ -46,7 +46,7 @@ export function ConnectedAccounts() {
     if (error) {
       toast("Failed to initiate connection", "error");
     } else if (data.url) {
-      window.location.href = data.url;
+      window.location.assign(data.url);
     }
   };
 
