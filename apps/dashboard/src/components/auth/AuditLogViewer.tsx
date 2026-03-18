@@ -1,12 +1,21 @@
 import { useAuditLogs } from "../../hooks/useAuditLogs";
+import { Pagination } from "../ui/Pagination";
+import { usePagination } from "../../hooks/usePagination";
+import { TableSkeleton } from "../ui/Skeleton";
 import type { components } from "@blerp/shared";
 
 type AuditLogEntry = components["schemas"]["AuditLogEntry"];
 
 export function AuditLogViewer() {
   const { data: logs, isLoading } = useAuditLogs();
+  const pagination = usePagination(20);
 
-  if (isLoading) return <div className="p-4 text-sm text-gray-500">Loading audit logs...</div>;
+  if (isLoading) return <TableSkeleton rows={5} columns={4} />;
+
+  const allLogs = logs ?? [];
+  const start = (pagination.page - 1) * pagination.pageSize;
+  const paginatedLogs = allLogs.slice(start, start + pagination.pageSize);
+  const hasNextPage = start + pagination.pageSize < allLogs.length;
 
   return (
     <div className="overflow-hidden rounded-lg border bg-white">
@@ -28,7 +37,7 @@ export function AuditLogViewer() {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
-          {logs?.map((log: AuditLogEntry) => (
+          {paginatedLogs.map((log: AuditLogEntry) => (
             <tr key={log.id}>
               <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                 {new Date(log.created_at).toLocaleString()}
@@ -46,6 +55,18 @@ export function AuditLogViewer() {
           ))}
         </tbody>
       </table>
+      {allLogs.length > pagination.pageSize && (
+        <Pagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          hasNextPage={hasNextPage}
+          hasPreviousPage={pagination.hasPreviousPage}
+          onNextPage={() => pagination.goToNextPage(String(start + pagination.pageSize))}
+          onPreviousPage={pagination.goToPreviousPage}
+          onPageSizeChange={pagination.setPageSize}
+          itemCount={allLogs.length}
+        />
+      )}
     </div>
   );
 }

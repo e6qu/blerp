@@ -1,15 +1,18 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Users, Shield, LogOut } from "lucide-react";
+import { LayoutDashboard, Settings, Users, Shield, LogOut, UserCog } from "lucide-react";
 import { OrganizationSwitcher } from "./auth/OrganizationSwitcher";
 import { useSignOut } from "../hooks/useSignOut";
+import { useCurrentUser } from "../hooks/useUser";
 
 export function Layout() {
   const location = useLocation();
   const signOut = useSignOut();
+  const { data: user } = useCurrentUser();
 
   const navItems = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    { name: "Users", href: "/users", icon: Users },
+    { name: "Organizations", href: "/users", icon: Users },
+    { name: "User Management", href: "/admin/users", icon: UserCog },
     { name: "Auth", href: "/auth", icon: Shield },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
@@ -60,8 +63,17 @@ export function Layout() {
       <main className="flex-1 overflow-y-auto">
         <header className="flex h-16 items-center border-b bg-white px-8">
           <div className="ml-auto flex items-center space-x-4">
-            <div className="h-8 w-8 rounded-full bg-gray-200"></div>
-            <span className="text-sm font-medium text-gray-700">Admin User</span>
+            {user?.image_url ? (
+              <img src={user.image_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-600">
+                {(user?.first_name ?? "A")[0]}
+                {(user?.last_name ?? "")[0] ?? ""}
+              </div>
+            )}
+            <span className="text-sm font-medium text-gray-700">
+              {user?.first_name ?? "Admin"} {user?.last_name ?? "User"}
+            </span>
           </div>
         </header>
         <Outlet />

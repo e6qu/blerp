@@ -180,6 +180,11 @@ export interface paths {
      * @description Updates organization metadata, membership requirements, or billing settings.
      */
     patch: operations["updateOrganization"];
+    /**
+     * Delete organization
+     * @description Permanently deletes an organization and all associated memberships, invitations, and domains.
+     */
+    delete: operations["deleteOrganization"];
   };
   "/v1/organizations/{organization_id}/metadata": {
     /**
@@ -1550,6 +1555,23 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Organization"];
         };
+      };
+    };
+  };
+  /**
+   * Delete organization
+   * @description Permanently deletes an organization and all associated data.
+   */
+  deleteOrganization: {
+    parameters: {
+      path: {
+        organization_id: string;
+      };
+    };
+    responses: {
+      /** @description Organization deleted */
+      204: {
+        content: never;
       };
     };
   };

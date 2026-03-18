@@ -60,3 +60,17 @@
    - **Flakiness is a bug** — race conditions, parallel test interference, and timing issues are real problems to fix, not noise to suppress.
    - **Document all bugs in `BUGS.md`** with root cause, impact, and fix status.
    - **If a fix seems too hard**, stop and ask the user rather than working around it silently.
+
+7. **ZERO TOLERANCE for Ignored Issues**
+
+   **NEVER dismiss ANY failure, bug, warning, or issue as "pre-existing", "not our change", "unrelated", or "out of scope".** Every single problem you encounter — whether you caused it or not — is YOUR responsibility to fix.
+
+   This is a HARD requirement, not a suggestion:
+   - **If a test was already failing before you started**: Fix it. Record it in `BUGS.md`. Do not move on.
+   - **If you discover a bug in code you didn't touch**: Fix it. Record it in `BUGS.md`. Do not move on.
+   - **If you see warnings, deprecations, or linting issues**: Fix them. All of them.
+   - **If something "works but looks wrong"**: Investigate. Fix it. Record it.
+   - **NEVER say "this is not caused by our changes"** as justification for ignoring a problem. The codebase runs across multiple sessions and agents. Bugs discovered in ANY session MUST be fixed in THAT session.
+   - **NEVER report a test count like "X passed, Y failed" and call it done.** The only acceptable result is ALL tests passing. If any test fails, you are not done.
+   - **Record EVERY bug in `BUGS.md`** — even if you fix it immediately. The record matters for tracking and preventing regressions.
+   - **Look proactively for bugs**, even in code you didn't write or change. If you see something broken, fix it.

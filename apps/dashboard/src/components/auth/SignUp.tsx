@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { client } from "../../lib/api";
-import { Github, Mail } from "lucide-react";
+import { GitBranch, Mail } from "lucide-react";
 
 export function SignUp() {
   const [email, setEmail] = useState("");
@@ -8,7 +8,7 @@ export function SignUp() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
@@ -43,7 +43,7 @@ export function SignUp() {
     if (apiError) {
       setError("Failed to initiate OAuth");
     } else if (data.url) {
-      window.location.href = data.url;
+      window.location.assign(data.url);
     }
   };
 
@@ -58,7 +58,7 @@ export function SignUp() {
           onClick={() => handleOAuth("github")}
           className="flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
         >
-          <Github className="mr-2 h-4 w-4" />
+          <GitBranch className="mr-2 h-4 w-4" />
           GitHub
         </button>
         <button

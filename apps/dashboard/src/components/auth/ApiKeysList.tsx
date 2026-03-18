@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, RefreshCw, Trash2, Copy, Check } from "lucide-react";
 import { useApiKeys, useRotateApiKey, useRevokeApiKey } from "../../hooks/useProject";
 import { CreateApiKeyModal } from "./CreateApiKeyModal";
+import { TableSkeleton } from "../ui/Skeleton";
 import type { components } from "@blerp/shared";
 
 type APIKey = components["schemas"]["APIKey"];
@@ -52,7 +53,7 @@ export function ApiKeysList() {
     }
   };
 
-  if (isLoading) return <div className="p-4 text-sm text-gray-500">Loading API keys...</div>;
+  if (isLoading) return <TableSkeleton rows={3} columns={5} />;
 
   const activeKeys = keys?.filter((k) => k.status === "active") || [];
 

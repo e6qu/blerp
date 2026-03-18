@@ -21,7 +21,7 @@ export function useSignOut() {
     },
     onSuccess: () => {
       queryClient.clear();
-      window.location.href = "/";
+      window.location.assign("/sign-in");
     },
   });
 }

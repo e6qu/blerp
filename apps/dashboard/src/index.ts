@@ -1,1 +1,2 @@
-console.warn("Hello from @blerp/dashboard");
+export { SignUp } from "./components/auth/SignUp";
+export { SignIn } from "./components/auth/SignIn";

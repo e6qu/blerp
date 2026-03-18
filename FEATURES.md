@@ -20,14 +20,18 @@
 ### 2.2 Authentication Flows
 
 - Email/password using Argon2id, password strength policies.
+- Sign-in flow: two-step email→password verification with session creation.
 - OTP/magic link (email + SMS) pipelines with throttling.
 - Social OAuth (Google, GitHub, Microsoft, Apple) via OAuth 2.0/OpenID Connect.
-- Passkeys/WebAuthn registration + assertion placeholders.
-- MFA: TOTP, SMS backup codes, enforcement policies per project/organization.
+- Passkeys/WebAuthn registration, assertion, and deletion.
+- MFA: TOTP enrollment with QR code, backup code generation/regeneration, enforcement policies per project/organization.
 
 ### 2.3 API Surface (REST/JSON only)
 
-- `/v1/auth/*` endpoints for signup/signin attempts, session refresh, session revoke.
+- `/v1/auth/signups` and `/v1/auth/signins` endpoints for signup/signin attempts with multi-step verification.
+- `/v1/auth/signins/{id}/attempt` for password verification and session token issuance.
+- `/v1/auth/webauthn/passkeys/{id}` DELETE for passkey removal.
+- `/v1/uploads/avatar` for base64 image upload and storage.
 - `/v1/users`, `/v1/organizations`, `/v1/memberships`, `/v1/projects`, `/v1/webhooks`, `/v1/events`.
 - Client helper endpoints (`/v1/client`, `/v1/client/sessions`, `/v1/client/user`) for publishable-key integrations.
 - RFC 7807 error payloads, Request-Id headers, redis-backed rate limiting.
@@ -46,8 +50,13 @@
 
 - Vite + React + Tailwind + Radix UI, TanStack Router/Query for client-side navigation/data fetching.
 - Direct JSON API consumption (OpenAPI-generated clients), no SSR/hydration tricks.
-- Configuration panels: auth strategies, OAuth providers, theme controls, API keys, webhooks.
-- User/org management views, audit log explorer, rate-limit dashboards, environment toggles.
+- Sign-in and sign-up pages with OAuth support (GitHub, Google).
+- User profile management: edit name/username, email management, connected accounts (OAuth), password change, 2FA enrollment, backup codes, passkey management, avatar upload.
+- Organization management: CRUD, member roles, invitations, domains, webhooks, org deletion with type-to-confirm.
+- Admin user management page (`/admin/users`) with search, status filter, and pagination.
+- Account deletion with confirmation modal and session cleanup.
+- Configuration panels: project settings, API key management, audit log viewer.
+- UI infrastructure: toast notification system, loading skeletons, pagination component, avatar upload with initials fallback.
 
 ### 3.2 Compatibility with Official Clerk SDKs
 

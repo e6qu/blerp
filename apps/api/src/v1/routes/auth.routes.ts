@@ -26,6 +26,9 @@ router.get("/jwks", discoveryController.getJWKS);
 router.post("/auth/signups", authController.createSignup);
 router.post("/auth/signups/:id/attempt", authController.attemptSignup);
 
+router.post("/auth/signins", authController.createSignin);
+router.post("/auth/signins/:signin_id/attempt", authController.attemptSignin);
+
 router.get("/auth/oauth/:provider", oauthController.authorize);
 router.get("/auth/oauth/:provider/callback", oauthController.callback);
 
@@ -80,6 +83,11 @@ router.post(
   webauthnController.verifyRegistration,
 );
 router.get("/auth/webauthn/passkeys", authMiddleware, webauthnController.listPasskeys);
+router.delete(
+  "/auth/webauthn/passkeys/:passkey_id",
+  authMiddleware,
+  webauthnController.deletePasskey,
+);
 
 // TOTP/MFA
 router.post("/users/:user_id/mfa/totp", authMiddleware, totpController.enrollTotp);

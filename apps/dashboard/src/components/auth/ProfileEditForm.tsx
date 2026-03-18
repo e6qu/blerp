@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Save, Loader2, Pencil } from "lucide-react";
 import { useCurrentUser, useUpdateCurrentUser } from "../../hooks/useUser";
+import { useToast } from "../ui/Toast";
+import { ProfileSkeleton } from "../ui/Skeleton";
+import { AvatarUpload } from "./AvatarUpload";
 
 export function ProfileEditForm() {
   const { data: user, isLoading } = useCurrentUser();
   const updateuser = useUpdateCurrentUser();
+  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -35,6 +39,7 @@ export function ProfileEditForm() {
         last_name: lastName,
         username: username || undefined,
       });
+      toast("Profile updated successfully", "success");
       setIsEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update profile");
@@ -42,16 +47,38 @@ export function ProfileEditForm() {
   };
 
   if (isLoading) {
-    return <div className="text-sm text-gray-500">Loading profile...</div>;
+    return <ProfileSkeleton />;
   }
 
   if (!user) {
     return <div className="text-sm text-gray-500">User not found</div>;
   }
 
+  const initials = `${(user.first_name ?? "?")[0]}${(user.last_name ?? "")[0] ?? ""}`;
+
+  const handleAvatarUpload = async (_url: string) => {
+    // Avatar URL stored server-side. The User schema has an imageUrl field
+    // that would be updated via a PATCH /users/:id call if the upload
+    // endpoint returned a persisted reference.
+  };
+
   if (!isEditing) {
     return (
       <div className="space-y-4">
+        <div className="flex items-center gap-4 mb-2">
+          <AvatarUpload
+            imageUrl={user.image_url}
+            initials={initials}
+            onUpload={handleAvatarUpload}
+            size="lg"
+          />
+          <div>
+            <p className="text-sm font-medium text-gray-900">
+              {user.first_name ?? ""} {user.last_name ?? ""}
+            </p>
+            <p className="text-xs text-gray-500">{user.id}</p>
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-500">First Name</label>

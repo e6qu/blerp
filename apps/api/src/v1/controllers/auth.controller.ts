@@ -25,3 +25,32 @@ export async function attemptSignup(req: Request, res: Response) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
 }
+
+export async function createSignin(req: Request, res: Response) {
+  const { identifier, strategy } = req.body;
+  const authService = new AuthService(req.tenantDb!, req.tenantId!);
+
+  try {
+    const signin = await authService.createSignin({ identifier, strategy });
+    res.status(201).json(signin);
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}
+
+export async function attemptSignin(req: Request, res: Response) {
+  const signinId = req.params.signin_id as string;
+  const { password, identifier } = req.body;
+  const authService = new AuthService(req.tenantDb!, req.tenantId!);
+
+  try {
+    if (!identifier) {
+      res.status(400).json({ error: { message: "identifier is required" } });
+      return;
+    }
+    const result = await authService.attemptSignin(signinId, identifier, password);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}

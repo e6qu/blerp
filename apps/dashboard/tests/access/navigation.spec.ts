@@ -7,7 +7,8 @@ test.describe("Sidebar Navigation", () => {
 
   test("sidebar renders all navigation items", async ({ page }) => {
     await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Users" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Organizations" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "User Management" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Auth" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
   });
@@ -19,8 +20,8 @@ test.describe("Sidebar Navigation", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("users link navigates to users page", async ({ page }) => {
-    await page.getByRole("link", { name: "Users" }).click();
+  test("organizations link navigates to users page", async ({ page }) => {
+    await page.getByRole("link", { name: "Organizations" }).click();
     await expect(page).toHaveURL("/users");
   });
 
@@ -40,9 +41,9 @@ test.describe("Sidebar Navigation", () => {
   });
 
   test("active nav item updates when navigating", async ({ page }) => {
-    const usersLink = page.getByRole("link", { name: "Users" });
-    await usersLink.click();
-    await expect(usersLink).toHaveClass(/bg-blue-50/);
+    const orgsLink = page.getByRole("link", { name: "Organizations" });
+    await orgsLink.click();
+    await expect(orgsLink).toHaveClass(/bg-blue-50/);
   });
 
   test("sidebar shows Blerp branding", async ({ page }) => {
@@ -55,14 +56,14 @@ test.describe("Page Tab Navigation", () => {
   test("auth page tab navigation works", async ({ page }) => {
     await page.goto("/auth");
 
-    const accountTab = page.getByRole("button", { name: "Account" });
+    const accountTab = page.getByRole("button", { name: "Account", exact: true });
     await expect(accountTab).toHaveClass(/border-blue-600/);
 
-    const securityTab = page.getByRole("button", { name: "Security" });
+    const securityTab = page.getByRole("button", { name: "Security", exact: true });
     await securityTab.click();
     await expect(securityTab).toHaveClass(/border-blue-600/);
 
-    const sessionsTab = page.getByRole("button", { name: "Sessions" });
+    const sessionsTab = page.getByRole("button", { name: "Sessions", exact: true });
     await sessionsTab.click();
     await expect(sessionsTab).toHaveClass(/border-blue-600/);
   });

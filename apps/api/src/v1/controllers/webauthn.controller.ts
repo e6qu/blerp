@@ -39,3 +39,17 @@ export async function listPasskeys(req: Request, res: Response) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
 }
+
+export async function deletePasskey(req: Request, res: Response) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+  const passkeyId = req.params.passkey_id as string;
+  const service = new WebAuthnService(req.tenantDb!);
+  try {
+    await service.deletePasskey(userId, passkeyId);
+    res.status(204).send();
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}

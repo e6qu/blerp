@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TableSkeleton } from "../ui/Skeleton";
 import {
   useMemberships,
   useUpdateMembership,
@@ -18,7 +19,7 @@ export function OrganizationMembers({ organizationId }: { organizationId: string
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("");
 
-  if (isLoading) return <div className="p-4 text-sm text-gray-500">Loading members...</div>;
+  if (isLoading) return <TableSkeleton rows={3} columns={4} />;
 
   const handleEditClick = (membership: Membership) => {
     setEditingId(membership.id);
