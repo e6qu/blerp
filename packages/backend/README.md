@@ -1,15 +1,31 @@
-# backend
+# @blerp/backend
 
-To install dependencies:
+Server-side SDK for interacting with the Blerp Identity Service API.
 
-```bash
-bun install
-```
-
-To run:
+## Installation
 
 ```bash
-bun run index.ts
+bun add @blerp/backend
 ```
 
-This project was created using `bun init` in bun v1.2.19. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Usage
+
+```typescript
+import { createBlerpClient } from "@blerp/backend";
+
+const blerp = createBlerpClient({
+  secretKey: process.env.BLERP_SECRET_KEY!,
+  baseUrl: process.env.BLERP_API_URL!,
+});
+
+const users = await blerp.users.getUserList();
+```
+
+## Development
+
+From the monorepo root:
+
+```bash
+bun run dev          # Start all services
+bun run build        # Build all packages
+```

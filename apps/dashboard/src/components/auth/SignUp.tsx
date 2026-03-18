@@ -5,34 +5,43 @@ import { Github, Mail } from "lucide-react";
 export function SignUp() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data, error } = await client.POST("/v1/auth/signups", {
-      body: {
-        email,
-        strategy: "password",
-      },
-    });
+    setError(null);
+    setIsSubmitting(true);
 
-    if (error) {
-      const errorData = error as { error?: { message?: string } };
-      alert(errorData.error?.message || "Failed to sign up");
-    } else {
-      setStatus(`Signup initiated: ${data.id}. Please check your email.`);
+    try {
+      const { data, error: apiError } = await client.POST("/v1/auth/signups", {
+        body: {
+          email,
+          strategy: "password",
+        },
+      });
+
+      if (apiError) {
+        const errorData = apiError as { error?: { message?: string } };
+        setError(errorData.error?.message || "Failed to sign up");
+      } else {
+        setStatus(`Signup initiated: ${data.id}. Please check your email.`);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleOAuth = async (provider: "github" | "google" | "discord") => {
-    const { data, error } = await client.GET("/v1/auth/oauth/{provider}", {
+    const { data, error: apiError } = await client.GET("/v1/auth/oauth/{provider}", {
       params: {
         path: { provider },
         query: { redirect_uri: window.location.origin + "/callback" },
       },
     });
 
-    if (error) {
-      alert("Failed to initiate OAuth");
+    if (apiError) {
+      setError("Failed to initiate OAuth");
     } else if (data.url) {
       window.location.href = data.url;
     }
@@ -41,6 +50,8 @@ export function SignUp() {
   return (
     <div className="mx-auto max-w-md rounded-xl border bg-white p-8 shadow-sm">
       <h2 className="mb-6 text-2xl font-bold text-gray-900">Create your account</h2>
+
+      {error && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         <button
@@ -84,9 +95,10 @@ export function SignUp() {
         </div>
         <button
           type="submit"
-          className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          disabled={isSubmitting}
+          className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
         >
-          Continue
+          {isSubmitting ? "Submitting..." : "Continue"}
         </button>
       </form>
       {status && <p className="mt-4 text-sm text-green-600">{status}</p>}

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { redis } from "../lib/redis";
+import { redis, isRedisAvailable } from "../lib/redis";
 import { logger } from "../lib/logger";
 
 export interface RateLimitOptions {
@@ -10,6 +10,11 @@ export interface RateLimitOptions {
 
 export function rateLimit(options: RateLimitOptions) {
   return async (req: Request, res: Response, next: NextFunction) => {
+    if (!isRedisAvailable()) {
+      next();
+      return;
+    }
+
     const key = `${options.keyPrefix}:${req.ip}`;
 
     try {

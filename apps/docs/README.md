@@ -1,15 +1,19 @@
-# docs
+# Blerp Documentation
 
-To install dependencies:
+VitePress-powered documentation site for the Blerp Identity Service.
 
-```bash
-bun install
-```
+## Development
 
-To run:
+From the monorepo root:
 
 ```bash
-bun run index.ts
+bun run dev
 ```
 
-This project was created using `bun init` in bun v1.2.19. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+The docs site starts at `http://localhost:5174` (port may vary).
+
+## Building
+
+```bash
+bun run build --filter @blerp/docs
+```

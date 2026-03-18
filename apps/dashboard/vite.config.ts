@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 // https://vitejs.dev/config/
 import path from "node:path";
@@ -12,12 +13,18 @@ const dirname =
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
-  plugins: [react()],
+  plugins: [tailwindcss(), react()],
   optimizeDeps: {
     include: ["react-dom/client", "lucide-react", "@tanstack/react-query"],
   },
   server: {
-    port: 3001,
+    port: parseInt(process.env.BLERP_DASHBOARD_PORT || "3001", 10),
+    proxy: {
+      "/v1": {
+        target: `http://localhost:${process.env.BLERP_API_PORT || 3000}`,
+        changeOrigin: true,
+      },
+    },
   },
   test: {
     projects: [

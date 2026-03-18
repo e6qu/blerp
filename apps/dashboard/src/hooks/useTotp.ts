@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { client, DEMO_USER_ID } from "../lib/api";
+import { client, DEMO_USER_ID, getCsrfToken } from "../lib/api";
 
 interface TotpEnrollment {
   secret: string;
@@ -65,11 +65,18 @@ export function useDisableTotp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/v1/users/${DEMO_USER_ID}/mfa/totp`, {
+      const token = await getCsrfToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "demo-tenant",
+        "X-User-Id": DEMO_USER_ID,
+      };
+      if (token) {
+        headers["x-csrf-token"] = token;
+      }
+      const response = await fetch(`/v1/users/${DEMO_USER_ID}/mfa/totp`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
       });
       if (!response.ok) {
         const error = await response.json();

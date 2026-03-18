@@ -1,4 +1,4 @@
-import { redis, cache } from "./redis";
+import { redis, cache, isRedisAvailable } from "./redis";
 import { nanoid } from "nanoid";
 
 export interface SessionData {
@@ -31,7 +31,9 @@ export const sessionStore = {
 
     await cache.set(`session:${sessionId}`, session, SESSION_TTL);
     // Also track user sessions
-    await redis.sadd(`user_sessions:${userId}`, sessionId);
+    if (isRedisAvailable()) {
+      await redis.sadd(`user_sessions:${userId}`, sessionId);
+    }
 
     return session;
   },
@@ -52,11 +54,14 @@ export const sessionStore = {
     const session = await cache.get<SessionData>(`session:${sessionId}`);
     if (session) {
       await cache.del(`session:${sessionId}`);
-      await redis.srem(`user_sessions:${session.userId}`, sessionId);
+      if (isRedisAvailable()) {
+        await redis.srem(`user_sessions:${session.userId}`, sessionId);
+      }
     }
   },
 
   listForUser: async (userId: string): Promise<SessionData[]> => {
+    if (!isRedisAvailable()) return [];
     const sessionIds = await redis.smembers(`user_sessions:${userId}`);
     const sessions = await Promise.all(
       sessionIds.map((id) => cache.get<SessionData>(`session:${id}`)),

@@ -16,11 +16,41 @@ export function useRegisterPasskey() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (name: string) => {
-      const { error: optError } = await client.GET("/v1/auth/webauthn/registration/options", {});
+      if (!window.PublicKeyCredential) {
+        throw new Error("WebAuthn is not available in this browser");
+      }
+
+      const { data: optionsData, error: optError } = await client.GET(
+        "/v1/auth/webauthn/registration/options",
+        {},
+      );
       if (optError) throw optError;
 
+      const options = optionsData as {
+        challenge: string;
+        rp: PublicKeyCredentialRpEntity;
+        user: PublicKeyCredentialUserEntity;
+        pubKeyCredParams: PublicKeyCredentialParameters[];
+      };
+
+      const credential = (await navigator.credentials.create({
+        publicKey: {
+          challenge: Uint8Array.from(atob(options.challenge), (c) => c.charCodeAt(0)),
+          rp: options.rp,
+          user: {
+            ...options.user,
+            id: Uint8Array.from(atob(options.user.id as unknown as string), (c) => c.charCodeAt(0)),
+          },
+          pubKeyCredParams: options.pubKeyCredParams,
+        },
+      })) as PublicKeyCredential | null;
+
+      if (!credential) {
+        throw new Error("Passkey registration was cancelled");
+      }
+
       const { data, error } = await client.POST("/v1/auth/webauthn/registration/verify", {
-        body: { id: "mock_cred_id", name },
+        body: { id: credential.id, name },
       });
       if (error) throw error;
       return data;

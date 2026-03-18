@@ -18,6 +18,7 @@ vi.mock("../lib/redis", () => ({
     incr: vi.fn().mockResolvedValue(1),
     expire: vi.fn(),
   },
+  isRedisAvailable: vi.fn().mockReturnValue(true),
   cache: {
     get: vi.fn(),
     set: vi.fn(),
@@ -99,7 +100,7 @@ describe("Domain Integration", () => {
       .set("X-User-Id", userId);
 
     expect(verify.status).toBe(200);
-    expect(verify.body.verificationStatus).toBe("verified");
+    expect(verify.body.verification_status).toBe("verified");
 
     // 4. Delete Domain
     const del = await request(app)

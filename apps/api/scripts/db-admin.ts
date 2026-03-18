@@ -22,7 +22,8 @@ async function main() {
       console.error("Missing tenantId");
       process.exit(1);
     }
-    await seedTenant(tenantId);
+    const db = await getTenantDb(tenantId);
+    await seedTenant(tenantId, db);
   } else {
     console.log("Usage: bun run scripts/db-admin.ts [migrate-all|seed <tenantId>]");
   }

@@ -10,8 +10,12 @@ const logger = pino({
   },
 });
 
-const port = process.env.PORT || 3000;
+const port = process.env.BLERP_API_PORT || process.env.PORT || 3000;
 
 app.listen(port, () => {
-  logger.info(`API listening on port ${port}`);
+  logger.info(`
+╔══════════════════════════════════════════╗
+║  Blerp API running on port ${String(port).padEnd(13)}║
+║  http://localhost:${String(port).padEnd(23)}║
+╚══════════════════════════════════════════╝`);
 });

@@ -9,21 +9,14 @@ export default defineConfig({
       { text: "Home", link: "/" },
       { text: "Guide", link: "/guide/" },
       { text: "Tutorials", link: "/tutorials/" },
-      { text: "API", link: "/api/" },
     ],
     sidebar: [
       {
-        text: "Introduction",
+        text: "Guide",
         items: [
           { text: "Getting Started", link: "/guide/" },
-          { text: "Architecture", link: "/guide/architecture" },
-        ],
-      },
-      {
-        text: "Development",
-        items: [
-          { text: "Local Setup", link: "/guide/local-setup" },
           { text: "SDK Repointing", link: "/guide/sdk-repointing" },
+          { text: "Monite Integration", link: "/guide/monite-integration" },
         ],
       },
       {

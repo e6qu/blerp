@@ -10,8 +10,15 @@ import * as userController from "../controllers/user.controller";
 import * as emailController from "../controllers/email.controller";
 import * as totpController from "../controllers/totp.controller";
 import { authMiddleware } from "../../middleware/auth";
+import { generateCsrfToken } from "../../middleware/csrf";
 
 const router = Router();
+
+// CSRF token endpoint
+router.get("/csrf-token", (req, res) => {
+  const token = generateCsrfToken(req, res);
+  res.json({ csrfToken: token });
+});
 
 router.get("/.well-known/openid-configuration", discoveryController.getOIDCConfig);
 router.get("/jwks", discoveryController.getJWKS);

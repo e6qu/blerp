@@ -26,7 +26,7 @@ Each project gets its own SQLite database for complete data isolation.
 
 ### Using the Dashboard
 
-1. Open the dashboard at `http://localhost:5173`
+1. Open the dashboard at `http://localhost:3001` (default port; override with `BLERP_DASHBOARD_PORT`)
 2. Projects are automatically created when you first access the dashboard
 3. The default project ID is `demo-project`
 
@@ -416,6 +416,5 @@ for (const user of users) {
 
 ## Next Steps
 
-- **Next.js Integration** - Add Blerp to your Next.js app
-- **API Usage Tutorial** - Learn more API operations
-- \*\*
+- **[Next.js Integration](./nextjs-integration)** — Add Blerp to your Next.js app
+- **[API Usage Tutorial](./api-usage)** — Learn more API operations

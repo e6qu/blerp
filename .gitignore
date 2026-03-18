@@ -12,3 +12,7 @@ storybook-static
 
 playwright-report/
 test-results/
+
+# Generated at runtime
+apps/api/tenants/
+apps/docs/.vitepress/cache/

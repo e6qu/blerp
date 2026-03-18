@@ -1,4 +1,4 @@
-import { redis } from "./redis";
+import { isRedisAvailable, redis } from "./redis";
 import { logger } from "./logger";
 import { nanoid } from "nanoid";
 import { Metadata } from "./metadata";
@@ -32,6 +32,7 @@ export const eventBus = {
     };
 
     try {
+      if (!isRedisAvailable()) return null;
       const streamName = "blerp_events";
 
       const message = {
