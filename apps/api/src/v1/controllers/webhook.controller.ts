@@ -1,13 +1,34 @@
 import { Request, Response } from "express";
 import { WebhookService } from "../services/webhook.service";
 
+interface DBWebhook {
+  id: string;
+  url: string;
+  secret: string;
+  enabled: boolean;
+  eventTypes: string[];
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+function mapWebhook(w: DBWebhook) {
+  return {
+    id: w.id,
+    url: w.url,
+    secret: w.secret,
+    events: w.eventTypes,
+    status: w.enabled ? "active" : "paused",
+    created_at: w.createdAt?.toISOString(),
+  };
+}
+
 export async function createWebhook(req: Request, res: Response) {
-  const { url, event_types } = req.body;
+  const { url, events, event_types } = req.body;
   const service = new WebhookService(req.tenantDb!);
 
   try {
-    const webhook = await service.create({ url, eventTypes: event_types });
-    res.status(201).json(webhook);
+    const webhook = await service.create({ url, eventTypes: events || event_types });
+    res.status(201).json(mapWebhook(webhook as DBWebhook));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
@@ -18,7 +39,7 @@ export async function listWebhooks(req: Request, res: Response) {
 
   try {
     const webhooks = await service.list();
-    res.status(200).json({ data: webhooks });
+    res.status(200).json({ data: webhooks.map((w) => mapWebhook(w as DBWebhook)) });
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
@@ -34,7 +55,7 @@ export async function getWebhook(req: Request, res: Response) {
       res.status(404).json({ error: { message: "Webhook not found" } });
       return;
     }
-    res.status(200).json(webhook);
+    res.status(200).json(mapWebhook(webhook as DBWebhook));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
@@ -47,7 +68,7 @@ export async function updateWebhook(req: Request, res: Response) {
 
   try {
     const webhook = await service.update(id, data);
-    res.status(200).json(webhook);
+    res.status(200).json(mapWebhook(webhook as DBWebhook));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }

@@ -2,18 +2,12 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Security Settings", () => {
   test.beforeEach(async ({ page }) => {
-    await page.route("**/v1/auth/webauthn/passkeys**", (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: [] }),
-      });
-    });
-
     await page.goto("/auth");
+    await page.getByRole("button", { name: "Security" }).click();
+  });
 
-    const securityTab = page.getByRole("button", { name: "Security" });
-    await securityTab.click();
+  test("can navigate to security tab", async ({ page }) => {
+    await expect(page.getByRole("button", { name: "Security" })).toHaveClass(/border-blue-600/);
   });
 
   test("password section is visible", async ({ page }) => {
@@ -26,8 +20,12 @@ test.describe("Security Settings", () => {
     await expect(page.getByRole("button", { name: "Add Passkey" })).toBeVisible();
   });
 
-  test("2FA section is visible", async ({ page }) => {
-    await expect(page.getByText("Two-Factor Authentication")).toBeVisible();
+  test("2FA section shows not enabled", async ({ page }) => {
+    await expect(page.getByRole("heading", { name: "Two-Factor Authentication" })).toBeVisible();
     await expect(page.getByText("Not enabled")).toBeVisible();
+  });
+
+  test("enable 2FA link is visible", async ({ page }) => {
+    await expect(page.getByRole("button", { name: "Enable 2FA" })).toBeVisible();
   });
 });

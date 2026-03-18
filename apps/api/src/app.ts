@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import { tenantMiddleware } from "./middleware/tenant";
 import { authRoutes } from "./v1/routes/auth.routes";
 import { organizationRoutes } from "./v1/routes/organization.routes";
+import { invitationRoutes } from "./v1/routes/invitation.routes";
 import { webhookRoutes } from "./v1/routes/webhook.routes";
 import { projectRoutes } from "./v1/routes/project.routes";
 import { scimRoutes } from "./v1/routes/scim.routes";
@@ -40,6 +41,11 @@ app.use(cors());
 app.use(cookieParser());
 app.use(express.json());
 
+// Health check — must be before rate limiting to avoid Redis dependency
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
 // Apply global rate limiting
 app.use(
   rateLimit({
@@ -49,16 +55,12 @@ app.use(
   }),
 );
 
-// Health check
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
-});
-
 // API routes - all require tenant isolation
 app.use("/v1", tenantMiddleware);
 app.use("/v1", doubleCsrfProtection);
 app.use("/v1", authRoutes);
 app.use("/v1", organizationRoutes);
+app.use("/v1", invitationRoutes);
 app.use("/v1", webhookRoutes);
 app.use("/v1", projectRoutes);
 

@@ -49,3 +49,14 @@
    - If requirements are unclear, conflicting, or unknown, stop and ask the user for clarification.
    - Do not make assumptions—wait for the user’s response before proceeding.
    - Never invent project coordinates (domains, contacts), authorship, or configuration details; if information is missing, explicitly request it before making changes.
+
+6. **Testing Philosophy — Tests Discover Bugs**
+
+   When a test fails, it is telling you about a bug. Fix the bug, not the test.
+   - **Never disable, skip, or delete tests** to avoid failures. Never use `test.skip()`, `test.fixme()`, or `xtest()` without documenting the underlying bug in `BUGS.md` and asking the user for guidance.
+   - **Never reduce test scope or coverage** to get a passing suite. Every test exists for a reason.
+   - **Never "fake out" tests** by loosening assertions (e.g., changing `expect(x).toBe("owner")` to `expect(x).toBeTruthy()`) to hide bugs. Assertions must match what the application should actually do.
+   - **Fix the application first**, then adapt the test if the test itself has incorrect locators or outdated expectations.
+   - **Flakiness is a bug** — race conditions, parallel test interference, and timing issues are real problems to fix, not noise to suppress.
+   - **Document all bugs in `BUGS.md`** with root cause, impact, and fix status.
+   - **If a fix seems too hard**, stop and ask the user rather than working around it silently.

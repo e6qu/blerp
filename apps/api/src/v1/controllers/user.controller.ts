@@ -25,6 +25,7 @@ function mapUser(user: UserWithRelations): User {
     public_metadata: (user.publicMetadata as Record<string, unknown>) || {},
     private_metadata: (user.privateMetadata as Record<string, unknown>) || {},
     unsafe_metadata: (user.unsafeMetadata as Record<string, unknown>) || {},
+    totp_enabled: user.totpEnabled,
     email_addresses: (user.emailAddresses || []).map((e: DBEmailAddress) => ({
       id: e.id,
       email: e.emailAddress,
