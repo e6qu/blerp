@@ -95,13 +95,15 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center">
         <div className="fixed inset-0 bg-black/50" onClick={handleClose}></div>
-        <div className="relative z-10 w-full max-w-md rounded-xl border bg-white p-6 shadow-xl">
+        <div className="relative z-10 w-full max-w-md rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 p-6 shadow-xl">
           <div className="flex flex-col items-center py-4">
-            <div className="rounded-full bg-green-100 p-3">
+            <div className="rounded-full bg-green-100 dark:bg-green-900/30 p-3">
               <Check className="h-8 w-8 text-green-600" />
             </div>
-            <h2 className="mt-4 text-xl font-bold text-gray-900">Password Changed</h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">
+              Password Changed
+            </h2>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               Your password has been updated successfully.
             </p>
           </div>
@@ -113,17 +115,23 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose}></div>
-      <div className="relative z-10 w-full max-w-md rounded-xl border bg-white p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-md rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Change password</h2>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Change password</h2>
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="newPassword"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
               New password
             </label>
             <div className="relative mt-1">
@@ -132,13 +140,13 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
                 type={showPassword ? "text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-10 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                className="block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 pr-10 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm dark:bg-gray-800 dark:text-gray-100"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -148,7 +156,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
           {newPassword && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500">Password strength:</span>
+                <span className="text-gray-500 dark:text-gray-400">Password strength:</span>
                 <span className="font-medium">{strength.label}</span>
               </div>
               <div className="flex gap-1">
@@ -156,7 +164,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
                   <div
                     key={i}
                     className={`h-1.5 flex-1 rounded-full ${
-                      i <= strength.score ? strength.color : "bg-gray-200"
+                      i <= strength.score ? strength.color : "bg-gray-200 dark:bg-gray-600"
                     }`}
                   />
                 ))}
@@ -167,9 +175,15 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
                     {check.passed ? (
                       <Check className="h-3 w-3 text-green-500" />
                     ) : (
-                      <XIcon className="h-3 w-3 text-gray-300" />
+                      <XIcon className="h-3 w-3 text-gray-300 dark:text-gray-600" />
                     )}
-                    <span className={check.passed ? "text-gray-700" : "text-gray-400"}>
+                    <span
+                      className={
+                        check.passed
+                          ? "text-gray-700 dark:text-gray-200"
+                          : "text-gray-400 dark:text-gray-500"
+                      }
+                    >
                       {check.label}
                     </span>
                   </div>
@@ -179,7 +193,10 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
           )}
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
               Confirm new password
             </label>
             <input
@@ -187,17 +204,17 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
               type={showPassword ? "text" : "password"}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm dark:bg-gray-800 dark:text-gray-100"
               required
             />
             {confirmPassword && !passwordsMatch && (
-              <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">Passwords do not match</p>
             )}
           </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-3">
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3">
+              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
             </div>
           )}
 
@@ -205,7 +222,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
             <button
               type="button"
               onClick={handleClose}
-              className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Cancel
             </button>

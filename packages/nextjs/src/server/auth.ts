@@ -52,20 +52,19 @@ export async function currentUser(): Promise<User | null> {
   const { userId } = await auth();
   if (!userId) return null;
 
-  // In a real implementation, this would fetch from the Blerp API
-  return {
-    id: userId,
-    status: "active",
-    email_addresses: [
-      {
-        id: "email_mock",
-        email: "mock@example.com",
-        verification: { status: "verified" },
-      },
-    ],
-    public_metadata: {},
-    private_metadata: {},
-    unsafe_metadata: {},
-    created_at: new Date().toISOString(),
-  };
+  const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3001";
+  const secretKey = process.env.BLERP_SECRET_KEY ?? "";
+
+  const response = await fetch(`${apiUrl}/v1/users/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${secretKey}`,
+      "X-User-Id": userId,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) return null;
+
+  const user = (await response.json()) as User;
+  return user;
 }

@@ -1,6 +1,6 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export class WebhookService {
@@ -41,5 +41,20 @@ export class WebhookService {
 
   async delete(id: string) {
     await this.db.delete(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, id));
+  }
+
+  async listDeliveries(endpointId: string, options?: { limit?: number; offset?: number }) {
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+
+    const deliveries = await this.db
+      .select()
+      .from(schema.webhookDeliveries)
+      .where(eq(schema.webhookDeliveries.endpointId, endpointId))
+      .orderBy(desc(schema.webhookDeliveries.deliveredAt))
+      .limit(limit)
+      .offset(offset);
+
+    return deliveries;
   }
 }

@@ -13,8 +13,11 @@
 - Primary contact: `adi11235@gmail.com`
 
 1. **Entry Point**
-   - Read `PLAN.md` and locate the first phase/task marked `pending`.
-   - Review `STATUS.md`, `WHAT_WE_DID.md`, and `DO_NEXT.md` for context before acting.
+   - Read [`PLAN.md`](PLAN.md) — milestones, phases, and task status. Locate the first task marked `pending`.
+   - Read [`STATUS.md`](STATUS.md) — chronological status log with dates and notes.
+   - Read [`DO_NEXT.md`](DO_NEXT.md) — prioritized list of what to work on next.
+   - Read [`WHAT_WE_DID.md`](WHAT_WE_DID.md) — detailed session logs with files touched and tests run.
+   - Read [`GAP_ANALYSIS.md`](GAP_ANALYSIS.md) — feature-by-feature comparison vs Clerk + Monite SDK. Shows what's needed to achieve the objective (100% Clerk/Monite parity).
 
 2. **Execution Loop**
    - Pick up the next pending task from `PLAN.md` and work through it.

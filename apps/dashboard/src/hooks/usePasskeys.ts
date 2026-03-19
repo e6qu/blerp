@@ -61,6 +61,36 @@ export function useRegisterPasskey() {
   });
 }
 
+export function useRenamePasskey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ passkeyId, name }: { passkeyId: string; name: string }) => {
+      const token = await getCsrfToken();
+      const headers: Record<string, string> = {
+        "X-Tenant-Id": "demo-tenant",
+        "X-User-Id": DEMO_USER_ID,
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["x-csrf-token"] = token;
+      }
+      const response = await fetch(`/v1/auth/webauthn/passkeys/${passkeyId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Failed to rename passkey");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["passkeys"] });
+    },
+  });
+}
+
 export function useDeletePasskey() {
   const queryClient = useQueryClient();
   return useMutation({

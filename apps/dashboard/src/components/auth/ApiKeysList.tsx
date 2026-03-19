@@ -70,13 +70,15 @@ export function ApiKeysList() {
       </div>
 
       {rotatedSecret && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-          <h4 className="text-sm font-medium text-yellow-800">Key rotated successfully</h4>
-          <p className="mt-1 text-xs text-yellow-700">
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-900/30 p-4">
+          <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+            Key rotated successfully
+          </h4>
+          <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-300">
             Copy your new key now — it won&apos;t be shown again.
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 rounded bg-yellow-100 px-2 py-1.5 text-xs font-mono text-yellow-900 break-all">
+            <code className="flex-1 rounded bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1.5 text-xs font-mono text-yellow-900 dark:text-yellow-300 break-all">
               {rotatedSecret.secret}
             </code>
             <button
@@ -87,7 +89,7 @@ export function ApiKeysList() {
               {copied ? (
                 <Check className="h-4 w-4 text-green-600" />
               ) : (
-                <Copy className="h-4 w-4 text-yellow-700" />
+                <Copy className="h-4 w-4 text-yellow-700 dark:text-yellow-300" />
               )}
             </button>
           </div>
@@ -95,49 +97,53 @@ export function ApiKeysList() {
       )}
 
       {activeKeys.length > 0 ? (
-        <div className="overflow-hidden rounded-lg border bg-white">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden rounded-lg border bg-white dark:bg-gray-800">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Key
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Environment
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Created
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {activeKeys.map((key: APIKey) => (
                 <tr key={key.id}>
                   <td className="px-6 py-4">
-                    <div className="text-sm font-mono text-gray-900">{key.prefix}</div>
-                    {key.label && <div className="text-xs text-gray-500">{key.label}</div>}
+                    <div className="text-sm font-mono text-gray-900 dark:text-gray-50">
+                      {key.prefix}
+                    </div>
+                    {key.label && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{key.label}</div>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span
                       className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
                         key.type === "secret"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-green-100 text-green-800"
+                          ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400"
+                          : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
                       }`}
                     >
                       {key.type}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {key.environment}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {key.created_at ? new Date(key.created_at).toLocaleDateString() : "—"}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
@@ -145,7 +151,7 @@ export function ApiKeysList() {
                       <button
                         onClick={() => handleRotate(key.id)}
                         disabled={rotatingKeyId === key.id}
-                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-900 disabled:opacity-50"
                         title="Rotate key"
                       >
                         <RefreshCw
@@ -155,7 +161,7 @@ export function ApiKeysList() {
                       <button
                         onClick={() => handleRevoke(key.id)}
                         disabled={revokeApiKey.isPending}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                        className="text-red-600 dark:text-red-400 hover:text-red-900 disabled:opacity-50"
                         title="Revoke key"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -168,7 +174,7 @@ export function ApiKeysList() {
           </table>
         </div>
       ) : (
-        <div className="flex h-32 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-gray-500">
+        <div className="flex h-32 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
           <p>No API keys yet.</p>
           <p className="text-sm">Create a key to authenticate API requests.</p>
         </div>

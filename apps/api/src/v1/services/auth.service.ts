@@ -2,9 +2,10 @@ import { nanoid } from "nanoid";
 import { eventBus } from "../../lib/events";
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc, asc, like } from "drizzle-orm";
 import { deepMerge, Metadata } from "../../lib/metadata";
 import { crypto } from "../../lib/crypto";
+import { RestrictionService } from "./restriction.service";
 
 export class AuthService {
   constructor(
@@ -30,6 +31,14 @@ export class AuthService {
     if (code !== "123456") {
       throw new Error("Invalid verification code");
     }
+
+    // Check signup restrictions
+    const restrictionService = new RestrictionService(this.db);
+    const check = await restrictionService.checkSignup(email);
+    if (!check.allowed) {
+      throw new Error(check.reason ?? "Signup not allowed");
+    }
+
     const userId = `user_${nanoid()}`;
     await this.db.insert(schema.users).values({
       id: userId,
@@ -181,7 +190,12 @@ export class AuthService {
     };
   }
 
-  async attemptSignin(_signinId: string, identifier: string, password: string) {
+  async attemptSignin(
+    _signinId: string,
+    identifier: string,
+    password: string,
+    metadata?: { ipAddress?: string; userAgent?: string },
+  ) {
     // Look up user by email
     const emailRecord = await this.db.query.emailAddresses.findFirst({
       where: eq(schema.emailAddresses.emailAddress, identifier),
@@ -213,6 +227,8 @@ export class AuthService {
       id: sessionId,
       userId: user.id,
       status: "active",
+      ipAddress: metadata?.ipAddress,
+      userAgent: metadata?.userAgent,
       expireAt,
       abandonAt,
     });
@@ -245,12 +261,27 @@ export class AuthService {
     status?: "active" | "inactive" | "banned";
     metadataKey?: string;
     metadataValue?: string;
+    query?: string;
+    orderBy?: string;
     limit?: number;
     cursor?: string;
+    includeDeleted?: boolean;
   }) {
-    const { status, metadataKey, metadataValue, limit = 20 } = filters;
+    const {
+      status,
+      metadataKey,
+      metadataValue,
+      query: searchQuery,
+      orderBy: orderByParam,
+      limit = 20,
+      includeDeleted,
+    } = filters;
 
     const whereClauses = [];
+
+    if (!includeDeleted) {
+      whereClauses.push(sql`${schema.users.deletedAt} IS NULL`);
+    }
 
     if (status) {
       whereClauses.push(eq(schema.users.status, status));
@@ -264,14 +295,48 @@ export class AuthService {
       if (!path.startsWith("$.")) path = "$." + path;
 
       whereClauses.push(
-        sql`(json_extract(${schema.users.publicMetadata}, ${path}) = ${metadataValue} OR 
+        sql`(json_extract(${schema.users.publicMetadata}, ${path}) = ${metadataValue} OR
              json_extract(${schema.users.privateMetadata}, ${path}) = ${metadataValue})`,
       );
     }
 
+    if (searchQuery) {
+      const pattern = `%${searchQuery}%`;
+      whereClauses.push(
+        sql`(${like(schema.users.firstName, pattern)} OR ${like(schema.users.lastName, pattern)} OR ${like(schema.users.username, pattern)} OR ${schema.users.id} IN (SELECT ${schema.emailAddresses.userId} FROM ${schema.emailAddresses} WHERE ${like(schema.emailAddresses.emailAddress, pattern)}))`,
+      );
+    }
+
+    // Parse orderBy: "-created_at" → desc, "created_at" → asc
+    const resolveOrderBy = (param?: string) => {
+      if (!param) return [desc(schema.users.createdAt)];
+
+      const isDescending = param.startsWith("-");
+      const columnName = isDescending ? param.slice(1) : param;
+      const dirFn = isDescending ? desc : asc;
+
+      switch (columnName) {
+        case "created_at":
+          return [dirFn(schema.users.createdAt)];
+        case "updated_at":
+          return [dirFn(schema.users.updatedAt)];
+        case "last_sign_in_at":
+          return [dirFn(schema.users.lastSignInAt)];
+        case "first_name":
+          return [dirFn(schema.users.firstName)];
+        case "last_name":
+          return [dirFn(schema.users.lastName)];
+        case "username":
+          return [dirFn(schema.users.username)];
+        default:
+          return [desc(schema.users.createdAt)];
+      }
+    };
+
     return this.db.query.users.findMany({
       where: whereClauses.length > 0 ? and(...whereClauses) : undefined,
       limit,
+      orderBy: resolveOrderBy(orderByParam),
       with: {
         emailAddresses: true,
       },

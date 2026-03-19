@@ -85,3 +85,28 @@ export async function deleteWebhook(req: Request, res: Response) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
 }
+
+export async function listDeliveries(req: Request, res: Response) {
+  const endpointId = req.params.endpoint_id as string;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+  const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+  const service = new WebhookService(req.tenantDb!);
+
+  try {
+    const deliveries = await service.listDeliveries(endpointId, { limit, offset });
+    res.json({
+      data: deliveries.map((d) => ({
+        id: d.id,
+        endpoint_id: d.endpointId,
+        event_type: d.eventType,
+        status: d.status,
+        http_status: d.httpStatus,
+        error_message: d.errorMessage,
+        attempt_number: d.attemptNumber,
+        delivered_at: d.deliveredAt?.toISOString(),
+      })),
+    });
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}

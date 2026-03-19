@@ -118,6 +118,8 @@ export const sessions = sqliteTable(
     status: text("status", { enum: ["active", "revoked", "ended", "expired"] })
       .notNull()
       .default("active"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
     lastActiveAt: integer("last_active_at", { mode: "timestamp" })
       .notNull()
       .default(sql`(unixepoch())`),
@@ -320,6 +322,133 @@ export const passkeys = sqliteTable("passkeys", {
     .default(sql`(unixepoch())`),
   lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
 });
+
+// --- Signup Restrictions (Allowlist/Blocklist) ---
+
+export const signupRestrictions = sqliteTable("signup_restrictions", {
+  id: text("id").primaryKey(),
+  type: text("type", { enum: ["allowlist", "blocklist"] }).notNull(),
+  identifierType: text("identifier_type", { enum: ["email", "domain"] }).notNull(),
+  value: text("value").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// --- Sign-In Tokens (Magic Links) ---
+
+export const signInTokens = sqliteTable("sign_in_tokens", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  status: text("status", { enum: ["pending", "accepted", "revoked", "expired"] })
+    .notNull()
+    .default("pending"),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// --- Webhook Delivery Logs ---
+
+export const webhookDeliveries = sqliteTable(
+  "webhook_deliveries",
+  {
+    id: text("id").primaryKey(),
+    endpointId: text("endpoint_id")
+      .notNull()
+      .references(() => webhookEndpoints.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(),
+    status: text("status", { enum: ["success", "failed", "pending"] })
+      .notNull()
+      .default("pending"),
+    httpStatus: integer("http_status"),
+    responseBody: text("response_body"),
+    errorMessage: text("error_message"),
+    attemptNumber: integer("attempt_number").notNull().default(1),
+    deliveredAt: integer("delivered_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    endpointIdIdx: index("webhook_deliveries_endpoint_id_idx").on(table.endpointId),
+  }),
+);
+
+// --- Redirect URLs ---
+
+export const redirectUrls = sqliteTable("redirect_urls", {
+  id: text("id").primaryKey(),
+  url: text("url").notNull(),
+  type: text("type", { enum: ["web", "native"] })
+    .notNull()
+    .default("web"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// --- Custom Roles ---
+
+export const customRoles = sqliteTable(
+  "custom_roles",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    permissions: text("permissions", { mode: "json" }).notNull().default("[]"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    orgNameIdx: index("custom_roles_org_name_idx").on(table.organizationId, table.name),
+  }),
+);
+
+// --- M2M Tokens ---
+
+export const m2mTokens = sqliteTable("m2m_tokens", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id),
+  name: text("name").notNull(),
+  clientId: text("client_id").notNull().unique(),
+  clientSecretHash: text("client_secret_hash").notNull(),
+  scopes: text("scopes", { mode: "json" }).notNull().default("[]"),
+  lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export const customRolesRelations = relations(customRoles, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [customRoles.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
+export const m2mTokensRelations = relations(m2mTokens, ({ one }) => ({
+  project: one(projects, {
+    fields: [m2mTokens.projectId],
+    references: [projects.id],
+  }),
+}));
 
 export const organizationDomains = sqliteTable("organization_domains", {
   id: text("id").primaryKey(),

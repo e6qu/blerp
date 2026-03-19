@@ -67,31 +67,34 @@ export function TwoFactorEnrollmentModal({ isOpen, onClose }: TwoFactorEnrollmen
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose}></div>
-      <div className="relative z-10 w-full max-w-lg rounded-xl border bg-white p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">
+            <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">
               {step === "enroll" && "Enable Two-Factor Authentication"}
               {step === "verify" && "Verify Authenticator App"}
               {step === "backup" && "Save Backup Codes"}
             </h2>
           </div>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {step === "enroll" && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Two-factor authentication adds an extra layer of security to your account by requiring
               a code from an authenticator app on your phone.
             </p>
 
             {error && (
-              <div className="rounded-md bg-red-50 p-3">
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3">
+                <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
               </div>
             )}
 
@@ -99,7 +102,7 @@ export function TwoFactorEnrollmentModal({ isOpen, onClose }: TwoFactorEnrollmen
               <button
                 type="button"
                 onClick={handleClose}
-                className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>
@@ -117,41 +120,44 @@ export function TwoFactorEnrollmentModal({ isOpen, onClose }: TwoFactorEnrollmen
 
         {step === "verify" && enrollmentData && (
           <form onSubmit={handleVerify} className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Scan this QR code with your authenticator app (like Google Authenticator or Authy),
               then enter the 6-digit code below.
             </p>
 
             <div className="flex justify-center">
-              <div className="rounded-lg border bg-gray-50 p-4">
+              <div className="rounded-lg border dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4">
                 <img src={enrollmentData.qr_code_url} alt="QR Code for 2FA" className="h-48 w-48" />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                 Or enter this code manually
               </label>
               <div className="flex items-center gap-2">
-                <code className="flex-1 rounded-md bg-gray-100 px-3 py-2 text-sm font-mono">
+                <code className="flex-1 rounded-md bg-gray-100 dark:bg-gray-700 px-3 py-2 text-sm font-mono dark:text-gray-100">
                   {enrollmentData.secret}
                 </code>
                 <button
                   type="button"
                   onClick={handleCopySecret}
-                  className="rounded p-2 hover:bg-gray-100"
+                  className="rounded p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   {copied ? (
                     <Check className="h-4 w-4 text-green-600" />
                   ) : (
-                    <Copy className="h-4 w-4 text-gray-600" />
+                    <Copy className="h-4 w-4 text-gray-600 dark:text-gray-300" />
                   )}
                 </button>
               </div>
             </div>
 
             <div>
-              <label htmlFor="code" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="code"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
                 Verification Code
               </label>
               <input
@@ -159,7 +165,7 @@ export function TwoFactorEnrollmentModal({ isOpen, onClose }: TwoFactorEnrollmen
                 type="text"
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-2xl tracking-widest focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-center text-2xl tracking-widest focus:border-blue-500 focus:outline-none focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                 placeholder="000000"
                 maxLength={6}
                 required
@@ -167,8 +173,8 @@ export function TwoFactorEnrollmentModal({ isOpen, onClose }: TwoFactorEnrollmen
             </div>
 
             {error && (
-              <div className="rounded-md bg-red-50 p-3">
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3">
+                <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
               </div>
             )}
 
@@ -176,7 +182,7 @@ export function TwoFactorEnrollmentModal({ isOpen, onClose }: TwoFactorEnrollmen
               <button
                 type="button"
                 onClick={() => setStep("enroll")}
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Back
               </button>
@@ -194,17 +200,17 @@ export function TwoFactorEnrollmentModal({ isOpen, onClose }: TwoFactorEnrollmen
 
         {step === "backup" && backupCodes.length > 0 && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Save these backup codes in a safe place. You can use them to access your account if
               you lose your authenticator device.
             </p>
 
-            <div className="rounded-lg border bg-gray-50 p-4">
+            <div className="rounded-lg border dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4">
               <div className="grid grid-cols-2 gap-2">
                 {backupCodes.map((code, idx) => (
                   <div
                     key={idx}
-                    className="rounded bg-white px-3 py-2 text-center font-mono text-sm"
+                    className="rounded bg-white dark:bg-gray-700 px-3 py-2 text-center font-mono text-sm dark:text-gray-100"
                   >
                     {code}
                   </div>

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { client } from "../lib/api";
+import { client, getCsrfToken, DEMO_USER_ID } from "../lib/api";
 
 export function useSessions() {
   return useQuery({
@@ -20,6 +20,35 @@ export function useRevokeSession() {
         params: { path: { session_id: sessionId } },
       });
       if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+    },
+  });
+}
+
+export function useRevokeAllSessions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const token = await getCsrfToken();
+      const headers: Record<string, string> = {
+        "X-Tenant-Id": "demo-tenant",
+        "X-User-Id": DEMO_USER_ID,
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["x-csrf-token"] = token;
+      }
+      const response = await fetch("/v1/sessions/revoke-all", {
+        method: "POST",
+        headers,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Failed to revoke sessions");
+      }
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });

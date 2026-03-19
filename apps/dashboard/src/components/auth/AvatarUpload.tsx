@@ -61,7 +61,7 @@ export function AvatarUpload({ imageUrl, initials, onUpload, size = "md" }: Avat
           />
         ) : (
           <div
-            className={`flex items-center justify-center rounded-full bg-blue-100 font-medium text-blue-600 ${sizeClasses[size]}`}
+            className={`flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 font-medium text-blue-600 dark:text-blue-400 ${sizeClasses[size]}`}
           >
             {initials}
           </div>

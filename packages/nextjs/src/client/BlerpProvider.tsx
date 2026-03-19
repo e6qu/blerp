@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from "react";
 import createClient from "openapi-fetch";
 import type { paths } from "@blerp/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -42,6 +42,10 @@ export function BlerpProvider({
   const [activeOrgId, setActiveOrgId] = useState<string | null>(
     () => Cookies.get("__blerp_org") || null,
   );
+  const [userId, setUserId] = useState<string | null>(null);
+  const [orgRole, setOrgRole] = useState<string | null>(null);
+  const [orgPermissions, setOrgPermissions] = useState<string[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const apiClient = useMemo(() => {
     return createClient<paths>({
@@ -53,7 +57,50 @@ export function BlerpProvider({
     });
   }, [key, activeOrgId]);
 
-  const setActive = async (options: { organization?: string | null }) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrate() {
+      try {
+        const response = await fetch("/v1/userinfo", {
+          credentials: "include",
+          headers: {
+            Authorization: `Bearer ${key}`,
+          },
+        });
+
+        if (cancelled) return;
+
+        if (response.ok) {
+          const data = await response.json();
+          setUserId(data.sub ?? null);
+          setOrgRole(data.org_role ?? null);
+          setOrgPermissions(data.org_permissions ?? []);
+        } else {
+          setUserId(null);
+          setOrgRole(null);
+          setOrgPermissions([]);
+        }
+      } catch {
+        if (!cancelled) {
+          setUserId(null);
+          setOrgRole(null);
+          setOrgPermissions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoaded(true);
+        }
+      }
+    }
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [key]);
+
+  const setActive = useCallback(async (options: { organization?: string | null }) => {
     if (options.organization === undefined) return;
     if (options.organization === null) {
       Cookies.remove("__blerp_org");
@@ -62,13 +109,19 @@ export function BlerpProvider({
       Cookies.set("__blerp_org", options.organization);
       setActiveOrgId(options.organization);
     }
-  };
+  }, []);
 
-  const has = (_check: { permission?: string; role?: string }) => {
-    return true;
-  };
+  const has = useCallback(
+    (check: { permission?: string; role?: string }) => {
+      if (!userId) return false;
+      if (check.role && orgRole !== check.role) return false;
+      if (check.permission && !orgPermissions.includes(check.permission)) return false;
+      return true;
+    },
+    [userId, orgRole, orgPermissions],
+  );
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       await fetch("/api/auth/signout", { method: "POST" });
     } catch (error) {
@@ -76,38 +129,41 @@ export function BlerpProvider({
     }
     Cookies.remove("__blerp_org");
     setActiveOrgId(null);
-  };
+    setUserId(null);
+    setOrgRole(null);
+    setOrgPermissions([]);
+  }, []);
 
-  const openSignIn = (options?: { afterSignInUrl?: string }) => {
+  const openSignIn = useCallback((options?: { afterSignInUrl?: string }) => {
     const url = options?.afterSignInUrl
       ? `/sign-in?redirect_url=${encodeURIComponent(options.afterSignInUrl)}`
       : "/sign-in";
     window.location.href = url;
-  };
+  }, []);
 
-  const openSignUp = (options?: { afterSignUpUrl?: string }) => {
+  const openSignUp = useCallback((options?: { afterSignUpUrl?: string }) => {
     const url = options?.afterSignUpUrl
       ? `/sign-up?redirect_url=${encodeURIComponent(options.afterSignUpUrl)}`
       : "/sign-up";
     window.location.href = url;
-  };
+  }, []);
 
-  const openUserProfile = () => {
+  const openUserProfile = useCallback(() => {
     window.location.href = "/user-profile";
-  };
+  }, []);
 
-  const openOrganizationProfile = () => {
+  const openOrganizationProfile = useCallback(() => {
     window.location.href = "/organization-profile";
-  };
+  }, []);
 
   const state = useMemo(
     () => ({
-      userId: null,
+      userId,
       orgId: activeOrgId,
-      orgRole: null,
-      orgPermissions: [] as string[],
-      isLoaded: true,
-      isSignedIn: false,
+      orgRole,
+      orgPermissions,
+      isLoaded,
+      isSignedIn: !!userId,
       client: apiClient,
       setActive,
       has,
@@ -117,7 +173,21 @@ export function BlerpProvider({
       openUserProfile,
       openOrganizationProfile,
     }),
-    [apiClient, activeOrgId],
+    [
+      apiClient,
+      activeOrgId,
+      userId,
+      orgRole,
+      orgPermissions,
+      isLoaded,
+      setActive,
+      has,
+      signOut,
+      openSignIn,
+      openSignUp,
+      openUserProfile,
+      openOrganizationProfile,
+    ],
   );
 
   return (

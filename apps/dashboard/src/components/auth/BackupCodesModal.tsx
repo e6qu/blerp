@@ -38,24 +38,27 @@ export function BackupCodesModal({ isOpen, onClose }: BackupCodesModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose}></div>
-      <div className="relative z-10 w-full max-w-md rounded-xl border bg-white p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-md rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShieldAlert className="h-5 w-5 text-amber-600" />
-            <h2 className="text-xl font-bold text-gray-900">Backup Codes</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Backup Codes</h2>
           </div>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {codes.length === 0 ? (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Generate new backup codes. This will invalidate any previously generated codes.
             </p>
-            <div className="rounded-lg bg-amber-50 p-3">
-              <p className="text-sm text-amber-700">
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3">
+              <p className="text-sm text-amber-700 dark:text-amber-400">
                 Store these codes in a safe place. Each code can only be used once.
               </p>
             </div>
@@ -70,15 +73,15 @@ export function BackupCodesModal({ isOpen, onClose }: BackupCodesModalProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-lg bg-amber-50 p-3">
-              <p className="text-sm font-medium text-amber-700">
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3">
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
                 Save these codes now. You won&apos;t be able to see them again.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 rounded-lg border bg-gray-50 p-4">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4">
               {codes.map((code) => (
-                <code key={code} className="text-sm font-mono text-gray-800">
+                <code key={code} className="text-sm font-mono text-gray-800 dark:text-gray-100">
                   {code}
                 </code>
               ))}
@@ -86,7 +89,7 @@ export function BackupCodesModal({ isOpen, onClose }: BackupCodesModalProps) {
 
             <button
               onClick={handleCopy}
-              className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               {copied ? (
                 <>

@@ -4,6 +4,7 @@ import { getTenantDb } from "../db/router";
 import * as schema from "../db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "node:crypto";
+import { nanoid } from "nanoid";
 
 const STREAM_NAME = "blerp_events";
 const CONSUMER_GROUP = "webhook_worker_group";
@@ -119,6 +120,8 @@ async function attemptDelivery(endpoint: DBWebhookEndpoint, event: WorkerEvent) 
   });
 
   const signature = crypto.createHmac("sha256", endpoint.secret).update(payload).digest("hex");
+  const db = await getTenantDb(event.tenantId);
+  const deliveryId = `whd_${nanoid()}`;
 
   try {
     const response = await fetch(endpoint.url, {
@@ -131,6 +134,18 @@ async function attemptDelivery(endpoint: DBWebhookEndpoint, event: WorkerEvent) 
       body: payload,
     });
 
+    const responseText = await response.text().catch(() => "");
+
+    await db.insert(schema.webhookDeliveries).values({
+      id: deliveryId,
+      endpointId: endpoint.id,
+      eventType: event.type,
+      status: response.ok ? "success" : "failed",
+      httpStatus: response.status,
+      responseBody: responseText.substring(0, 4096),
+      attemptNumber: 1,
+    });
+
     if (response.ok) {
       logger.info({ endpointId: endpoint.id, eventId: event.id }, "Webhook delivered");
     } else {
@@ -140,6 +155,15 @@ async function attemptDelivery(endpoint: DBWebhookEndpoint, event: WorkerEvent) 
       );
     }
   } catch (error) {
+    await db.insert(schema.webhookDeliveries).values({
+      id: deliveryId,
+      endpointId: endpoint.id,
+      eventType: event.type,
+      status: "failed",
+      errorMessage: (error as Error).message,
+      attemptNumber: 1,
+    });
+
     logger.error({ error, endpointId: endpoint.id, eventId: event.id }, "Webhook delivery error");
   }
 }

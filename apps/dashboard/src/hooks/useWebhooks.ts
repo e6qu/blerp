@@ -40,3 +40,32 @@ export function useDeleteWebhook() {
     },
   });
 }
+
+interface WebhookDelivery {
+  id: string;
+  endpoint_id: string;
+  event_type: string;
+  status: "success" | "failed" | "pending";
+  http_status: number | null;
+  error_message: string | null;
+  attempt_number: number;
+  delivered_at: string | null;
+}
+
+export function useWebhookDeliveries(endpointId: string) {
+  return useQuery({
+    queryKey: ["webhook-deliveries", endpointId],
+    queryFn: async () => {
+      const response = await fetch(`/v1/webhooks/endpoints/${endpointId}/deliveries`, {
+        headers: {
+          "X-Tenant-Id": "demo-tenant",
+          "X-User-Id": "user_demo",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch deliveries");
+      const data = await response.json();
+      return (data.data ?? []) as WebhookDelivery[];
+    },
+    enabled: !!endpointId,
+  });
+}

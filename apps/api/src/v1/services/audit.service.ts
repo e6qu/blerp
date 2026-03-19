@@ -1,6 +1,6 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq, and, gte, lte, sql, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export class AuditLogService {
@@ -29,10 +29,56 @@ export class AuditLogService {
     return id;
   }
 
-  async list(_filters?: { userId?: string; organizationId?: string }) {
-    const query = this.db.select().from(schema.auditLogs).orderBy(desc(schema.auditLogs.createdAt));
+  async list(filters?: {
+    userId?: string;
+    organizationId?: string;
+    action?: string;
+    actorId?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const whereClauses = [];
 
-    // In a real app, use where filters
-    return query;
+    if (filters?.userId) {
+      whereClauses.push(eq(schema.auditLogs.userId, filters.userId));
+    }
+    if (filters?.organizationId) {
+      whereClauses.push(eq(schema.auditLogs.organizationId, filters.organizationId));
+    }
+    if (filters?.action) {
+      whereClauses.push(eq(schema.auditLogs.action, filters.action));
+    }
+    if (filters?.actorId) {
+      whereClauses.push(sql`json_extract(${schema.auditLogs.actor}, '$.id') = ${filters.actorId}`);
+    }
+    if (filters?.startDate) {
+      const startTimestamp = Math.floor(new Date(filters.startDate).getTime() / 1000);
+      whereClauses.push(gte(schema.auditLogs.createdAt, new Date(startTimestamp * 1000)));
+    }
+    if (filters?.endDate) {
+      const endTimestamp = Math.floor(new Date(filters.endDate).getTime() / 1000);
+      whereClauses.push(lte(schema.auditLogs.createdAt, new Date(endTimestamp * 1000)));
+    }
+
+    const whereClause = whereClauses.length > 0 ? and(...whereClauses) : undefined;
+    const limit = filters?.limit ?? 50;
+    const offset = filters?.offset ?? 0;
+
+    const [totalResult] = await this.db
+      .select({ total: count() })
+      .from(schema.auditLogs)
+      .where(whereClause);
+
+    const data = await this.db
+      .select()
+      .from(schema.auditLogs)
+      .where(whereClause)
+      .orderBy(desc(schema.auditLogs.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return { data, totalCount: totalResult?.total ?? 0 };
   }
 }

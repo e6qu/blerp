@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Save, Loader2, Pencil } from "lucide-react";
 import { useCurrentUser, useUpdateCurrentUser } from "../../hooks/useUser";
 import { useToast } from "../ui/Toast";
 import { ProfileSkeleton } from "../ui/Skeleton";
 import { AvatarUpload } from "./AvatarUpload";
+import { useFormValidation, maxLength } from "../../hooks/useFormValidation";
 
 export function ProfileEditForm() {
   const { data: user, isLoading } = useCurrentUser();
@@ -14,6 +15,15 @@ export function ProfileEditForm() {
   const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const rules = useMemo(
+    () => ({
+      firstName: [maxLength(100)],
+      lastName: [maxLength(100)],
+      username: [maxLength(64)],
+    }),
+    [],
+  );
+  const { errors: fieldErrors, validate, clearErrors } = useFormValidation(rules);
 
   const handleEdit = () => {
     if (user) {
@@ -27,11 +37,14 @@ export function ProfileEditForm() {
   const handleCancel = () => {
     setIsEditing(false);
     setError(null);
+    clearErrors();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!validate({ firstName, lastName, username })) return;
 
     try {
       await updateuser.mutateAsync({
@@ -51,7 +64,7 @@ export function ProfileEditForm() {
   }
 
   if (!user) {
-    return <div className="text-sm text-gray-500">User not found</div>;
+    return <div className="text-sm text-gray-500 dark:text-gray-400">User not found</div>;
   }
 
   const initials = `${(user.first_name ?? "?")[0]}${(user.last_name ?? "")[0] ?? ""}`;
@@ -73,29 +86,35 @@ export function ProfileEditForm() {
             size="lg"
           />
           <div>
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
               {user.first_name ?? ""} {user.last_name ?? ""}
             </p>
-            <p className="text-xs text-gray-500">{user.id}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{user.id}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500">First Name</label>
-            <p className="mt-1 text-sm text-gray-900">{user.first_name || "—"}</p>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+              First Name
+            </label>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-50">{user.first_name || "—"}</p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500">Last Name</label>
-            <p className="mt-1 text-sm text-gray-900">{user.last_name || "—"}</p>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+              Last Name
+            </label>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-50">{user.last_name || "—"}</p>
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500">Username</label>
-          <p className="mt-1 text-sm text-gray-900">{user.username || "—"}</p>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+            Username
+          </label>
+          <p className="mt-1 text-sm text-gray-900 dark:text-gray-50">{user.username || "—"}</p>
         </div>
         <button
           onClick={handleEdit}
-          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           <Pencil className="h-4 w-4" />
           Edit profile
@@ -108,7 +127,10 @@ export function ProfileEditForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="firstName" className="block text-xs font-medium text-gray-500">
+          <label
+            htmlFor="firstName"
+            className="block text-xs font-medium text-gray-500 dark:text-gray-400"
+          >
             First Name
           </label>
           <input
@@ -116,11 +138,17 @@ export function ProfileEditForm() {
             type="text"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
           />
+          {fieldErrors.firstName && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.firstName}</p>
+          )}
         </div>
         <div>
-          <label htmlFor="lastName" className="block text-xs font-medium text-gray-500">
+          <label
+            htmlFor="lastName"
+            className="block text-xs font-medium text-gray-500 dark:text-gray-400"
+          >
             Last Name
           </label>
           <input
@@ -128,12 +156,18 @@ export function ProfileEditForm() {
             type="text"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
           />
+          {fieldErrors.lastName && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.lastName}</p>
+          )}
         </div>
       </div>
       <div>
-        <label htmlFor="username" className="block text-xs font-medium text-gray-500">
+        <label
+          htmlFor="username"
+          className="block text-xs font-medium text-gray-500 dark:text-gray-400"
+        >
           Username
         </label>
         <input
@@ -144,11 +178,14 @@ export function ProfileEditForm() {
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
           placeholder="optional"
         />
+        {fieldErrors.username && (
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.username}</p>
+        )}
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 p-2">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-2">
+          <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
         </div>
       )}
 
@@ -156,7 +193,7 @@ export function ProfileEditForm() {
         <button
           type="button"
           onClick={handleCancel}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           Cancel
         </button>

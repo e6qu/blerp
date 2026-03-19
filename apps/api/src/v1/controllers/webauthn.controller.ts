@@ -40,6 +40,23 @@ export async function listPasskeys(req: Request, res: Response) {
   }
 }
 
+export async function renamePasskey(req: Request, res: Response) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+  const passkeyId = req.params.passkey_id as string;
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: { message: "Name is required" } });
+
+  const service = new WebAuthnService(req.tenantDb!);
+  try {
+    const passkey = await service.renamePasskey(userId, passkeyId, name);
+    res.json(passkey);
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}
+
 export async function deletePasskey(req: Request, res: Response) {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });

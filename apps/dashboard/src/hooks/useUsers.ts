@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "../lib/api";
 import type { components } from "@blerp/shared";
 
@@ -25,6 +25,28 @@ export function useUsers(options: UseUsersOptions = {}) {
       });
       if (error) throw error;
       return (data as { data: User[] })?.data || [];
+    },
+  });
+}
+
+export function useBulkUpdateUsers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { user_ids: string[]; action: "delete" | "ban" | "activate" }) => {
+      const response = await fetch("/v1/users/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(params),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message ?? "Bulk operation failed");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
     },
   });
 }
