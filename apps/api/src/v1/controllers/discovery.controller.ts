@@ -1,17 +1,9 @@
 import { Request, Response } from "express";
 import { jwt } from "../../lib/jwt";
 import { cache } from "../../lib/redis";
+import { getKeyPair } from "../../lib/keys";
 
-let mockKeyPair: Awaited<ReturnType<typeof jwt.generateKeyPair>> | null = null;
-
-async function getMockKeyPair() {
-  if (!mockKeyPair) {
-    mockKeyPair = await jwt.generateKeyPair();
-  }
-  return mockKeyPair;
-}
-
-export async function getJWKS(req: Request, res: Response) {
+export async function getJWKS(_req: Request, res: Response) {
   const cacheKey = "blerp:jwks:v1";
   const cached = await cache.get<{ keys: Record<string, unknown>[] }>(cacheKey);
 
@@ -19,7 +11,7 @@ export async function getJWKS(req: Request, res: Response) {
     return res.json(cached);
   }
 
-  const { publicKey } = await getMockKeyPair();
+  const { publicKey } = await getKeyPair();
   const jwk = await jwt.exportJWK(publicKey, "default-kid");
   const response = {
     keys: [jwk as unknown as Record<string, unknown>],

@@ -302,6 +302,7 @@ export interface SignUpStatus {
 }
 
 export function useSignIn() {
+  const client = useBlerpClient();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<SignInStatus>({
     id: null,
@@ -315,21 +316,34 @@ export function useSignIn() {
   const create = async (params: { identifier: string; strategy?: string }) => {
     setIsLoading(true);
     try {
-      const signInId = `si_${Date.now()}`;
+      const strategy = (params.strategy ?? "password") as
+        | "password"
+        | "magic_link"
+        | "otp"
+        | "passkey"
+        | "oauth";
+      const { data, error } = await client.POST("/v1/auth/signins", {
+        body: { identifier: params.identifier, strategy },
+      });
+      if (error) {
+        setStatus((prev) => ({ ...prev, status: "failed" }));
+        throw error;
+      }
+      const result = data as { id: string };
       setStatus({
-        id: signInId,
+        id: result.id,
         status: "needs_first_factor",
         identifier: params.identifier,
         supportedFirstFactors: ["email_code", "password"],
         supportedSecondFactors: ["totp", "backup_code"],
       });
-      return { id: signInId };
+      return result;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const attemptFirstFactor = async (_params: {
+  const attemptFirstFactor = async (params: {
     strategy: string;
     code?: string;
     password?: string;
@@ -337,7 +351,16 @@ export function useSignIn() {
     if (!status.id) throw new Error("No sign-in attempt in progress");
     setIsLoading(true);
     try {
-      const result = { status: "complete", session_id: `sess_${Date.now()}` } as const;
+      const { data, error } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
+        params: { path: { signin_id: status.id } },
+        body: { password: params.password, code: params.code },
+      });
+      if (error) {
+        setStatus((prev) => ({ ...prev, status: "failed" }));
+        throw error;
+      }
+      const response = data as { session: { id: string }; tokens: { access_token: string } };
+      const result = { status: "complete" as const, session_id: response.session.id };
       setStatus((prev: SignInStatus) => ({ ...prev, status: "complete" }));
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       return result;
@@ -346,6 +369,7 @@ export function useSignIn() {
     }
   };
 
+  // TODO: Wire to TOTP verification endpoint when available
   const attemptSecondFactor = async (_params: { strategy: string; code: string }) => {
     if (!status.id) throw new Error("No sign-in attempt in progress");
     setIsLoading(true);
@@ -380,6 +404,7 @@ export function useSignIn() {
 }
 
 export function useSignUp() {
+  const client = useBlerpClient();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<SignUpStatus>({
     id: null,
@@ -392,14 +417,21 @@ export function useSignUp() {
   const create = async (params: { identifier: string; password?: string }) => {
     setIsLoading(true);
     try {
-      const signUpId = `su_${Date.now()}`;
+      const { data, error } = await client.POST("/v1/auth/signups", {
+        body: { email: params.identifier, password: params.password, strategy: "password" },
+      });
+      if (error) {
+        setStatus((prev) => ({ ...prev, status: "failed" }));
+        throw error;
+      }
+      const result = data as { id: string; missing_fields?: string[] };
       setStatus({
-        id: signUpId,
+        id: result.id,
         status: "missing_requirements",
         identifier: params.identifier,
-        missingFields: ["verification"],
+        missingFields: result.missing_fields ?? ["verification"],
       });
-      return { id: signUpId, missing_fields: ["verification"] };
+      return result;
     } finally {
       setIsLoading(false);
     }
@@ -415,11 +447,19 @@ export function useSignUp() {
     }
   };
 
-  const attemptVerification = async (_params: { strategy: string; code: string }) => {
+  const attemptVerification = async (params: { strategy: string; code: string }) => {
     if (!status.id) throw new Error("No sign-up attempt in progress");
     setIsLoading(true);
     try {
-      const result = { status: "complete" } as const;
+      const { data, error } = await client.POST("/v1/auth/signups/{signup_id}/attempt", {
+        params: { path: { signup_id: status.id } },
+        body: { code: params.code, strategy: params.strategy },
+      });
+      if (error) {
+        setStatus((prev) => ({ ...prev, status: "failed" }));
+        throw error;
+      }
+      const result = data as { status: string };
       setStatus((prev: SignUpStatus) => ({ ...prev, status: "complete" }));
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       return result;
@@ -428,6 +468,7 @@ export function useSignUp() {
     }
   };
 
+  // TODO: No corresponding API endpoint — stub preserved for Clerk API compat
   const update = async (params: Record<string, unknown>) => {
     if (!status.id) throw new Error("No sign-up attempt in progress");
     setIsLoading(true);

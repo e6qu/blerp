@@ -17,7 +17,7 @@ describe("Server Smoke Tests", () => {
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
     // Start the actual server using tsx (the dev script runner)
-    serverProcess = spawn("npx", ["tsx", "src/index.ts"], {
+    serverProcess = spawn("bunx", ["tsx", "src/index.ts"], {
       cwd: process.cwd(),
       env: { ...process.env, PORT: String(API_PORT), NODE_ENV: "test" },
       stdio: "pipe",

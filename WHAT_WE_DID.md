@@ -425,3 +425,327 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Tests run: `bunx tsc --noEmit` (both projects, 0 errors), `bun run test` (46/46 API tests pass), `bun run test:e2e` (155/155 E2E tests pass)
 - Files touched: 40+ files across `apps/api`, `apps/dashboard`, `packages/shared`, `tests/`, `AGENTS.md`, `BUGS.md`
 - Notes/Links: All P0 and P1 items from GAP_ANALYSIS.md addressed. Dashboard now has Clerk-quality auth flows, deletion workflows, connected accounts, pagination, toast notifications, loading skeletons, enhanced session/security management, user admin page, and avatar upload.
+
+## 2026-03-19 — CI Lint Fix + Pre-commit Enhancement
+
+- Summary: Fixed 2 ESLint errors blocking CI (react/no-unescaped-entities, react-hooks/immutability). Added typecheck to pre-commit hook. Replaced all `window.location.href =` with `window.location.assign()`. Added `typecheck` scripts to API/dashboard workspaces and turbo.json.
+- Tests run: `bun run lint` (9/9 pass), `bun run typecheck` (6/6 pass), E2E (155/155 pass)
+- Files touched: `package.json`, `turbo.json`, `.husky/pre-commit`, `apps/api/package.json`, `apps/dashboard/package.json`, `BackupCodesModal.tsx`, `ConnectedAccounts.tsx`, `SignIn.tsx`, `SignUp.tsx`, `useSignOut.ts`, `useDeleteAccount.ts`
+
+## 2026-03-19 — Comprehensive Gap Analysis v2 (Monite + Clerk)
+
+- Summary: Deep audit of codebase against Clerk backend API, Clerk UI components, and the Monite SDK `with-nextjs-and-clerk-auth` demo app. Analyzed exact Clerk features the Monite demo depends on. Identified 6 Monite-critical gaps, 5 P1 gaps, 17 P2 gaps, 9 P3 gaps. Updated all docs.
+- Research conducted:
+  - Clerk backend API: getUserList params (limit, offset, orderBy, query, emailAddress, phoneNumber, etc.)
+  - Clerk UI components: SignIn, SignUp, UserButton, OrganizationSwitcher, UserProfile, etc.
+  - Monite SDK repo structure: `@monite/sdk-react` (16 component dirs), `@monite/sdk-drop-in`
+  - Monite demo `with-nextjs-and-clerk-auth`: layout.tsx, middleware.ts, UserMenu.tsx, get-current-user-entity.ts, get-entity-user-data.ts, get-organization-entity.ts, token route
+  - Confirmed: Monite demo uses `hidePersonal`, `afterSelectOrganizationUrl`, `afterLeaveOrganizationUrl` on OrganizationSwitcher, `createRouteMatcher` from `@clerk/nextjs/server`, async `clerkClient()` factory
+- Key finding: Most Clerk→Blerp mapping already works. 6 specific gaps (M1-M6) block full Monite parity.
+- Files touched: `GAP_ANALYSIS.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`
+
+## 2026-03-19 — Monite SDK 100% Parity + Clerk P1 Quality Gaps
+
+- Summary: Implemented 9 items across 3 phases to achieve full Monite SDK compatibility and close remaining P1 quality gaps.
+
+### Phase 1: SDK Surface Compatibility (M2, M3, M5, M6)
+
+- **OrganizationSwitcher navigation props**: Added `afterSelectOrganizationUrl`, `afterLeaveOrganizationUrl`, wired `afterCreateOrganizationUrl`. All three navigate via `window.location.assign()` after their respective actions.
+- **`createRouteMatcher()`**: New export from `@blerp/nextjs/server`. Converts Clerk-style patterns (`/sign-in(.*)`) to regex matchers for use in middleware.
+- **Callback-form `blerpMiddleware`**: Overloaded to accept `(auth, req) => void` callback, enabling the exact Clerk pattern: `blerpMiddleware(async (auth, req) => { if (!isPublic(req)) (await auth()).protect(); })`. `protect()` throws a redirect URL caught by the wrapper.
+- **`clerkClient()` async factory**: Added to `@blerp/backend` — `export async function clerkClient(): Promise<BlerpClient>`.
+- Files: `OrganizationSwitcher.tsx`, `middleware.ts`, `packages/backend/src/index.ts`
+
+### Phase 2: API Backend Enhancements (C9, C10, C11)
+
+- **User full-text search (`query` param)**: `listUsers` now accepts `query` string, searching across `firstName`, `lastName`, `username`, and `emailAddress` (via subquery join).
+- **User `orderBy` param**: Supports `-created_at`, `created_at`, `updated_at`, `last_sign_in_at`, `first_name`, `last_name`, `username`. Prefix `-` for descending. Default: `-created_at`.
+- **Organization list pagination**: `list()` now accepts `limit`/`offset`, returns `{ data, meta: { total } }`. Controller passes pagination params. Cache only used for unfiltered/unpaginated requests.
+- Files: `auth.service.ts`, `user.controller.ts`, `organization.service.ts`, `organization.controller.ts`
+
+### Phase 3: Dashboard Quality (D1, D6)
+
+- **Audit log filtering (D1)**: Server-side filtering by action, actorId, date range with `limit`/`offset`. Updated `AuditLogService.list()` with WHERE clauses. New filter bar UI in `AuditLogViewer.tsx` with action dropdown, date range inputs, apply/clear buttons. Hook updated to pass filter params.
+- **Error boundaries (D6)**: New `ErrorBoundary` class component with `getDerivedStateFromError` + `componentDidCatch`. Shows friendly error screen with error message, "Try Again" (resets state) and "Go Home" link. Wraps `<Routes>` in `App.tsx`.
+- Files: `audit.service.ts`, `audit.controller.ts`, `useAuditLogs.ts`, `AuditLogViewer.tsx`, `ErrorBoundary.tsx`, `App.tsx`
+
+### Verification
+
+- Tests run: `bun run lint` (9/9 pass), `bun run typecheck` (6/6 pass), `bun run test` (46/46 API pass), `bun run test:e2e` (155/155 E2E pass)
+- Files touched: 14 files across `packages/nextjs`, `packages/backend`, `apps/api`, `apps/dashboard`
+
+## 2026-03-19 — P2 Production Polish Batch (10 items)
+
+- Summary: Implemented 10 P2 items across 4 phases to bring the dashboard to production quality. Covers backend APIs, frontend UI, responsive layout, and form validation.
+
+### Phase 1: Backend Additions
+
+- **Passkey Rename (D2)**: `PATCH /v1/auth/webauthn/passkeys/:passkey_id` with ownership guard. Service method `renamePasskey()` verifies `passkey.userId` matches requesting user before update.
+- **User Restore (C14)**: `POST /v1/users/:user_id/restore` — verifies `deletedAt` is set, resets to active. `listUsers` now excludes soft-deleted users by default (pass `include_deleted=true` to include).
+- **Revoke All Sessions (D12)**: `POST /v1/sessions/revoke-all` — revokes all sessions for current user except the current session (identified by `X-Session-Id` header). Returns `{ revoked_count }`.
+- **Phone Number CRUD (U5)**: `GET/POST /v1/users/:user_id/phone_numbers`, `DELETE .../phone_numbers/:phone_number_id`, `POST .../set_primary`. Mirrors email controller/service pattern.
+- **Leave Organization (D3)**: `POST /v1/organizations/:organization_id/leave` with last-owner guard. `MembershipService.leaveOrganization()` counts owners before allowing deletion.
+- Files: `webauthn.service.ts`, `webauthn.controller.ts`, `user.controller.ts`, `auth.service.ts`, `session.controller.ts`, `phone.controller.ts` (new), `membership.service.ts`, `membership.controller.ts`, `auth.routes.ts`, `organization.routes.ts`
+
+### Phase 2: Frontend Quick Wins
+
+- **Passkey Rename UI (D2)**: Inline edit with Pencil icon → input + save (Check)/cancel (X). Enter/Escape key support. `useRenamePasskey()` mutation hook using raw fetch with CSRF.
+- **Leave Organization (D3)**: `LeaveOrganizationModal.tsx` — confirmation modal ("Are you sure you want to leave {orgName}?"). "Leave" button added to org detail header in OrganizationsPage.
+- **Edit Organization (D4)**: `EditOrganizationModal.tsx` — modal with name/slug fields. "Edit" button (Pencil icon) added to org detail header. Uses existing `PATCH /v1/organizations/:id`.
+- **Revoke All Sessions (D12)**: "Sign out all other sessions" button in SessionsViewer with inline confirmation. `useRevokeAllSessions()` mutation hook. Shows revoked count in toast.
+- Files: `usePasskeys.ts`, `UserProfile.tsx`, `LeaveOrganizationModal.tsx` (new), `EditOrganizationModal.tsx` (new), `OrganizationsPage.tsx`, `useSessions.ts`, `SessionsViewer.tsx`
+
+### Phase 3: Responsive Layout (D5)
+
+- Mobile sidebar rendered as overlay only when open (avoids duplicate `<aside>` elements in DOM).
+- Hamburger menu (`Menu` icon) in header, visible only on `md:hidden`.
+- Desktop sidebar uses `hidden md:flex` pattern.
+- Sign-out button uses flex layout instead of `absolute bottom-0` positioning.
+- Close sidebar on nav link click (mobile).
+- Files: `Layout.tsx`
+
+### Phase 4: Form Validation + Phone UI (D7, U5)
+
+- **`useFormValidation` hook**: Generic validation with `rules` config. Built-in validators: `required()`, `minLength(n)`, `maxLength(n)`, `email()`, `matches(regex)`. Returns `{ errors, validate, validateField, clearErrors, isValid }`.
+- **Adopted in**: `ProfileEditForm.tsx` (maxLength on name fields), `CreateOrganizationModal.tsx` (required + minLength on name, slug format regex).
+- **Phone Number hooks**: `usePhoneNumbers()`, `useAddPhoneNumber()`, `useDeletePhoneNumber()`, `useSetPrimaryPhone()` — all using raw fetch with CSRF, mirroring `useEmails` pattern.
+- **PhoneNumberList component**: Table with add (inline form), delete (with confirmation), verification status display. Mirrors `EmailList` pattern.
+- **Phone Numbers section** added to UserProfile AccountTab after Emails.
+- Files: `useFormValidation.ts` (new), `usePhoneNumbers.ts` (new), `PhoneNumberList.tsx` (new), `ProfileEditForm.tsx`, `CreateOrganizationModal.tsx`, `UserProfile.tsx`
+
+### Verification
+
+- Tests run: `bun run lint` (9/9 pass), `bun run typecheck` (6/6 pass), `bun run test` (46/46 API pass), `bun run test:e2e` (155/155 E2E pass)
+- Files touched: 22 files across `apps/api`, `apps/dashboard` (6 new files, 16 modified)
+
+## 2026-03-19 — P2 Production Polish Batch 2 (5 items)
+
+- Summary: Implemented 5 remaining achievable P2 items: session IP capture, allowlist/blocklist identifiers, OrganizationList extraction, magic link sign-in, and webhook delivery logs.
+
+### Phase 1: Session IP Capture (C12)
+
+- Added `ipAddress` and `userAgent` columns to sessions DB table (schema + migration `0012_lyrical_karma.sql`)
+- `attemptSignin` in `auth.service.ts` now accepts optional `metadata` param with IP/UA, stores in session row
+- `auth.controller.ts` extracts `req.ip` and `req.headers['user-agent']`, passes to service
+- `session.controller.ts` now maps Redis `SessionData` to snake_case API format (ip_address, user_agent, latest_activity)
+- `SessionsViewer.tsx` — added "IP Address" column showing `session.ip_address` or em-dash
+- Files: `schema.ts`, `auth.service.ts`, `auth.controller.ts`, `session.controller.ts`, `SessionsViewer.tsx`
+
+### Phase 2: Allowlist/Blocklist Identifiers (C1+C2)
+
+- New `signupRestrictions` DB table: id, type (allowlist/blocklist), identifierType (email/domain), value, createdAt
+- `RestrictionService`: CRUD + `checkSignup(email)` — blocklist takes precedence, allowlist requires match if entries exist
+- `restriction.controller.ts`: createRestriction, listRestrictions, deleteRestriction
+- Routes: `GET/POST /signup-restrictions`, `DELETE /signup-restrictions/:id` (all auth-protected)
+- Integrated into `attemptSignup` — calls `checkSignup()` before user creation
+- Frontend: `useRestrictions.ts` hook, `SignupRestrictions.tsx` component (form + allowlist/blocklist display)
+- Added to SettingsPage General tab above Danger Zone
+- Files: `schema.ts`, `restriction.service.ts` (new), `restriction.controller.ts` (new), `auth.service.ts`, `auth.routes.ts`, `useRestrictions.ts` (new), `SignupRestrictions.tsx` (new), `SettingsPage.tsx`
+
+### Phase 3: OrganizationList Component (U1)
+
+- Extracted org list from OrganizationsPage into `OrganizationList.tsx`
+- Props: organizations, selectedOrgId, onSelectOrganization, onCreateOrganization
+- Renders list with active highlight + "New organization" button
+- OrganizationsPage now uses `<OrganizationList />` in sidebar
+- Files: `OrganizationList.tsx` (new), `OrganizationsPage.tsx`
+
+### Phase 4: Magic Link Sign-In (C3)
+
+- New `signInTokens` DB table: id, userId (FK), token (unique), status, expiresAt, createdAt
+- `MagicLinkService`: `createToken(email)` — looks up user, generates 48-char token with 15-min expiry; `verifyToken(token)` — validates, marks accepted, creates session + tokens
+- Routes: `POST /auth/magic-links` (public), `POST /auth/magic-links/verify` (public)
+- Frontend: `useMagicLink.ts` hook (sendMagicLink + verifyToken), magic link option in `SignIn.tsx` (email step → send → demo token display → paste & verify)
+- Files: `schema.ts`, `magic-link.service.ts` (new), `magic-link.controller.ts` (new), `auth.routes.ts`, `useMagicLink.ts` (new), `SignIn.tsx`
+
+### Phase 5: Webhook Delivery Logs (D11)
+
+- New `webhookDeliveries` DB table: id, endpointId (FK), eventType, status, httpStatus, responseBody, errorMessage, attemptNumber, deliveredAt. Index on endpointId.
+- `webhook.worker.ts`: After fetch in `attemptDelivery()`, inserts delivery record (success/failed + HTTP status or error)
+- `WebhookService.listDeliveries(endpointId, { limit, offset })` — query with desc ordering
+- Route: `GET /webhooks/endpoints/:endpoint_id/deliveries`
+- Frontend: `useWebhookDeliveries(endpointId)` hook, `WebhookDeliveryLog.tsx` component (table with event type, status badge, HTTP status, attempt #, timestamp)
+- `WebhookList.tsx` — added "Deliveries" (FileText) icon button per webhook row, toggles delivery log view
+- Files: `schema.ts`, `webhook.worker.ts`, `webhook.service.ts`, `webhook.controller.ts`, `webhook.routes.ts`, `useWebhooks.ts`, `WebhookDeliveryLog.tsx` (new), `WebhookList.tsx`
+
+### Verification
+
+- Tests run: `bun run lint` (9/9 pass), `bun run typecheck` (6/6 pass), `bun run test` (46/46 API pass), `bun run test:e2e` (155/155 E2E pass)
+- Files touched: 23 files across `apps/api`, `apps/dashboard` (9 new files, 14 modified)
+- Migration: `drizzle/0012_lyrical_karma.sql` (3 new tables + 2 columns on sessions)
+
+## 2026-03-19 — P2/P3 Batch 3: Dark Mode, Global Search, Quick Wins (6 Phases)
+
+- Summary: Implemented 6 features from the final P2/P3 batch. Dark mode across all 46+ dashboard components, global search with command palette, keyboard shortcuts, redirect URL management, testing tokens, and bulk user operations. Only SAML (C7) and 6 P3 items remain.
+
+### Phase 1: Dark Mode (U2)
+
+- **ThemeProvider**: New `useTheme.ts` with React context. Reads/writes `localStorage('blerp-theme')`, falls back to `prefers-color-scheme`. Toggles `dark` class on `<html>`.
+- **Theme toggle**: Sun/Moon icon button in Layout header, between search and avatar.
+- **Tailwind v4 config**: Added `@custom-variant dark` to `index.css` for `.dark` class-based switching.
+- **Dark variants**: Systematic pass on all 46+ component files adding `dark:` prefixes. Key mappings: `bg-white`→`dark:bg-gray-800/900`, `text-gray-900`→`dark:text-gray-50`, `border-gray-200`→`dark:border-gray-700`, accent colors shift brightness.
+- Files: `useTheme.ts` (new), `index.css`, `App.tsx`, `Layout.tsx`, all `auth/*.tsx` (32 files), all `ui/*.tsx` (4 files)
+
+### Phase 2: Global Search (D8)
+
+- **Backend**: Added `query` param to `OrganizationService.list()` — SQL LIKE on name/slug. Controller passes `query` from `req.query`. Cache bypassed when query is present.
+- **Frontend hook**: `useGlobalSearch.ts` — uses `@tanstack/react-query` with parallel `Promise.allSettled` to `/v1/users?query=X&limit=5` and `/v1/organizations?query=X&limit=5`. Debounced via `staleTime`.
+- **GlobalSearch component**: Command palette overlay with input, grouped results (Users/Organizations), click-to-navigate, Escape to close.
+- **Layout integration**: Search button with Cmd/Ctrl+K hint in header. Mounts `<GlobalSearch />`.
+- Files: `organization.service.ts`, `organization.controller.ts`, `useGlobalSearch.ts` (new), `GlobalSearch.tsx` (new), `Layout.tsx`
+
+### Phase 3: Keyboard Shortcuts (D9)
+
+- **`useKeyboardShortcuts.ts`**: Global `keydown` listener. Registers `mod+k` (toggle search) and `mod+shift+d` (toggle dark mode).
+- Wired into Layout via `useKeyboardShortcuts()` call.
+- Files: `useKeyboardShortcuts.ts` (new), `Layout.tsx`
+
+### Phase 4: Redirect URLs (C6)
+
+- **Schema**: New `redirectUrls` table (id, url, type "web"|"native", createdAt). Migration `0013_eminent_captain_britain.sql`.
+- **Backend**: `RedirectService` with CRUD + `isAllowed(url)` wildcard matching. Controller endpoints: `GET/POST /redirect-urls`, `DELETE /redirect-urls/:id`.
+- **OAuth integration**: `oauth.controller.ts` validates `redirect_uri` against whitelist before OAuth authorize.
+- **Frontend**: `useRedirectUrls.ts` hooks, `RedirectUrlsList.tsx` component with add/delete/type badge. Added to SettingsPage General tab.
+- Files: `schema.ts`, `redirect.service.ts` (new), `redirect.controller.ts` (new), `oauth.controller.ts`, `auth.routes.ts`, `useRedirectUrls.ts` (new), `RedirectUrlsList.tsx` (new), `SettingsPage.tsx`
+
+### Phase 5: Testing Tokens (C4)
+
+- **Endpoint**: `POST /auth/testing-tokens` — dev-only (returns 403 in production). Accepts `{ user_id }`, returns `{ token, user_id, expires_in, expires_at }`. Token is `test_` + 64 hex chars.
+- Files: `auth.controller.ts`, `auth.routes.ts`
+
+### Phase 6: Bulk Operations (D10)
+
+- **Backend**: `POST /v1/users/bulk` — accepts `{ user_ids, action }` where action is "delete"|"ban"|"activate". Uses `inArray()` for batch SQL update.
+- **Frontend**: Added checkbox column to UsersListPage with select-all header checkbox. Floating action bar when items selected with "Activate", "Ban", "Delete", "Clear" buttons. `useBulkUpdateUsers()` mutation hook.
+- Files: `user.controller.ts`, `auth.routes.ts`, `useUsers.ts`, `UsersListPage.tsx`
+
+### Verification
+
+- Tests run: `bun run lint` (9/9 pass), `bun run typecheck` (6/6 pass), `bun run test` (46/46 API pass), `bun run test:e2e` (155/155 E2E pass)
+- Files touched: 55+ files across `apps/api`, `apps/dashboard` (10 new files, 45+ modified)
+- Migration: `drizzle/0013_eminent_captain_britain.sql` (redirect_urls table)
+
+## 2026-03-20 — SDK Quality Hardening + Custom Roles (C13) + M2M Tokens (C5)
+
+- Summary: Fixed critical @blerp/nextjs SDK stubs that would break any real Next.js app. Implemented custom roles (C13) for fine-grained RBAC and M2M tokens (C5) for machine-to-machine auth with OAuth2 client_credentials grant.
+
+### Phase 1: Fix @blerp/nextjs SDK Stubs
+
+- **`currentUser()` real implementation**: Replaced mock returning `mock@example.com` with actual `GET /v1/users/{userId}` fetch using `BLERP_API_URL` and `BLERP_SECRET_KEY` env vars.
+- **`BlerpProvider` auth hydration**: On mount, fetches `/v1/userinfo` to hydrate `userId`, `isSignedIn`, `orgRole`, `orgPermissions`. `isLoaded` is `false` until fetch completes. Uses `useEffect` with cancellation.
+- **Real `has()` permission check**: Now checks against hydrated `orgRole` and `orgPermissions` instead of always returning `true`. Matches server-side `has()` logic.
+- **Real `<SignIn />` component**: Two-step flow (email → password) with OAuth buttons, error handling, `afterSignInUrl`/`signUpUrl` props. Replaces "SignIn component placeholder." text.
+- **Real `<SignUp />` component**: Two-step flow (email → password) with OAuth buttons, `afterSignUpUrl`/`signInUrl` props. Proper error handling and loading states.
+- Files: `auth.ts`, `BlerpProvider.tsx`, `Auth.tsx`, `SignUp.tsx`
+
+### Phase 2: Custom Roles (C13)
+
+- **DB schema**: New `custom_roles` table with id, organizationId, name, description, permissions (JSON), timestamps. Indexed on (organization_id, name).
+- **RoleService**: CRUD + `getPermissions(orgId, roleName)` — checks custom roles table first, falls back to `ROLE_PERMISSIONS` defaults.
+- **RoleController**: `GET/POST /organizations/:org_id/roles`, `PATCH/DELETE /organizations/:org_id/roles/:role_id`. Delete guarded against roles with assigned members.
+- **Dynamic RBAC**: Updated `rbac.ts` with `resolvePermissions()` and `hasPermissionDynamic()`. Updated `middleware/rbac.ts` to check custom roles for non-default role names.
+- **Dashboard**: `useRoles.ts` hooks (CRUD). `OrganizationMembers.tsx` role dropdown now shows custom roles alongside defaults. Custom roles display with yellow badge.
+- Files: `schema.ts`, `role.service.ts` (new), `role.controller.ts` (new), `rbac.ts`, `middleware/rbac.ts`, `organization.routes.ts`, `useRoles.ts` (new), `OrganizationMembers.tsx`
+
+### Phase 3: M2M Tokens (C5)
+
+- **DB schema**: New `m2m_tokens` table with id, projectId, name, clientId (unique), clientSecretHash, scopes (JSON), lastUsedAt, expiresAt, timestamps.
+- **M2MService**: `create()` generates clientId + clientSecret (SHA-256 hashed), `authenticate()` verifies credentials + expiry, `generateJwt()` signs RS256 JWT with scopes.
+- **OAuth2 client_credentials**: `POST /oauth/token` with `grant_type=client_credentials`. Returns `{ access_token, token_type, expires_in, scope }`.
+- **CRUD endpoints**: `POST/GET /v1/m2m-tokens`, `DELETE /v1/m2m-tokens/:id`. Create returns client_secret once (not stored).
+- **Bearer token auth**: Updated `middleware/auth.ts` to detect JWT Bearer tokens, decode `client_id` and `scope` claims, populate `req.m2m`.
+- Files: `schema.ts`, `m2m.service.ts` (new), `m2m.controller.ts` (new), `auth.routes.ts`, `middleware/auth.ts`
+
+### Migration
+
+- `drizzle/0014_windy_ares.sql` — creates `custom_roles` and `m2m_tokens` tables
+
+### Verification
+
+- Tests run: `bun run lint` (9/9 pass), `bun run typecheck` (6/6 pass), `bun run test` (46/46 API pass), `bun run test:e2e` (155/155 E2E pass)
+- Files touched: 18 files across `packages/nextjs`, `apps/api`, `apps/dashboard` (8 new files, 10 modified)
+
+## 2026-03-20 — Deep Audit: SDK + API Completeness
+
+- Summary: Thorough audit of all 77+ API endpoints, 20 services, 28 controllers, full @blerp/nextjs SDK, and Monite example app. Identified 5 gaps that block production deployment.
+
+### Findings
+
+**1. M2M JWT Signature Not Verified (S3 — P0 Security)**
+
+- `middleware/auth.ts:26` uses `jose.decodeJwt()` which only decodes without signature verification
+- Should use `jose.jwtVerify()` with the JWKS public key, checking issuer/audience/expiry
+- Any attacker who knows the JWT claim structure can forge M2M Bearer tokens
+
+**2. JWKS Key Pair In-Memory Only (S4 — P1)**
+
+- `discovery.controller.ts:5-12` caches an RS256 key pair in a module-level variable
+- Regenerated on every server restart — all previously signed JWTs become unverifiable
+- Need to persist to filesystem or database
+
+**3. `useSignIn()` Hook Stubbed (S1 — P1)**
+
+- `packages/nextjs/src/client/hooks.ts:304-380` returns mock state (`si_${Date.now()}`)
+- Never calls `POST /v1/auth/signins` or `POST /v1/auth/signins/:id/attempt`
+- The `<SignIn />` component works correctly — this hook is for programmatic use
+
+**4. `useSignUp()` Hook Stubbed (S2 — P1)**
+
+- `packages/nextjs/src/client/hooks.ts:382-459` returns mock state
+- Same pattern as useSignIn() — never calls the real API
+
+**5. OAuth Token Exchange Mocked (S5 — P1)**
+
+- `oauth.service.ts` doesn't exchange authorization codes with GitHub/Google
+- Returns mock tokens — social login works for testing but returns fake provider data
+
+### Verified Working
+
+- All 77+ endpoints registered and implemented (no stubs in controllers)
+- All 20 services fully implemented (no TODO/FIXME in production code)
+- `currentUser()`, `BlerpProvider`, `has()`, `<SignIn/>`, `<SignUp/>` — all fixed correctly
+- `customRoles` and `m2mTokens` tables with proper relations, indexes, cascading deletes
+- Monite example uses only a small subset of Clerk features — all satisfied
+
+- Tests run: N/A (audit only, no code changes)
+- Files touched: `GAP_ANALYSIS.md`, `STATUS.md`, `DO_NEXT.md`, `PLAN.md`, `WHAT_WE_DID.md`
+
+## 2026-03-20 — Fix P0 Security + P1 Quality Gaps (S3, S4, S1, S2, S5)
+
+- Summary: Fixed all 5 gaps identified in the deep audit — 1 P0 security hole and 4 P1 quality issues. Execution order: S4 (unified key pair) → S3 (JWT verification) → S1+S2 (real hooks) → S5 (real OAuth).
+
+### Phase 1: Unified Persistent JWKS Key Pair (S4)
+
+- New `apps/api/src/lib/keys.ts` — singleton key pair with PEM persistence to `keys/` directory
+- Removed duplicate in-memory key pairs from `discovery.controller.ts` and `m2m.controller.ts`
+- Both controllers + auth middleware now import from shared `getKeyPair()`
+- Added `keys/` to `.gitignore`
+- Fixed ESM compatibility (`import.meta.url` instead of `__dirname`)
+
+### Phase 2: M2M JWT Signature Verification (S3)
+
+- Replaced `jose.decodeJwt(token)` with `jose.jwtVerify(token, publicKey, { issuer: "blerp", audience: "blerp-api" })`
+- Forged tokens now properly rejected (invalid signature, wrong issuer/audience, expired)
+
+### Phase 3: Real useSignIn() + useSignUp() Hooks (S1, S2)
+
+- `useSignIn().create()` calls `POST /v1/auth/signins` with identifier + strategy
+- `useSignIn().attemptFirstFactor()` calls `POST /v1/auth/signins/{id}/attempt` with password/code
+- `useSignUp().create()` calls `POST /v1/auth/signups` with email + password
+- `useSignUp().attemptVerification()` calls `POST /v1/auth/signups/{id}/attempt` with code
+- Error states properly set status to "failed" and throw
+
+### Phase 4: Real OAuth Token Exchange (S5)
+
+- `oauth.service.ts` now performs real token exchange with GitHub and Google when env vars set
+- GitHub: `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` → authorize, token exchange, user info, email fetch
+- Google: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` → authorize, token exchange, user info
+- Graceful fallback to mock when env vars not configured (existing tests still pass)
+- Extracted `findOrCreateUser()` shared method to avoid duplication
+
+### Bug Fix: Server Smoke Test
+
+- Fixed `npx tsx` → `bunx tsx` in `server-smoke.test.ts` (Bun mandate violation)
+
+- Tests run: `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), `bun run test` (46/46 pass, 16 files), `bun run test:e2e` (155/155 pass)
+- Files touched: `apps/api/src/lib/keys.ts` (new), `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/controllers/discovery.controller.ts`, `apps/api/src/v1/controllers/m2m.controller.ts`, `apps/api/src/v1/services/oauth.service.ts`, `apps/api/src/__tests__/server-smoke.test.ts`, `packages/nextjs/src/client/hooks.ts`, `.gitignore`, `GAP_ANALYSIS.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`
