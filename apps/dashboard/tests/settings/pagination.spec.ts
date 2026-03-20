@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 
 test.describe("Pagination", () => {
   test("pagination component has page size selector", async ({ page }) => {

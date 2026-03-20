@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 
 test.describe("Organization Webhooks", () => {
   test.beforeEach(async ({ page }) => {

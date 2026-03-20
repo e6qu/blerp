@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCsrfToken, DEMO_USER_ID } from "../lib/api";
+import { getCsrfToken, getAuthHeaders, getSessionUserId } from "../lib/api";
 
 interface PhoneNumber {
   id: string;
@@ -8,11 +8,12 @@ interface PhoneNumber {
   created_at: string;
 }
 
-const headers = (): Record<string, string> => ({
-  "X-Tenant-Id": "demo-tenant",
-  "X-User-Id": DEMO_USER_ID,
-  "Content-Type": "application/json",
-});
+function authedHeaders(): Record<string, string> {
+  return {
+    ...getAuthHeaders(),
+    "Content-Type": "application/json",
+  };
+}
 
 async function withCsrf(h: Record<string, string>): Promise<Record<string, string>> {
   const token = await getCsrfToken();
@@ -21,16 +22,19 @@ async function withCsrf(h: Record<string, string>): Promise<Record<string, strin
 }
 
 export function usePhoneNumbers() {
+  const userId = getSessionUserId();
   return useQuery({
-    queryKey: ["phoneNumbers", DEMO_USER_ID],
+    queryKey: ["phoneNumbers", userId],
     queryFn: async () => {
-      const response = await fetch(`/v1/users/${DEMO_USER_ID}/phone_numbers`, {
-        headers: headers(),
+      if (!userId) throw new Error("Not authenticated");
+      const response = await fetch(`/v1/users/${userId}/phone_numbers`, {
+        headers: authedHeaders(),
       });
       if (!response.ok) throw new Error("Failed to fetch phone numbers");
       const data = await response.json();
       return (data.data || []) as PhoneNumber[];
     },
+    enabled: !!userId,
   });
 }
 
@@ -38,8 +42,10 @@ export function useAddPhoneNumber() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (phoneNumber: string) => {
-      const h = await withCsrf(headers());
-      const response = await fetch(`/v1/users/${DEMO_USER_ID}/phone_numbers`, {
+      const userId = getSessionUserId();
+      if (!userId) throw new Error("Not authenticated");
+      const h = await withCsrf(authedHeaders());
+      const response = await fetch(`/v1/users/${userId}/phone_numbers`, {
         method: "POST",
         headers: h,
         body: JSON.stringify({ phone_number: phoneNumber }),
@@ -51,7 +57,7 @@ export function useAddPhoneNumber() {
       return response.json() as Promise<PhoneNumber>;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["phoneNumbers", DEMO_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ["phoneNumbers"] });
     },
   });
 }
@@ -60,8 +66,10 @@ export function useDeletePhoneNumber() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (phoneNumberId: string) => {
-      const h = await withCsrf(headers());
-      const response = await fetch(`/v1/users/${DEMO_USER_ID}/phone_numbers/${phoneNumberId}`, {
+      const userId = getSessionUserId();
+      if (!userId) throw new Error("Not authenticated");
+      const h = await withCsrf(authedHeaders());
+      const response = await fetch(`/v1/users/${userId}/phone_numbers/${phoneNumberId}`, {
         method: "DELETE",
         headers: h,
       });
@@ -71,7 +79,7 @@ export function useDeletePhoneNumber() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["phoneNumbers", DEMO_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ["phoneNumbers"] });
     },
   });
 }
@@ -80,9 +88,11 @@ export function useSetPrimaryPhone() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (phoneNumberId: string) => {
-      const h = await withCsrf(headers());
+      const userId = getSessionUserId();
+      if (!userId) throw new Error("Not authenticated");
+      const h = await withCsrf(authedHeaders());
       const response = await fetch(
-        `/v1/users/${DEMO_USER_ID}/phone_numbers/${phoneNumberId}/set_primary`,
+        `/v1/users/${userId}/phone_numbers/${phoneNumberId}/set_primary`,
         {
           method: "POST",
           headers: h,
@@ -95,7 +105,7 @@ export function useSetPrimaryPhone() {
       return response.json() as Promise<PhoneNumber>;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["phoneNumbers", DEMO_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ["phoneNumbers"] });
       queryClient.invalidateQueries({ queryKey: ["user", "current"] });
     },
   });

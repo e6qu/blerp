@@ -10,6 +10,8 @@ import { otp } from "../../lib/otp";
 import { logger } from "../../lib/logger";
 import { TransientStore } from "../../lib/transient-store";
 import { RestrictionService } from "./restriction.service";
+import { getKeyPair } from "../../lib/keys";
+import { jwt } from "../../lib/jwt";
 
 interface PendingSignin {
   userId: string;
@@ -355,6 +357,13 @@ export class AuthService {
       .set({ lastSignInAt: new Date(), updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
 
+    const { privateKey } = await getKeyPair();
+    const accessToken = await jwt.sign({ sub: userId, sid: sessionId }, privateKey, {
+      issuer: "blerp",
+      audience: "blerp-api",
+      expiresIn: "7d",
+    });
+
     return {
       session: {
         id: sessionId,
@@ -364,9 +373,9 @@ export class AuthService {
         updated_at: new Date().toISOString(),
       },
       tokens: {
-        access_token: `tok_${nanoid()}`,
+        access_token: accessToken,
         refresh_token: `ref_${nanoid()}`,
-        expires_in: 3600,
+        expires_in: 604800,
         session_id: sessionId,
       },
     };

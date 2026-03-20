@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { client, getCsrfToken, DEMO_USER_ID } from "../lib/api";
+import { client, getCsrfToken, getAuthHeaders } from "../lib/api";
 
 export function useSessions() {
   return useQuery({
@@ -33,8 +33,7 @@ export function useRevokeAllSessions() {
     mutationFn: async () => {
       const token = await getCsrfToken();
       const headers: Record<string, string> = {
-        "X-Tenant-Id": "demo-tenant",
-        "X-User-Id": DEMO_USER_ID,
+        ...getAuthHeaders(),
         "Content-Type": "application/json",
       };
       if (token) {

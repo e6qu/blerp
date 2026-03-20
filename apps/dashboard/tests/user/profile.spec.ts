@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 
 test.describe("User Profile", () => {
   // These tests share mutable user state — serialize to prevent parallel interference

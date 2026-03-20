@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getAuthHeaders, getCsrfToken } from "../lib/api";
 
 interface Restriction {
   id: string;
@@ -12,13 +13,8 @@ export function useRestrictions(type?: "allowlist" | "blocklist") {
   return useQuery({
     queryKey: ["restrictions", type],
     queryFn: async () => {
-      const params: Record<string, string> = {};
-      if (type) params.type = type;
       const response = await fetch(`/v1/signup-restrictions${type ? `?type=${type}` : ""}`, {
-        headers: {
-          "X-Tenant-Id": "demo-tenant",
-          "X-User-Id": "user_demo",
-        },
+        headers: getAuthHeaders(),
       });
       if (!response.ok) throw new Error("Failed to fetch restrictions");
       const data = await response.json();
@@ -35,13 +31,15 @@ export function useCreateRestriction() {
       identifier_type: "email" | "domain";
       value: string;
     }) => {
+      const token = await getCsrfToken();
+      const headers: Record<string, string> = {
+        ...getAuthHeaders(),
+        "Content-Type": "application/json",
+      };
+      if (token) headers["x-csrf-token"] = token;
       const response = await fetch("/v1/signup-restrictions", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Tenant-Id": "demo-tenant",
-          "X-User-Id": "user_demo",
-        },
+        headers,
         body: JSON.stringify(body),
       });
       if (!response.ok) {
@@ -60,12 +58,14 @@ export function useDeleteRestriction() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      const token = await getCsrfToken();
+      const headers: Record<string, string> = {
+        ...getAuthHeaders(),
+      };
+      if (token) headers["x-csrf-token"] = token;
       const response = await fetch(`/v1/signup-restrictions/${id}`, {
         method: "DELETE",
-        headers: {
-          "X-Tenant-Id": "demo-tenant",
-          "X-User-Id": "user_demo",
-        },
+        headers,
       });
       if (!response.ok) throw new Error("Failed to delete restriction");
     },

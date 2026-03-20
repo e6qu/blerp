@@ -48,10 +48,12 @@ export function BlerpProvider({
   const [isLoaded, setIsLoaded] = useState(false);
 
   const apiClient = useMemo(() => {
+    const sessionToken = Cookies.get("__blerp_session");
+    const authHeader = sessionToken ? `Bearer ${sessionToken}` : `Bearer ${key}`;
     return createClient<paths>({
       baseUrl: "/",
       headers: {
-        Authorization: `Bearer ${key}`,
+        Authorization: authHeader,
         "X-Tenant-Id": activeOrgId || "default",
       },
     });
@@ -62,10 +64,13 @@ export function BlerpProvider({
 
     async function hydrate() {
       try {
+        const sessionToken = Cookies.get("__blerp_session");
+        const authHeader = sessionToken ? `Bearer ${sessionToken}` : `Bearer ${key}`;
+
         const response = await fetch("/v1/userinfo", {
           credentials: "include",
           headers: {
-            Authorization: `Bearer ${key}`,
+            Authorization: authHeader,
           },
         });
 
@@ -127,6 +132,7 @@ export function BlerpProvider({
     } catch (error) {
       console.error("Sign out failed:", error);
     }
+    Cookies.remove("__blerp_session");
     Cookies.remove("__blerp_org");
     setActiveOrgId(null);
     setUserId(null);

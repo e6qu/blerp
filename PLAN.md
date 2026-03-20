@@ -464,15 +464,15 @@ _Objective_: Close critical UI gaps identified in `GAP_ANALYSIS.md` to reach Cle
 - ~~BUG-19~~: Signup verification — fixed 2026-03-20 (random OTP codes)
 - ~~BUG-20~~: Sign-in 2FA — fixed 2026-03-20 (real TOTP/backup code verification)
 
-### Remaining Production Quality Issues (discovered 2026-03-20 post-merge audit)
+### ✅ Resolved — Production Quality Issues Q1-Q7 (PR #44, 2026-03-20)
 
-- **Q1**: `userinfo.controller.ts` uses `X-User-Id` header instead of access token validation
-- **Q2**: `quota.service.ts` returns hardcoded mock usage values (10 users, 2 orgs, 5 sessions)
-- **Q3**: OAuth service has mock fallback when provider credentials not configured (returns fake URLs/users)
-- **Q4**: `useSignUp().update()` hook is a stub — returns `{ status: "updated" }` without API call
-- **Q5**: `deletePasskey()` doesn't verify ownership (deletes by ID only, ignores userId param)
-- **Q6**: `keys.ts` uses `console.warn()` instead of structured pino logger
-- **Q7**: `auth-guard.ts` has hardcoded test API keys (`pk_test_123`, `sk_test_123`) in non-production mode
+- ~~Q1~~: userinfo auth — fixed (authMiddleware + req.user?.id)
+- ~~Q2~~: quota mock data — fixed (real DB counts)
+- ~~Q3~~: OAuth mock fallback — fixed (clear error when not configured)
+- ~~Q4~~: useSignUp().update() stub — fixed (throws unsupported error)
+- ~~Q5~~: deletePasskey authz bypass — fixed (ownership check)
+- ~~Q6~~: console.warn — fixed (pino logger)
+- ~~Q7~~: hardcoded test API keys — fixed (removed)
 
 ### Remaining — P2 (1 item)
 

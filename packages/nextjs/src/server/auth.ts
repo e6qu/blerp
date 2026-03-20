@@ -10,6 +10,16 @@ export interface BlerpSessionPayload extends jose.JWTPayload {
   org_permissions?: string[];
 }
 
+let jwks: ReturnType<typeof jose.createRemoteJWKSet> | undefined;
+
+function getJWKS(): ReturnType<typeof jose.createRemoteJWKSet> {
+  if (!jwks) {
+    const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
+    jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
+  }
+  return jwks;
+}
+
 export async function auth() {
   const cookieStore = await cookies();
   const token = cookieStore.get("__blerp_session")?.value;
@@ -25,15 +35,21 @@ export async function auth() {
   }
 
   try {
-    const payload = jose.decodeJwt(token) as BlerpSessionPayload;
+    const { payload } = await jose.jwtVerify(token, getJWKS(), {
+      issuer: "blerp",
+      audience: "blerp-api",
+    });
+
+    const sessionPayload = payload as BlerpSessionPayload;
     return {
-      userId: (payload.sub as string) || null,
-      orgId: (payload.org_id as string) || null,
-      orgRole: (payload.org_role as string) || null,
-      orgPermissions: (payload.org_permissions as string[]) || [],
+      userId: (sessionPayload.sub as string) || null,
+      orgId: (sessionPayload.org_id as string) || null,
+      orgRole: (sessionPayload.org_role as string) || null,
+      orgPermissions: (sessionPayload.org_permissions as string[]) || [],
       has: (check: { permission?: string; role?: string }) => {
-        if (check.role && payload.org_role !== check.role) return false;
-        if (check.permission && !payload.org_permissions?.includes(check.permission)) return false;
+        if (check.role && sessionPayload.org_role !== check.role) return false;
+        if (check.permission && !sessionPayload.org_permissions?.includes(check.permission))
+          return false;
         return true;
       },
     };
@@ -52,13 +68,12 @@ export async function currentUser(): Promise<User | null> {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3001";
+  const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
   const secretKey = process.env.BLERP_SECRET_KEY ?? "";
 
   const response = await fetch(`${apiUrl}/v1/users/${userId}`, {
     headers: {
       Authorization: `Bearer ${secretKey}`,
-      "X-User-Id": userId,
     },
     cache: "no-store",
   });

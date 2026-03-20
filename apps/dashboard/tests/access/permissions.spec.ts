@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 
 test.describe("Permission Checks", () => {
   test("sidebar renders with all navigation", async ({ page }) => {

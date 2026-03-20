@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 
 test.describe("User Management Page", () => {
   test.beforeEach(async ({ page }) => {

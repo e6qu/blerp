@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "../ui/Toast";
-import { getCsrfToken, DEMO_USER_ID } from "../../lib/api";
+import { getCsrfToken, getAuthHeaders } from "../../lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface LeaveOrganizationModalProps {
@@ -35,8 +35,7 @@ export function LeaveOrganizationModal({
     try {
       const token = await getCsrfToken();
       const headers: Record<string, string> = {
-        "X-Tenant-Id": "demo-tenant",
-        "X-User-Id": DEMO_USER_ID,
+        ...getAuthHeaders(),
         "Content-Type": "application/json",
       };
       if (token) {

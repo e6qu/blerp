@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 
 test.describe("Session Management", () => {
   test.beforeEach(async ({ page }) => {

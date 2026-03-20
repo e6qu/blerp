@@ -1,19 +1,9 @@
-/* eslint-disable @typescript-eslint/no-namespace */
 import { Request, Response, NextFunction } from "express";
 import * as schema from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import * as jose from "jose";
 import { getKeyPair } from "../lib/keys";
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: { id: string };
-      membership?: { id: string; role: string };
-      m2m?: { clientId: string; scopes: string[] };
-    }
-  }
-}
+import { logger } from "../lib/logger";
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.header("Authorization");
@@ -30,6 +20,8 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
           issuer: "blerp",
           audience: "blerp-api",
         });
+
+        // M2M token: has client_id + scope
         if (payload.client_id && payload.scope) {
           req.m2m = {
             clientId: payload.client_id as string,
@@ -38,32 +30,63 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
           next();
           return;
         }
+
+        // User session token: has sub (user ID)
+        if (payload.sub) {
+          req.user = { id: payload.sub };
+          if (organizationId) {
+            const db = req.tenantDb!;
+            const membership = await db.query.memberships.findFirst({
+              where: and(
+                eq(schema.memberships.userId, payload.sub),
+                eq(schema.memberships.organizationId, organizationId),
+              ),
+            });
+            if (membership) {
+              req.membership = { id: membership.id, role: membership.role };
+            }
+          }
+          next();
+          return;
+        }
       } catch {
-        // Invalid/expired/forged JWT — fall through to user auth
+        // Bearer token provided but JWT verification failed — reject
+        res.status(401).json({ error: "Invalid or expired token" });
+        return;
       }
     }
   }
 
-  if (!userId) {
-    res.status(401).json({ error: "X-User-Id header is required" });
+  // X-User-Id fallback: only allowed in non-production environments
+  if (userId) {
+    if (process.env.NODE_ENV === "production") {
+      res.status(401).json({ error: "X-User-Id header is not allowed in production" });
+      return;
+    }
+
+    logger.warn(
+      { userId, path: req.path },
+      "Request authenticated via X-User-Id header (dev-mode fallback)",
+    );
+    req.user = { id: userId };
+
+    if (organizationId) {
+      const db = req.tenantDb!;
+      const membership = await db.query.memberships.findFirst({
+        where: and(
+          eq(schema.memberships.userId, userId),
+          eq(schema.memberships.organizationId, organizationId),
+        ),
+      });
+
+      if (membership) {
+        req.membership = { id: membership.id, role: membership.role };
+      }
+    }
+
+    next();
     return;
   }
 
-  req.user = { id: userId };
-
-  if (organizationId) {
-    const db = req.tenantDb!;
-    const membership = await db.query.memberships.findFirst({
-      where: and(
-        eq(schema.memberships.userId, userId),
-        eq(schema.memberships.organizationId, organizationId),
-      ),
-    });
-
-    if (membership) {
-      req.membership = { id: membership.id, role: membership.role };
-    }
-  }
-
-  next();
+  res.status(401).json({ error: "Authorization header is required" });
 }
