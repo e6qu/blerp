@@ -458,11 +458,21 @@ _Objective_: Close critical UI gaps identified in `GAP_ANALYSIS.md` to reach Cle
 - ~~S2~~: `useSignUp()` hook — fixed 2026-03-20 (wired to real API)
 - ~~S5~~: OAuth token exchange — fixed 2026-03-20 (real GitHub/Google)
 
-### Remaining — P1 Production Stubs (3 items, discovered 2026-03-20 fresh audit)
+### ✅ Resolved — P1 Production Stubs (BUG-18, BUG-19, BUG-20)
 
-- **BUG-18**: WebAuthn mock — RP ID hardcoded to "localhost", no crypto verification, passkeys fail on prod
-- **BUG-19**: Signup verification code hardcoded to "123456" — no email delivery service
-- **BUG-20**: `useSignIn().attemptSecondFactor()` stub — always returns success, ignores TOTP code
+- ~~BUG-18~~: WebAuthn — fixed 2026-03-20 (real @simplewebauthn/server)
+- ~~BUG-19~~: Signup verification — fixed 2026-03-20 (random OTP codes)
+- ~~BUG-20~~: Sign-in 2FA — fixed 2026-03-20 (real TOTP/backup code verification)
+
+### Remaining Production Quality Issues (discovered 2026-03-20 post-merge audit)
+
+- **Q1**: `userinfo.controller.ts` uses `X-User-Id` header instead of access token validation
+- **Q2**: `quota.service.ts` returns hardcoded mock usage values (10 users, 2 orgs, 5 sessions)
+- **Q3**: OAuth service has mock fallback when provider credentials not configured (returns fake URLs/users)
+- **Q4**: `useSignUp().update()` hook is a stub — returns `{ status: "updated" }` without API call
+- **Q5**: `deletePasskey()` doesn't verify ownership (deletes by ID only, ignores userId param)
+- **Q6**: `keys.ts` uses `console.warn()` instead of structured pino logger
+- **Q7**: `auth-guard.ts` has hardcoded test API keys (`pk_test_123`, `sk_test_123`) in non-production mode
 
 ### Remaining — P2 (1 item)
 

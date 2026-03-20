@@ -63,7 +63,7 @@ All P0 security, P1 quality gaps, and production stubs are resolved. 46/46 API t
 
 | Priority | Items | Details                                                                                                                    |
 | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
-| P1       | 0     | All resolved (BUG-18, BUG-19, BUG-20 fixed 2026-03-20)                                                                     |
+| Quality  | 7     | Q1-Q7: userinfo auth, mock quotas, OAuth mock fallback, signup update stub, passkey ownership, console.warn, test API keys |
 | P2       | 1     | SAML connections (C7) — enterprise SSO, 4-6 week effort                                                                    |
 | P3       | 6     | Theming API (U3), i18n (U4), email templates (C8), notification center (D15), SMS MFA (U6), appearance customization (D13) |
 
