@@ -1,6 +1,12 @@
-import { blerpMiddleware } from "@blerp/nextjs/server";
+import { blerpMiddleware, createRouteMatcher } from "@blerp/nextjs/server";
 
-export default blerpMiddleware();
+const isPublicRoute = createRouteMatcher(["/", "/sign-in(.*)", "/sign-up(.*)", "/api(.*)"]);
+
+export default blerpMiddleware((auth, req) => {
+  if (!isPublicRoute(req)) {
+    auth().protect();
+  }
+});
 
 export const config = {
   matcher: [

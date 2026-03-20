@@ -73,11 +73,14 @@ const BlerpContext = createContext<BlerpContextType | undefined>(undefined);
 export function BlerpProvider({
   children,
   publishableKey,
+  tenantId,
 }: {
   children: React.ReactNode;
   publishableKey?: string;
+  tenantId?: string;
 }) {
   const key = publishableKey ?? getPublishableKeyOrBuildPlaceholder();
+  const resolvedTenantId = tenantId ?? "demo-tenant";
 
   const [activeOrgId, setActiveOrgId] = useState<string | null>(
     () => Cookies.get("__blerp_org") || null,
@@ -95,12 +98,12 @@ export function BlerpProvider({
       credentials: "include",
       headers: {
         Authorization: authHeader,
-        "X-Tenant-Id": activeOrgId || "default",
+        "X-Tenant-Id": resolvedTenantId,
       },
     });
-    c.use(createCsrfMiddleware(activeOrgId));
+    c.use(createCsrfMiddleware(resolvedTenantId));
     return c;
-  }, [key, activeOrgId]);
+  }, [key, activeOrgId, resolvedTenantId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +117,7 @@ export function BlerpProvider({
           credentials: "include",
           headers: {
             Authorization: authHeader,
+            "X-Tenant-Id": resolvedTenantId,
           },
         });
 
