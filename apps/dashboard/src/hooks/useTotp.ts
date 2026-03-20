@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { client, DEMO_USER_ID, getCsrfToken } from "../lib/api";
+import { client, getCsrfToken, getAuthHeaders, getSessionUserId } from "../lib/api";
 
 interface TotpEnrollment {
   secret: string;
@@ -20,8 +20,10 @@ export function useEnrollTotp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
+      const userId = getSessionUserId();
+      if (!userId) throw new Error("Not authenticated");
       const { data, error } = await client.POST("/v1/users/{user_id}/mfa/totp", {
-        params: { path: { user_id: DEMO_USER_ID } },
+        params: { path: { user_id: userId } },
       });
       if (error) throw error;
       return data as TotpEnrollment;
@@ -36,8 +38,10 @@ export function useVerifyTotp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (code: string) => {
+      const userId = getSessionUserId();
+      if (!userId) throw new Error("Not authenticated");
       const { data, error } = await client.POST("/v1/users/{user_id}/mfa/totp/verify", {
-        params: { path: { user_id: DEMO_USER_ID } },
+        params: { path: { user_id: userId } },
         body: { code },
       });
       if (error) throw error;
@@ -52,8 +56,10 @@ export function useVerifyTotp() {
 export function useRegenerateBackupCodes() {
   return useMutation({
     mutationFn: async () => {
+      const userId = getSessionUserId();
+      if (!userId) throw new Error("Not authenticated");
       const { data, error } = await client.POST("/v1/users/{user_id}/mfa/backup_codes/regenerate", {
-        params: { path: { user_id: DEMO_USER_ID } },
+        params: { path: { user_id: userId } },
       });
       if (error) throw error;
       return data as BackupCodesResponse;
@@ -65,16 +71,17 @@ export function useDisableTotp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
+      const userId = getSessionUserId();
+      if (!userId) throw new Error("Not authenticated");
       const token = await getCsrfToken();
       const headers: Record<string, string> = {
+        ...getAuthHeaders(),
         "Content-Type": "application/json",
-        "X-Tenant-Id": "demo-tenant",
-        "X-User-Id": DEMO_USER_ID,
       };
       if (token) {
         headers["x-csrf-token"] = token;
       }
-      const response = await fetch(`/v1/users/${DEMO_USER_ID}/mfa/totp`, {
+      const response = await fetch(`/v1/users/${userId}/mfa/totp`, {
         method: "DELETE",
         headers,
       });

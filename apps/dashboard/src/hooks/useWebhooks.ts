@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { client } from "../lib/api";
+import { client, getAuthHeaders } from "../lib/api";
 
 export function useWebhooks() {
   return useQuery({
@@ -57,10 +57,7 @@ export function useWebhookDeliveries(endpointId: string) {
     queryKey: ["webhook-deliveries", endpointId],
     queryFn: async () => {
       const response = await fetch(`/v1/webhooks/endpoints/${endpointId}/deliveries`, {
-        headers: {
-          "X-Tenant-Id": "demo-tenant",
-          "X-User-Id": "user_demo",
-        },
+        headers: getAuthHeaders(),
       });
       if (!response.ok) throw new Error("Failed to fetch deliveries");
       const data = await response.json();

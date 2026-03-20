@@ -1,6 +1,6 @@
 import { useUserIdentities, useUnlinkIdentity } from "../../hooks/useUserIdentities";
 import { useToast } from "../ui/Toast";
-import { DEMO_USER_ID, client } from "../../lib/api";
+import { client, getSessionUserId } from "../../lib/api";
 import { GitBranch, Mail, Unlink, Link } from "lucide-react";
 
 const PROVIDERS = [
@@ -9,8 +9,9 @@ const PROVIDERS = [
 ] as const;
 
 export function ConnectedAccounts() {
-  const { data: identities, isLoading } = useUserIdentities(DEMO_USER_ID);
-  const unlinkIdentity = useUnlinkIdentity(DEMO_USER_ID);
+  const userId = getSessionUserId() ?? "";
+  const { data: identities, isLoading } = useUserIdentities(userId);
+  const unlinkIdentity = useUnlinkIdentity(userId);
   const { toast } = useToast();
 
   if (isLoading)

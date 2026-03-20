@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getAuthHeaders, getCsrfToken } from "../lib/api";
 
 interface CustomRole {
   id: string;
@@ -15,9 +16,7 @@ export function useRoles(organizationId: string) {
     queryKey: ["roles", organizationId],
     queryFn: async () => {
       const response = await fetch(`/v1/organizations/${organizationId}/roles`, {
-        headers: {
-          "X-User-Id": "admin",
-        },
+        headers: getAuthHeaders(),
       });
       if (!response.ok) throw new Error("Failed to load roles");
       const data = await response.json();
@@ -31,12 +30,15 @@ export function useCreateRole(organizationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (body: { name: string; description?: string; permissions: string[] }) => {
+      const token = await getCsrfToken();
+      const headers: Record<string, string> = {
+        ...getAuthHeaders(),
+        "Content-Type": "application/json",
+      };
+      if (token) headers["x-csrf-token"] = token;
       const response = await fetch(`/v1/organizations/${organizationId}/roles`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": "admin",
-        },
+        headers,
         body: JSON.stringify(body),
       });
       if (!response.ok) {
@@ -63,12 +65,15 @@ export function useUpdateRole(organizationId: string) {
       description?: string;
       permissions?: string[];
     }) => {
+      const token = await getCsrfToken();
+      const headers: Record<string, string> = {
+        ...getAuthHeaders(),
+        "Content-Type": "application/json",
+      };
+      if (token) headers["x-csrf-token"] = token;
       const response = await fetch(`/v1/organizations/${organizationId}/roles/${roleId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": "admin",
-        },
+        headers,
         body: JSON.stringify(body),
       });
       if (!response.ok) {
@@ -87,11 +92,14 @@ export function useDeleteRole(organizationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (roleId: string) => {
+      const token = await getCsrfToken();
+      const headers: Record<string, string> = {
+        ...getAuthHeaders(),
+      };
+      if (token) headers["x-csrf-token"] = token;
       const response = await fetch(`/v1/organizations/${organizationId}/roles/${roleId}`, {
         method: "DELETE",
-        headers: {
-          "X-User-Id": "admin",
-        },
+        headers,
       });
       if (!response.ok) {
         const err = await response.json();

@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { getCsrfToken, DEMO_USER_ID } from "../lib/api";
+import { getCsrfToken, getAuthHeaders } from "../lib/api";
 
 export function useAvatarUpload() {
   return useMutation({
@@ -14,9 +14,8 @@ export function useAvatarUpload() {
 
       const token = await getCsrfToken();
       const headers: Record<string, string> = {
+        ...getAuthHeaders(),
         "Content-Type": "application/json",
-        "X-Tenant-Id": "demo-tenant",
-        "X-User-Id": DEMO_USER_ID,
       };
       if (token) {
         headers["x-csrf-token"] = token;

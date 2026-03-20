@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { client, getCsrfToken, DEMO_USER_ID } from "../lib/api";
+import { client, getCsrfToken, getAuthHeaders } from "../lib/api";
 
 export function usePasskeys() {
   return useQuery({
@@ -67,8 +67,7 @@ export function useRenamePasskey() {
     mutationFn: async ({ passkeyId, name }: { passkeyId: string; name: string }) => {
       const token = await getCsrfToken();
       const headers: Record<string, string> = {
-        "X-Tenant-Id": "demo-tenant",
-        "X-User-Id": DEMO_USER_ID,
+        ...getAuthHeaders(),
         "Content-Type": "application/json",
       };
       if (token) {
@@ -97,8 +96,7 @@ export function useDeletePasskey() {
     mutationFn: async (passkeyId: string) => {
       const token = await getCsrfToken();
       const headers: Record<string, string> = {
-        "X-Tenant-Id": "demo-tenant",
-        "X-User-Id": DEMO_USER_ID,
+        ...getAuthHeaders(),
       };
       if (token) {
         headers["x-csrf-token"] = token;

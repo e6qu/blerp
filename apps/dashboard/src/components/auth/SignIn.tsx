@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { client } from "../../lib/api";
+import { client, setSession } from "../../lib/api";
 import { GitBranch, Mail, ArrowLeft, Wand2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMagicLink } from "../../hooks/useMagicLink";
@@ -58,10 +58,17 @@ export function SignIn() {
         const errorData = apiError as { error?: { message?: string } };
         setError(errorData.error?.message || "Invalid credentials");
       } else {
-        const response = data as { session?: { id: string }; status?: string };
+        const response = data as {
+          session?: { id: string; user_id: string };
+          tokens?: { access_token: string };
+          status?: string;
+        };
         if (response.status === "needs_second_factor" || !response.session) {
           setStep("totp");
         } else {
+          if (response.tokens?.access_token && response.session?.user_id) {
+            setSession(response.tokens.access_token, response.session.user_id);
+          }
           window.location.assign("/");
         }
       }
@@ -109,8 +116,17 @@ export function SignIn() {
       if (apiError) {
         const errorData = apiError as { error?: { message?: string } };
         setError(errorData.error?.message || "Invalid verification code");
-      } else if ((data as { session?: { id: string } }).session) {
-        window.location.assign("/");
+      } else {
+        const response = data as {
+          session?: { id: string; user_id: string };
+          tokens?: { access_token: string };
+        };
+        if (response.session) {
+          if (response.tokens?.access_token && response.session.user_id) {
+            setSession(response.tokens.access_token, response.session.user_id);
+          }
+          window.location.assign("/");
+        }
       }
     } finally {
       setIsSubmitting(false);
@@ -137,6 +153,9 @@ export function SignIn() {
     setError(null);
     const result = await magicLink.verifyToken(magicToken);
     if (result?.session) {
+      if (result.tokens?.access_token && result.session.user_id) {
+        setSession(result.tokens.access_token, result.session.user_id);
+      }
       window.location.assign("/");
     } else {
       setError(magicLink.error);
