@@ -29,6 +29,30 @@ export function useUsers(options: UseUsersOptions = {}) {
   });
 }
 
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      userId: string;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
+      status?: "active" | "inactive" | "banned";
+    }) => {
+      const { userId, ...body } = params;
+      const { data, error } = await client.PATCH("/v1/users/{user_id}", {
+        params: { path: { user_id: userId } },
+        body,
+      });
+      if (error) throw error;
+      return data as User;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
 export function useBulkUpdateUsers() {
   const queryClient = useQueryClient();
   return useMutation({

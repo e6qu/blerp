@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { SignUp } from "./components/auth/SignUp";
 import { SignIn } from "./components/auth/SignIn";
@@ -10,22 +11,54 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "./components/ui/Toast";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { ThemeProvider } from "./hooks/useTheme";
+import { getSessionUserId } from "./lib/api";
 
 const queryClient = new QueryClient();
 
-function Home() {
+function AuthPage() {
+  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
+
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold dark:text-gray-50">Dashboard Home</h1>
-      <p className="mt-4 text-gray-600 dark:text-gray-400">
-        Welcome to the Blerp Identity Service dashboard.
-      </p>
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <SignUp />
-        <SignIn />
+    <div className="flex min-h-[80vh] items-center justify-center p-8">
+      <div className="w-full max-w-md">
+        {mode === "sign-in" ? <SignIn /> : <SignUp />}
+        <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          {mode === "sign-in" ? (
+            <>
+              Don&apos;t have an account?{" "}
+              <button
+                onClick={() => setMode("sign-up")}
+                className="font-medium text-blue-600 hover:text-blue-500"
+              >
+                Sign up
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{" "}
+              <button
+                onClick={() => setMode("sign-in")}
+                className="font-medium text-blue-600 hover:text-blue-500"
+              >
+                Sign in
+              </button>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );
+}
+
+function Home() {
+  const userId = getSessionUserId();
+
+  if (!userId) {
+    return <AuthPage />;
+  }
+
+  // Authenticated — redirect to Organizations
+  return <Navigate to="/users" replace />;
 }
 
 export default function App() {
@@ -37,7 +70,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Layout />}>
                 <Route index element={<Home />} />
-                <Route path="sign-in" element={<SignInPage />} />
+                <Route path="sign-in" element={<AuthPage />} />
                 <Route path="users" element={<OrganizationsPage />} />
                 <Route path="auth" element={<UserProfile />} />
                 <Route path="settings" element={<SettingsPage />} />
@@ -48,17 +81,5 @@ export default function App() {
         </ToastProvider>
       </QueryClientProvider>
     </ThemeProvider>
-  );
-}
-
-function SignInPage() {
-  return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold dark:text-gray-50">Sign In</h1>
-      <p className="mt-4 text-gray-600 dark:text-gray-400">Sign in to your Blerp account.</p>
-      <div className="mt-8">
-        <SignIn />
-      </div>
-    </div>
   );
 }

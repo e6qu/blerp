@@ -5,11 +5,14 @@ import {
   useUpdateMembership,
   useDeleteMembership,
 } from "../../hooks/useOrganizations";
+import { useUsers } from "../../hooks/useUsers";
 import { useRoles } from "../../hooks/useRoles";
-import { Pencil, Trash2, X, Check } from "lucide-react";
+import { Pencil, Trash2, X, Check, UserCog } from "lucide-react";
+import { EditUserModal } from "./EditUserModal";
 import type { components } from "@blerp/shared";
 
 type Membership = components["schemas"]["Membership"];
+type User = components["schemas"]["User"];
 
 const DEFAULT_ROLES = ["owner", "admin", "member"];
 
@@ -18,8 +21,18 @@ export function OrganizationMembers({ organizationId }: { organizationId: string
   const { data: roles } = useRoles(organizationId);
   const updateMembership = useUpdateMembership(organizationId);
   const deleteMembership = useDeleteMembership(organizationId);
+  const { data: allUsers } = useUsers();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("");
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  const usersById = (allUsers ?? []).reduce(
+    (acc: Record<string, User>, u: User) => {
+      acc[u.id] = u;
+      return acc;
+    },
+    {} as Record<string, User>,
+  );
 
   if (isLoading) return <TableSkeleton rows={3} columns={4} />;
 
@@ -69,10 +82,19 @@ export function OrganizationMembers({ organizationId }: { organizationId: string
             <tr key={membership.id}>
               <td className="whitespace-nowrap px-6 py-4">
                 <div className="flex items-center">
-                  <div className="h-8 w-8 flex-shrink-0 rounded-full bg-gray-200 dark:bg-gray-600"></div>
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 text-xs font-medium text-blue-600 dark:text-blue-400">
+                    {(usersById[membership.user_id]?.first_name ?? "?")[0]}
+                    {(usersById[membership.user_id]?.last_name ?? "")[0]}
+                  </div>
                   <div className="ml-4">
                     <div className="text-sm font-medium text-gray-900 dark:text-gray-50">
-                      User ID: {membership.user_id}
+                      {usersById[membership.user_id]
+                        ? `${usersById[membership.user_id].first_name ?? ""} ${usersById[membership.user_id].last_name ?? ""}`.trim()
+                        : membership.user_id}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {usersById[membership.user_id]?.email_addresses?.[0]?.email ??
+                        membership.user_id}
                     </div>
                   </div>
                 </div>
@@ -125,9 +147,19 @@ export function OrganizationMembers({ organizationId }: { organizationId: string
                   </div>
                 ) : (
                   <div className="flex justify-end gap-2">
+                    {usersById[membership.user_id] && (
+                      <button
+                        onClick={() => setEditingUser(usersById[membership.user_id])}
+                        className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        title="Edit user profile"
+                      >
+                        <UserCog className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleEditClick(membership)}
                       className="text-blue-600 dark:text-blue-400 hover:text-blue-900"
+                      title="Change role"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -135,6 +167,7 @@ export function OrganizationMembers({ organizationId }: { organizationId: string
                       onClick={() => handleDelete(membership.id)}
                       disabled={deleteMembership.isPending}
                       className="text-red-600 dark:text-red-400 hover:text-red-900 disabled:opacity-50"
+                      title="Remove member"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -145,6 +178,12 @@ export function OrganizationMembers({ organizationId }: { organizationId: string
           ))}
         </tbody>
       </table>
+
+      <EditUserModal
+        user={editingUser}
+        isOpen={!!editingUser}
+        onClose={() => setEditingUser(null)}
+      />
     </div>
   );
 }

@@ -1,19 +1,6 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Settings,
-  Users,
-  Shield,
-  LogOut,
-  UserCog,
-  Menu,
-  X,
-  Sun,
-  Moon,
-  Search,
-} from "lucide-react";
-import { OrganizationSwitcher } from "./auth/OrganizationSwitcher";
+import { Settings, Users, Shield, LogOut, UserCog, Menu, X, Sun, Moon, Search } from "lucide-react";
 import { useSignOut } from "../hooks/useSignOut";
 import { useCurrentUser } from "../hooks/useUser";
 import { useTheme } from "../hooks/useTheme";
@@ -34,10 +21,9 @@ export function Layout() {
   });
 
   const navItems = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Organizations", href: "/users", icon: Users },
     { name: "User Management", href: "/admin/users", icon: UserCog },
-    { name: "Auth", href: "/auth", icon: Shield },
+    { name: "Account", href: "/auth", icon: Shield },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
@@ -59,10 +45,6 @@ export function Layout() {
         >
           <X className="h-5 w-5" />
         </button>
-      </div>
-
-      <div className="border-b border-gray-200 dark:border-gray-700 p-4">
-        <OrganizationSwitcher />
       </div>
 
       <nav className="mt-2 flex-1 space-y-1 px-3">
