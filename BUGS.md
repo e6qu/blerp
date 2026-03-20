@@ -313,18 +313,22 @@ When a key wasn't found in the DB, the middleware had a fallback that allowed `p
 
 ## Open — Monite SDK example issues (discovered 2026-03-20)
 
-### BUG-21: Monite SDK example missing Tailwind CSS configuration
+### BUG-21: Monite SDK example missing Tailwind CSS configuration (FIXED)
 
-**Status:** Open
+**Status:** Fixed
 **Severity:** Low (cosmetic)
 **Files:** `examples/monite-sdk-parity/`
 
-The Monite SDK parity example uses Tailwind CSS utility classes throughout all pages but has no Tailwind CSS configuration (no `tailwind.config.js`, PostCSS config, or global CSS import). Pages render with browser-default styling only.
+The Monite SDK parity example uses Tailwind CSS utility classes throughout all pages but had no Tailwind CSS configuration.
 
-### BUG-22: Server-side currentUser() fails with placeholder secret key
+**Fix applied:** Added `tailwindcss` v3, `postcss`, `autoprefixer` deps. Created `tailwind.config.ts` (with content paths for both local and `@blerp/nextjs` sources), `postcss.config.mjs`, and `globals.css` with Tailwind directives. Imported `globals.css` in root layout.
 
-**Status:** Open
+### BUG-22: Server-side currentUser() fails with placeholder secret key (FIXED)
+
+**Status:** Fixed
 **Severity:** Medium
-**Files:** `packages/nextjs/src/server/auth.ts`, `examples/monite-sdk-parity/.env.example`
+**Files:** `packages/nextjs/src/server/auth.ts`, `apps/api/src/app.ts`
 
-The `currentUser()` server function sends `BLERP_SECRET_KEY` as a Bearer token to the API. The API only accepts JWTs for Bearer auth, not plain API keys. With a placeholder secret key, `currentUser()` returns `null`, causing the dashboard to show empty user context. Fix options: (a) make `currentUser()` forward the session JWT from cookies, or (b) add API key auth to the API's auth middleware.
+Two issues: (a) `currentUser()` sent `BLERP_SECRET_KEY` as Bearer token, but the API only accepts JWTs. (b) The `/v1/jwks` endpoint required `X-Tenant-Id` header, but `jose.createRemoteJWKSet` sends plain GET requests.
+
+**Fix applied:** (a) `currentUser()` now prefers the session JWT from `__blerp_session` cookie for Bearer auth, falling back to `BLERP_SECRET_KEY`. (b) Mounted JWKS and OIDC discovery endpoints before `tenantMiddleware` in `app.ts` so they're publicly accessible without tenant context.
