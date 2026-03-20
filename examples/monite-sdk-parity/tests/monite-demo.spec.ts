@@ -1,146 +1,238 @@
-import { test, expect } from "./fixtures";
+import { test as base, expect } from "@playwright/test";
 
 const SCREENSHOTS_DIR = "tests/screenshots";
+const DEMO_EMAIL = "admin@demo-tenant.blerp.dev";
+const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
-// ── Public pages ──
+// Fresh context per test — no shared state, no fixture magic
+const test = base;
 
-test.describe("Public pages", () => {
-  test("home page redirects to sign-in for unauthenticated users @screenshot", async ({ page }) => {
+// ── 1. Unauthenticated access ──
+
+test.describe("Unauthenticated access", () => {
+  test("home page is publicly accessible", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("load");
     await page.waitForTimeout(1500);
-    await page.screenshot({
-      path: `${SCREENSHOTS_DIR}/01-home-unauthenticated.png`,
-      fullPage: true,
-    });
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/01-home-public.png`, fullPage: true });
 
-    // Unauthenticated users get redirected to sign-in by middleware
-    expect(page.url()).toContain("/sign-in");
-    await expect(page.locator("text=Sign in to your account")).toBeVisible();
+    // Must show actual content, not a redirect to sign-in
+    await expect(page.locator("h1")).toContainText("Blerp Next.js Quickstart");
+    await expect(page.locator('a[href="/dashboard"]')).toBeVisible();
+    // URL must be exactly "/" — no redirect
+    expect(page.url()).toMatch(/\/$/);
   });
 
-  test("sign-in page renders with OAuth and email form @screenshot", async ({ page }) => {
+  test("sign-in page shows complete auth form", async ({ page }) => {
     await page.goto("/sign-in");
     await page.waitForLoadState("load");
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/02-sign-in-page.png`, fullPage: true });
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/02-signin-form.png`, fullPage: true });
 
-    await expect(page.locator("text=Sign in to your account")).toBeVisible();
-    await expect(page.locator("#blerp-signin-email")).toBeVisible();
-    await expect(page.locator("button:has-text('GitHub')")).toBeVisible();
-    await expect(page.locator("button:has-text('Google')")).toBeVisible();
+    // Verify ALL form elements exist — not just text
+    const emailInput = page.locator("#blerp-signin-email");
+    await expect(emailInput).toBeVisible();
+    await expect(emailInput).toBeEditable();
+    expect(await emailInput.getAttribute("type")).toBe("email");
+    expect(await emailInput.getAttribute("required")).not.toBeNull();
+
+    await expect(page.locator('button:has-text("Continue")')).toBeVisible();
+    await expect(page.locator('button:has-text("Continue")')).toBeEnabled();
+    await expect(page.locator('button:has-text("GitHub")')).toBeVisible();
+    await expect(page.locator('button:has-text("Google")')).toBeVisible();
     await expect(page.locator("text=Or continue with email")).toBeVisible();
-    await expect(page.locator("text=Don't have an account?")).toBeVisible();
+    await expect(page.locator('a[href="/sign-up"]')).toBeVisible();
   });
 
-  test("sign-up page renders @screenshot", async ({ page }) => {
+  test("sign-up page shows registration form", async ({ page }) => {
     await page.goto("/sign-up");
     await page.waitForLoadState("load");
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/03-sign-up-page.png`, fullPage: true });
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/03-signup-form.png`, fullPage: true });
 
-    await expect(page.locator("text=Create your account")).toBeVisible();
-    await expect(page.locator("text=Already have an account?")).toBeVisible();
+    await expect(page.locator("h2")).toContainText("Create your account");
+    await expect(page.locator('button:has-text("Continue")')).toBeVisible();
+    await expect(page.locator('a[href="/sign-in"]')).toBeVisible();
   });
 
-  test("unauthenticated dashboard redirects to sign-in @screenshot", async ({ page }) => {
+  test("/dashboard redirects unauthenticated users to sign-in", async ({ page }) => {
     await page.goto("/dashboard");
     await page.waitForLoadState("load");
     await page.waitForTimeout(1000);
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/04-dashboard-redirect.png`, fullPage: true });
 
+    // Must redirect — verify URL contains sign-in AND redirect_url param
     expect(page.url()).toContain("/sign-in");
+    expect(page.url()).toContain("redirect_url");
+    expect(page.url()).toContain("dashboard");
   });
 });
 
-// ── Sign-in flow (email entry step) ──
+// ── 2. Full sign-in flow (real browser, no cookie injection) ──
 
-test.describe("Sign-in flow", () => {
-  test("email entry step works @screenshot", async ({ page }) => {
+test.describe("Browser sign-in flow", () => {
+  test("complete email → password → dashboard flow", async ({ page }) => {
+    // Track API calls for debugging
+    const apiCalls: string[] = [];
+    page.on("response", (res) => {
+      if (res.url().includes("/v1/")) {
+        apiCalls.push(`${res.status()} ${res.request().method()} ${new URL(res.url()).pathname}`);
+      }
+    });
+
+    // Step 1: Go to sign-in
     await page.goto("/sign-in");
     await page.waitForLoadState("load");
     await page.waitForTimeout(1500);
 
-    // Enter email
-    await page.fill("#blerp-signin-email", "admin@demo-tenant.blerp.dev");
-    await page.screenshot({
-      path: `${SCREENSHOTS_DIR}/05-signin-email-filled.png`,
-      fullPage: true,
-    });
+    // Step 2: Enter email and submit
+    await page.fill("#blerp-signin-email", DEMO_EMAIL);
+    await expect(page.locator("#blerp-signin-email")).toHaveValue(DEMO_EMAIL);
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/05-email-entered.png`, fullPage: true });
 
-    // Click continue — the API call may fail in test env (no X-Tenant-Id header from client),
-    // so we just verify the email step works
-    await expect(page.locator("#blerp-signin-email")).toHaveValue("admin@demo-tenant.blerp.dev");
-  });
+    await page.click('button:has-text("Continue")');
 
-  test("sign-in via cookie authenticates dashboard @screenshot", async ({
-    authenticatedPage: page,
-  }) => {
-    await page.goto("/dashboard", { timeout: 30_000 });
+    // Step 3: Wait for password field — this proves the API accepted the email
+    const passwordField = page.locator("#blerp-signin-password");
+    await expect(passwordField).toBeVisible({ timeout: 10_000 });
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/06-password-step.png`, fullPage: true });
+
+    // Verify we're on the password step
+    await expect(page.locator(`text=Signing in as`)).toBeVisible();
+    await expect(page.locator(`text=${DEMO_EMAIL}`)).toBeVisible();
+    await expect(page.locator('button:has-text("Sign in")')).toBeVisible();
+
+    // Step 4: Enter password and submit
+    await page.fill("#blerp-signin-password", DEMO_PASSWORD);
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/07-password-entered.png`, fullPage: true });
+
+    await page.click('button:has-text("Sign in")');
+
+    // Step 5: Wait for redirect to dashboard
+    await page.waitForURL("**/dashboard**", { timeout: 15_000 });
     await page.waitForLoadState("load");
     await page.waitForTimeout(3000);
     await page.screenshot({
-      path: `${SCREENSHOTS_DIR}/06-cookie-auth-dashboard.png`,
+      path: `${SCREENSHOTS_DIR}/08-dashboard-after-signin.png`,
       fullPage: true,
     });
 
-    // Cookie-based auth bypasses sign-in form and renders dashboard
-    await expect(page.locator("h1:has-text('Monite Integration Dashboard')")).toBeVisible();
+    // Step 6: Verify we're ACTUALLY on the dashboard, not redirected back
+    expect(page.url()).toContain("/dashboard");
+    expect(page.url()).not.toContain("/sign-in");
+
+    // Verify the session cookie exists
+    const cookies = await page.context().cookies();
+    const sessionCookie = cookies.find((c) => c.name === "__blerp_session");
+    expect(sessionCookie).toBeTruthy();
+    expect(sessionCookie!.value.length).toBeGreaterThan(100); // JWT is long
+
+    // Verify dashboard content rendered (not an error page)
+    await expect(page.locator("h1")).toContainText("Monite Integration Dashboard");
+
+    // Verify user context was resolved server-side
+    const userIdText = await page.locator("text=User ID:").textContent();
+    expect(userIdText).toContain("demo_user");
+
+    // Verify API calls happened in correct order
+    expect(apiCalls.some((c) => c.includes("POST /v1/auth/signins"))).toBeTruthy();
+
+    // Step 7: Verify the sign-in persists on reload
+    await page.reload();
+    await page.waitForLoadState("load");
+    await page.waitForTimeout(3000);
+    await page.screenshot({
+      path: `${SCREENSHOTS_DIR}/09-dashboard-after-reload.png`,
+      fullPage: true,
+    });
+
+    // Still on dashboard after reload (cookie persisted)
+    expect(page.url()).toContain("/dashboard");
+    await expect(page.locator("h1")).toContainText("Monite Integration Dashboard");
   });
 });
 
-// ── Authenticated dashboard ──
+// ── 3. Authenticated dashboard (using real sign-in, not cookie fixture) ──
 
-test.describe("Authenticated dashboard", () => {
-  test("dashboard loads with all sections @screenshot", async ({ authenticatedPage: page }) => {
-    await page.goto("/dashboard", { timeout: 30_000 });
+test.describe("Dashboard functionality", () => {
+  // Sign in before each test via the actual UI
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/sign-in");
+    await page.waitForLoadState("load");
+    await page.waitForTimeout(1500);
+
+    await page.fill("#blerp-signin-email", DEMO_EMAIL);
+    await page.click('button:has-text("Continue")');
+    await page.waitForSelector("#blerp-signin-password", { timeout: 10_000 });
+    await page.fill("#blerp-signin-password", DEMO_PASSWORD);
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/dashboard**", { timeout: 15_000 });
     await page.waitForLoadState("load");
     await page.waitForTimeout(3000);
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/07-dashboard-full.png`, fullPage: true });
-
-    await expect(page.locator("h1:has-text('Monite Integration Dashboard')")).toBeVisible();
-    await expect(page.locator("text=Raw Blerp User Object")).toBeVisible();
   });
 
-  test("header shows Blerp + Monite branding @screenshot", async ({ authenticatedPage: page }) => {
-    await page.goto("/dashboard", { timeout: 30_000 });
-    await page.waitForLoadState("load");
-    await page.waitForTimeout(3000);
+  test("header shows branding and org switcher", async ({ page }) => {
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/10-dashboard-header.png`, fullPage: true });
 
-    // Capture just the header area
-    const header = page.locator("header");
-    await header.screenshot({ path: `${SCREENSHOTS_DIR}/08-header-branding.png` });
-
+    await expect(page.locator("header")).toBeVisible();
     await expect(page.locator("text=Blerp + Monite SDK")).toBeVisible();
+
+    // Org switcher button must exist and be clickable
+    const orgSwitcher = page.locator("header button").first();
+    await expect(orgSwitcher).toBeVisible();
   });
 
-  test("monite context section visible @screenshot", async ({ authenticatedPage: page }) => {
-    await page.goto("/dashboard", { timeout: 30_000 });
-    await page.waitForLoadState("load");
-    await page.waitForTimeout(3000);
+  test("org switcher dropdown shows organizations", async ({ page }) => {
+    // Click the org switcher
+    const orgSwitcher = page.locator("header button").first();
+    await orgSwitcher.click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/11-org-switcher-open.png`, fullPage: true });
 
-    // Should show either Monite Payables or the "Monite Context Missing" fallback
-    const hasMonite = await page
-      .locator("text=Payables")
-      .isVisible()
-      .catch(() => false);
+    // Should show org list — check for the seeded orgs
+    await expect(page.locator("text=Switch Organization")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("text=Personal Account").first()).toBeVisible();
+    await expect(page.locator("text=Demo Organization")).toBeVisible();
+    await expect(page.locator("text=Demo Monite Organization")).toBeVisible();
+    await expect(page.locator("text=Create Organization")).toBeVisible();
+  });
+
+  test("switching to Monite org reloads context", async ({ page }) => {
+    // Open org switcher
+    const orgSwitcher = page.locator("header button").first();
+    await orgSwitcher.click();
+    await page.waitForTimeout(500);
+
+    // Click "Demo Monite Organization"
+    await page.locator("text=Demo Monite Organization").click();
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/12-after-org-switch.png`, fullPage: true });
+
+    // Verify the __blerp_org cookie was set
+    const cookies = await page.context().cookies();
+    const orgCookie = cookies.find((c) => c.name === "__blerp_org");
+    expect(orgCookie).toBeTruthy();
+    expect(orgCookie!.value).toBe("org_monite_demo");
+  });
+
+  test("monite context section shows expected state", async ({ page }) => {
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/13-monite-context.png`, fullPage: true });
+
+    // Either "Monite Context Missing" (no org selected) or Payables (org with entity_id)
     const hasMissing = await page
       .locator("text=Monite Context Missing")
       .isVisible()
       .catch(() => false);
-
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/09-monite-context.png`, fullPage: true });
-    expect(hasMonite || hasMissing).toBeTruthy();
+    const hasPayables = await page
+      .locator("text=Payables")
+      .isVisible()
+      .catch(() => false);
+    expect(hasMissing || hasPayables).toBeTruthy();
   });
 
-  test("permission guard renders @screenshot", async ({ authenticatedPage: page }) => {
-    await page.goto("/dashboard", { timeout: 30_000 });
-    await page.waitForLoadState("load");
-    await page.waitForTimeout(3000);
+  test("permission guard section renders", async ({ page }) => {
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/14-permission-guard.png`, fullPage: true });
 
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/10-permission-guard.png`, fullPage: true });
-
-    // Either admin actions (has permission) or denied message (no permission)
     const hasAdmin = await page
       .locator("text=Admin Actions")
       .isVisible()
@@ -152,39 +244,54 @@ test.describe("Authenticated dashboard", () => {
     expect(hasAdmin || hasDenied).toBeTruthy();
   });
 
-  test("raw user object section @screenshot", async ({ authenticatedPage: page }) => {
-    await page.goto("/dashboard", { timeout: 30_000 });
-    await page.waitForLoadState("load");
-    await page.waitForTimeout(3000);
-
+  test("raw user object displays valid JSON", async ({ page }) => {
     await expect(page.locator("text=Raw Blerp User Object")).toBeVisible();
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/11-raw-user-object.png`, fullPage: true });
+
+    const pre = page.locator("pre");
+    if (await pre.isVisible().catch(() => false)) {
+      const content = await pre.textContent();
+      // Must contain actual user data, not empty or error
+      expect(content).toBeTruthy();
+      expect(content!.length).toBeGreaterThan(10);
+      // Should be valid JSON
+      expect(() => JSON.parse(content!)).not.toThrow();
+      const user = JSON.parse(content!);
+      expect(user.id).toBe("demo_user");
+      await page.screenshot({ path: `${SCREENSHOTS_DIR}/15-raw-user-json.png`, fullPage: true });
+    }
   });
 });
 
-// ── Authenticated navigation ──
+// ── 4. Navigation ──
 
 test.describe("Navigation", () => {
-  test("authenticated home page shows content @screenshot", async ({ authenticatedPage: page }) => {
-    await page.goto("/", { timeout: 15_000 });
+  test("home → dashboard link works for authenticated user", async ({ page }) => {
+    // Sign in first
+    await page.goto("/sign-in");
     await page.waitForLoadState("load");
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/12-authenticated-home.png`, fullPage: true });
+    await page.fill("#blerp-signin-email", DEMO_EMAIL);
+    await page.click('button:has-text("Continue")');
+    await page.waitForSelector("#blerp-signin-password", { timeout: 10_000 });
+    await page.fill("#blerp-signin-password", DEMO_PASSWORD);
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL("**/dashboard**", { timeout: 15_000 });
 
-    // When authenticated, home page should show the quickstart content
-    await expect(page.locator("text=Blerp Next.js Quickstart")).toBeVisible();
-  });
-
-  test("navigate from home to dashboard @screenshot", async ({ authenticatedPage: page }) => {
-    await page.goto("/", { timeout: 15_000 });
+    // Navigate to home
+    await page.goto("/");
     await page.waitForLoadState("load");
     await page.waitForTimeout(1500);
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/16-home-authenticated.png`, fullPage: true });
 
-    await page.click('a:has-text("Go to Dashboard")');
+    await expect(page.locator("h1")).toContainText("Blerp Next.js Quickstart");
+
+    // Click dashboard link
+    await page.click('a[href="/dashboard"]');
     await page.waitForLoadState("load");
     await page.waitForTimeout(3000);
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/13-nav-to-dashboard.png`, fullPage: true });
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/17-nav-to-dashboard.png`, fullPage: true });
 
-    await expect(page.locator("h1:has-text('Monite Integration Dashboard')")).toBeVisible();
+    expect(page.url()).toContain("/dashboard");
+    await expect(page.locator("h1")).toContainText("Monite Integration Dashboard");
   });
 });
