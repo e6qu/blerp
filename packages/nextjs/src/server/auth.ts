@@ -41,15 +41,53 @@ export async function auth() {
     });
 
     const sessionPayload = payload as BlerpSessionPayload;
+    const userId = (sessionPayload.sub as string) || null;
+    // org_id can come from JWT claims OR from the __blerp_org cookie (set by OrganizationSwitcher)
+    const orgIdFromCookie = cookieStore.get("__blerp_org")?.value;
+    const orgId = (sessionPayload.org_id as string) || orgIdFromCookie || null;
+
+    // If org comes from cookie (not JWT), fetch the membership role from the API
+    let orgRole = (sessionPayload.org_role as string) || null;
+    let orgPermissions = (sessionPayload.org_permissions as string[]) || [];
+    if (orgId && !orgRole && userId && token) {
+      try {
+        const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
+        const tenantId = process.env.BLERP_TENANT_ID ?? "demo-tenant";
+        const res = await fetch(`${apiUrl}/v1/organizations/${orgId}/memberships`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-Tenant-Id": tenantId,
+          },
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const body = await res.json();
+          const membership = (body.data ?? []).find(
+            (m: { user_id?: string }) => m.user_id === userId,
+          );
+          if (membership) {
+            orgRole = membership.role ?? null;
+            // Map role to permissions
+            if (orgRole === "owner" || orgRole === "admin") {
+              orgPermissions = ["org:read", "org:write", "org:manage_members"];
+            } else {
+              orgPermissions = ["org:read"];
+            }
+          }
+        }
+      } catch {
+        // Membership lookup failed — continue without role
+      }
+    }
+
     return {
-      userId: (sessionPayload.sub as string) || null,
-      orgId: (sessionPayload.org_id as string) || null,
-      orgRole: (sessionPayload.org_role as string) || null,
-      orgPermissions: (sessionPayload.org_permissions as string[]) || [],
+      userId,
+      orgId,
+      orgRole,
+      orgPermissions,
       has: (check: { permission?: string; role?: string }) => {
-        if (check.role && sessionPayload.org_role !== check.role) return false;
-        if (check.permission && !sessionPayload.org_permissions?.includes(check.permission))
-          return false;
+        if (check.role && orgRole !== check.role) return false;
+        if (check.permission && !orgPermissions.includes(check.permission)) return false;
         return true;
       },
     };
@@ -76,9 +114,11 @@ export async function currentUser(): Promise<User | null> {
   // Prefer session JWT for auth (already validated by auth()), fall back to secret key
   const bearerToken = sessionToken ?? process.env.BLERP_SECRET_KEY ?? "";
 
+  const tenantId = process.env.BLERP_TENANT_ID ?? "demo-tenant";
   const response = await fetch(`${apiUrl}/v1/users/${userId}`, {
     headers: {
       Authorization: `Bearer ${bearerToken}`,
+      "X-Tenant-Id": tenantId,
     },
     cache: "no-store",
   });

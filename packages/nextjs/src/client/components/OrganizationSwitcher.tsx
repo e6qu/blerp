@@ -65,9 +65,7 @@ export function OrganizationSwitcher({
                   onClick={() => {
                     setActive({ organization: null });
                     setIsOpen(false);
-                    if (afterLeaveOrganizationUrl) {
-                      window.location.assign(afterLeaveOrganizationUrl);
-                    }
+                    window.location.assign(afterLeaveOrganizationUrl ?? window.location.pathname);
                   }}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     !selectedOrgId ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"
@@ -89,9 +87,8 @@ export function OrganizationSwitcher({
                   onClick={() => {
                     setActive({ organization: org.id });
                     setIsOpen(false);
-                    if (afterSelectOrganizationUrl) {
-                      window.location.assign(afterSelectOrganizationUrl);
-                    }
+                    // Reload to refresh server components with new org context
+                    window.location.assign(afterSelectOrganizationUrl ?? window.location.pathname);
                   }}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     org.id === selectedOrgId
