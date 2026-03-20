@@ -9,7 +9,14 @@ import {
   getWebhookSecret,
   getWebhookSecretOrThrow,
 } from "./env.js";
+import { createUsersApi } from "./api/users.js";
+import { createOrganizationsApi } from "./api/organizations.js";
+import { createOrganizationMembershipsApi } from "./api/organization-memberships.js";
+import { createInvitationsApi } from "./api/invitations.js";
+import { createSessionsApi } from "./api/sessions.js";
+import { createEmailAddressesApi } from "./api/email-addresses.js";
 
+export { BlerpAPIError } from "./errors.js";
 export {
   getSecretKey,
   getSecretKeyOrThrow,
@@ -19,8 +26,6 @@ export {
   getWebhookSecret,
   getWebhookSecretOrThrow,
 };
-
-type Metadata = Record<string, unknown>;
 
 export class BlerpClient {
   private client: ReturnType<typeof createClient<paths>>;
@@ -34,71 +39,28 @@ export class BlerpClient {
     });
   }
 
-  get organizations() {
-    return {
-      getOrganization: async (id: string) => {
-        const { data, error } = await this.client.GET("/v1/organizations/{organization_id}", {
-          params: { path: { organization_id: id } },
-        });
-        if (error) throw error;
-        return data;
-      },
-      updateOrganizationMetadata: async (
-        id: string,
-        metadata: { public_metadata?: Metadata; private_metadata?: Metadata },
-      ) => {
-        const { data, error } = await this.client.PATCH(
-          "/v1/organizations/{organization_id}/metadata",
-          {
-            params: { path: { organization_id: id } },
-            body: metadata,
-          },
-        );
-        if (error) throw error;
-        return data;
-      },
-    };
+  get users() {
+    return createUsersApi(this.client);
   }
 
-  get users() {
-    return {
-      getUser: async (id: string) => {
-        const { data, error } = await this.client.GET("/v1/users/{user_id}", {
-          params: { path: { user_id: id } },
-        });
-        if (error) throw error;
-        return data;
-      },
-      updateUserMetadata: async (
-        id: string,
-        metadata: {
-          public_metadata?: Metadata;
-          private_metadata?: Metadata;
-          unsafe_metadata?: Metadata;
-        },
-      ) => {
-        const { data, error } = await this.client.PATCH("/v1/users/{user_id}/metadata", {
-          params: { path: { user_id: id } },
-          body: metadata,
-        });
-        if (error) throw error;
-        return data;
-      },
-      listUsers: async (query?: {
-        email?: string;
-        status?: "active" | "inactive" | "banned";
-        metadata_key?: string;
-        metadata_value?: string;
-        limit?: number;
-        cursor?: string;
-      }) => {
-        const { data, error } = await this.client.GET("/v1/users", {
-          params: { query },
-        });
-        if (error) throw error;
-        return data;
-      },
-    };
+  get organizations() {
+    return createOrganizationsApi(this.client);
+  }
+
+  get organizationMemberships() {
+    return createOrganizationMembershipsApi(this.client);
+  }
+
+  get invitations() {
+    return createInvitationsApi(this.client);
+  }
+
+  get sessions() {
+    return createSessionsApi(this.client);
+  }
+
+  get emailAddresses() {
+    return createEmailAddressesApi(this.client);
   }
 }
 
