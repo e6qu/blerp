@@ -308,3 +308,27 @@ Used `console.warn()` instead of the project's pino structured logger.
 When a key wasn't found in the DB, the middleware had a fallback that allowed `pk_test_123` and `sk_test_123` in non-production environments without any DB lookup.
 
 **Fix applied:** Removed the hardcoded key fallback entirely. The seed script already creates real API keys in the demo tenant DB, so dev/test workflows use DB-backed keys.
+
+---
+
+## Open — Monite SDK example issues (discovered 2026-03-20)
+
+### BUG-21: Monite SDK example missing Tailwind CSS configuration (FIXED)
+
+**Status:** Fixed
+**Severity:** Low (cosmetic)
+**Files:** `examples/monite-sdk-parity/`
+
+The Monite SDK parity example uses Tailwind CSS utility classes throughout all pages but had no Tailwind CSS configuration.
+
+**Fix applied:** Added `tailwindcss` v3, `postcss`, `autoprefixer` deps. Created `tailwind.config.ts` (with content paths for both local and `@blerp/nextjs` sources), `postcss.config.mjs`, and `globals.css` with Tailwind directives. Imported `globals.css` in root layout.
+
+### BUG-22: Server-side currentUser() fails with placeholder secret key (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium
+**Files:** `packages/nextjs/src/server/auth.ts`, `apps/api/src/app.ts`
+
+Two issues: (a) `currentUser()` sent `BLERP_SECRET_KEY` as Bearer token, but the API only accepts JWTs. (b) The `/v1/jwks` endpoint required `X-Tenant-Id` header, but `jose.createRemoteJWKSet` sends plain GET requests.
+
+**Fix applied:** (a) `currentUser()` now prefers the session JWT from `__blerp_session` cookie for Bearer auth, falling back to `BLERP_SECRET_KEY`. (b) Mounted JWKS and OIDC discovery endpoints before `tenantMiddleware` in `app.ts` so they're publicly accessible without tenant context.

@@ -68,12 +68,17 @@ export async function currentUser(): Promise<User | null> {
   const { userId } = await auth();
   if (!userId) return null;
 
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("__blerp_session")?.value;
+
   const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
-  const secretKey = process.env.BLERP_SECRET_KEY ?? "";
+
+  // Prefer session JWT for auth (already validated by auth()), fall back to secret key
+  const bearerToken = sessionToken ?? process.env.BLERP_SECRET_KEY ?? "";
 
   const response = await fetch(`${apiUrl}/v1/users/${userId}`, {
     headers: {
-      Authorization: `Bearer ${secretKey}`,
+      Authorization: `Bearer ${bearerToken}`,
     },
     cache: "no-store",
   });

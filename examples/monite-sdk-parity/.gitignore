@@ -1,0 +1,13 @@
+# E2E test artifacts
+test-results/
+tests/.e2e-session.json
+tests/screenshots/
+playwright-report/
+
+# Local env
+.env.local
+.env*.local
+
+# Next.js
+.next/
+out/

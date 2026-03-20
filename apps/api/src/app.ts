@@ -16,6 +16,7 @@ import * as quotaController from "./v1/controllers/quota.controller";
 import * as userMetadataController from "./v1/controllers/user-metadata.controller";
 import * as organizationMetadataController from "./v1/controllers/organization-metadata.controller";
 import * as uploadController from "./v1/controllers/upload.controller";
+import * as discoveryController from "./v1/controllers/discovery.controller";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
@@ -55,6 +56,11 @@ app.use(
     keyPrefix: "rl:global",
   }),
 );
+
+// Public discovery endpoints — no tenant context needed
+app.get("/v1/jwks", discoveryController.getJWKS);
+app.get("/.well-known/openid-configuration", discoveryController.getOIDCConfig);
+app.get("/.well-known/jwks.json", discoveryController.getJWKS);
 
 // API routes - all require tenant isolation
 app.use("/v1", tenantMiddleware);

@@ -1,6 +1,7 @@
 import { BlerpProvider } from "@blerp/nextjs";
 import { OrganizationSwitcher } from "@blerp/nextjs";
 import React from "react";
+import "./globals.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
