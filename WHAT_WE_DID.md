@@ -862,3 +862,38 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 
 - Tests run: `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), `bun run test` (46/46 pass), `bun run test:e2e` (155/155 pass)
 - Files touched: `webauthn.service.ts`, `auth-guard.ts`, `userinfo.controller.ts`, `auth.routes.ts`, `keys.ts`, `quota.service.ts`, `quota.controller.ts`, `oauth.service.ts`, `oauth.controller.ts`, `hooks.ts`, `BUGS.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`
+
+## 2026-03-20 — Systemic Auth Redesign (Session JWTs Replace X-User-Id)
+
+- Summary: Replaced the trusted X-User-Id header with signed RS256 JWT session tokens across API, Dashboard, and Next.js SDK.
+
+### Phase 1: API — Issue & Validate Session JWTs
+
+- `createSessionForUser()` now signs JWTs with `sub` (userId) and `sid` (sessionId) claims instead of returning `tok_<nanoid>`
+- `authMiddleware` validates user session JWTs (sub claim) alongside M2M tokens (client_id + scope)
+- Invalid Bearer tokens return 401 instead of silently falling through
+- X-User-Id fallback restricted to non-production environments with warning log
+- Express type augmentations consolidated into `src/types/express.d.ts`, removing `eslint-disable @typescript-eslint/no-namespace` from both middleware files
+- Localhost port fallback fixed (3001 → 3000) in Next.js SDK
+- 3 new integration tests: JWT auth flow (signup→password→signin→JWT→userinfo), invalid JWT rejection, missing auth rejection
+
+### Phase 2: Dashboard — Use JWT from Sign-in
+
+- Removed `DEMO_USER_ID` constant entirely
+- Added session state management: `setSession()`, `clearSession()`, `getSessionUserId()`, `getAuthHeaders()`
+- Sign-in stores JWT in localStorage on successful password, TOTP, or magic link auth
+- `openapi-fetch` client uses dynamic auth middleware instead of static headers
+- Updated 11 hooks + 2 components to use `getSessionUserId()` and `getAuthHeaders()`
+- Fixed incorrect hardcoded user IDs: `useRoles` ("admin"), `useRestrictions`/`useWebhooks` ("user_demo")
+
+### Phase 3: Next.js SDK — JWT Cookies + Server Verification
+
+- `BlerpProvider` reads `__blerp_session` cookie for API authentication
+- `useSignIn` stores JWT cookie on successful first/second factor
+- `useSignUp` stores JWT cookie on successful verification
+- `signOut()` clears `__blerp_session` cookie
+- Server-side `auth()` verifies JWTs via remote JWKS (`jose.jwtVerify` + `createRemoteJWKSet`) instead of `jose.decodeJwt`
+- `currentUser()` uses Bearer token only (no X-User-Id header)
+
+- Tests run: `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), `bun run test` (49/49 pass)
+- Files touched: `auth.service.ts`, `middleware/auth.ts`, `middleware/tenant.ts`, `types/express.d.ts`, `auth.integration.test.ts`, `server/auth.ts`, `api.ts`, `SignIn.tsx`, `ConnectedAccounts.tsx`, `LeaveOrganizationModal.tsx`, `useUser.ts`, `useEmails.ts`, `usePhoneNumbers.ts`, `useTotp.ts`, `useDeleteAccount.ts`, `useSessions.ts`, `usePasskeys.ts`, `useUpload.ts`, `useRoles.ts`, `useRestrictions.ts`, `useWebhooks.ts`, `BlerpProvider.tsx`, `hooks.ts`

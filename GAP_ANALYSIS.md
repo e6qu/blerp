@@ -194,7 +194,7 @@ The `with-nextjs-and-clerk-auth` Monite demo can run against Blerp today with **
 
 | #   | Issue                                | File                     | Severity | Status                                                |
 | --- | ------------------------------------ | ------------------------ | -------- | ----------------------------------------------------- |
-| Q1  | **Userinfo uses X-User-Id header**   | `userinfo.controller.ts` | Medium   | ✅ Fixed — authMiddleware added, uses req.user?.id    |
+| Q1  | **Userinfo uses X-User-Id header**   | `userinfo.controller.ts` | Medium   | ✅ Fixed — JWT auth, X-User-Id blocked in production  |
 | Q2  | **Quota service returns mock data**  | `quota.service.ts`       | Medium   | ✅ Fixed — queries real DB counts via drizzle count() |
 | Q3  | **OAuth mock fallback**              | `oauth.service.ts`       | Low      | ✅ Fixed — throws clear error when not configured     |
 | Q4  | **useSignUp().update() stub**        | `hooks.ts`               | Low      | ✅ Fixed — throws unsupported error                   |
@@ -227,7 +227,7 @@ The `with-nextjs-and-clerk-auth` Monite demo can run against Blerp today with **
 6. ✅ Real signup verification (BUG-19)   <- Done 2026-03-20
 7. ✅ Sign-in 2FA endpoint (BUG-20)       <- Done 2026-03-20
 8. ✅ Fix Q1-Q7 production quality        <- Done 2026-03-20 (PR #44)
-9. Systemic auth redesign (X-User-Id)     <- Next priority
+9. ✅ Systemic auth redesign (X-User-Id)  <- Done 2026-03-20
 10. SAML SSO (C7)                         <- only remaining P2 item
 ```
 

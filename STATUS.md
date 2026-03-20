@@ -42,6 +42,7 @@
 | 2026-03-20 | CI fix: ThemeProvider in storybook | completed | Layout.stories.tsx missing ThemeProvider decorator                                   |
 | 2026-03-20 | Production Stubs (BUG-18,19,20)    | completed | Real WebAuthn, dynamic signup codes, 2FA signin flow                                 |
 | 2026-03-20 | Production Quality (Q1-Q7)         | completed | 7 fixes: passkey authz, test keys, userinfo auth, logger, quotas, OAuth mock, stub   |
+| 2026-03-20 | Systemic Auth Redesign             | completed | Session JWTs replace X-User-Id trust: API, Dashboard, Next.js SDK all updated        |
 
 ## Summary
 
