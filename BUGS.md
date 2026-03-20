@@ -198,3 +198,37 @@ After placing SignUp and SignIn side-by-side on the home page, locators like `ge
 After renaming the "Users" nav item to "Organizations" and adding "User Management", navigation tests failed because they looked for `getByRole("link", { name: "Users" })`.
 
 **Fix applied:** Updated all navigation test locators to use the new names ("Organizations", "User Management").
+
+---
+
+## Open — Production stubs discovered 2026-03-20
+
+### BUG-18: WebAuthn service is fully mocked — no real passkey verification (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — passkeys non-functional on any non-localhost domain
+**Files:** `apps/api/src/v1/services/webauthn.service.ts`
+
+The entire WebAuthn service used mock data: hardcoded RP ID `"localhost"`, `"mock_public_key"`, no crypto verification.
+
+**Fix applied:** Rewrote service using `@simplewebauthn/server`. Registration now generates real challenges (stored in TTL-based TransientStore), verifies credential responses cryptographically, stores real public keys (base64url), and uses configurable RP ID/origin via `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN` env vars (fallbacks to `BLERP_API_URL` hostname or `"localhost"`).
+
+### BUG-19: Signup verification code is hardcoded to "123456" (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — no real email verification possible
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+`attemptSignup()` checked `if (code !== "123456")` — hardcoded test code.
+
+**Fix applied:** `createSignup()` now generates a random 6-digit code via `otp.generateNumericCode()`, stores it in a `TransientStore` (15 min TTL) keyed by signupId. `attemptSignup()` validates against the stored code and uses the stored email (preventing tampering). In non-production, the code is returned in the response as `verification_code` for testing. Updated integration tests to use dynamic codes.
+
+### BUG-20: useSignIn().attemptSecondFactor() is stubbed — 2FA bypass (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — TOTP MFA during sign-in is not validated
+**Files:** `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/auth.controller.ts`, `packages/nextjs/src/client/hooks.ts`, `apps/dashboard/src/components/auth/SignIn.tsx`
+
+The `attemptSecondFactor()` hook always returned `{ status: "complete" }` without any API call.
+
+**Fix applied:** Backend `attemptSignin()` now checks `user.totpEnabled` — if true, stores pending signin in TransientStore (5 min TTL) and returns `{ status: "needs_second_factor" }` instead of creating a session. New `attemptSecondFactor()` method validates TOTP code (or backup code), consumes the pending signin, and creates the session. Controller routes `code`-only requests to second factor. Client hook wired to call the real endpoint. Dashboard SignIn component adds TOTP step UI.

@@ -2,22 +2,9 @@
 
 ### Current Status
 
-46/46 API tests, 155/155 E2E tests passing. All P0 security and P1 quality gaps resolved (S1-S5). SDK hardening + Custom Roles (C13) + M2M Tokens (C5) + JWT verification + persistent JWKS + real hooks + real OAuth all complete.
+46/46 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing, CI green. All P0 security, P1 quality gaps, and production stubs (BUG-18, BUG-19, BUG-20) are resolved.
 
-### Priority 0: Security — ✅ All resolved
-
-- ~~S3: M2M JWT signature not verified~~ — Fixed 2026-03-20: `jwtVerify()` with unified persistent key pair
-
-### Priority 1: Production Quality — ✅ All resolved
-
-- ~~S4: JWKS key pair in-memory~~ — Fixed 2026-03-20: PEM persistence to `keys/` directory
-- ~~S1: `useSignIn()` hook stubbed~~ — Fixed 2026-03-20: wired to real API
-- ~~S2: `useSignUp()` hook stubbed~~ — Fixed 2026-03-20: wired to real API
-- ~~S5: OAuth token exchange mocked~~ — Fixed 2026-03-20: real GitHub/Google exchange with env var fallback
-
-### Priority 2: Remaining — 1 item
-
-**Backend:**
+### Priority 1: Remaining — 1 item
 
 - C7: SAML connections (enterprise SSO) — complex XML protocol, security-critical, 4-6 week effort. Deferred.
 
@@ -41,18 +28,15 @@
 | ---------------------------- | ------------------------ |
 | M9 Production Infrastructure | Requires AWS credentials |
 
-### Completed
+### Completed (recent)
 
-| Milestone                         | Status                                                                                                                      |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| M1-M8                             | Core platform, enterprise, SDKs, E2E testing                                                                                |
-| M12                               | Dashboard feature completion                                                                                                |
-| Dashboard UI Gaps P0+P1           | 9 phases (sign in, deletions, accounts, pagination, toasts, skeletons, sessions, users, avatars)                            |
-| Monite SDK Parity (M1-M6)         | OrgSwitcher props, createRouteMatcher, clerkClient factory                                                                  |
-| Clerk P1 Quality (C9-C11, D1, D6) | User search/sort, org pagination, audit filtering, error boundaries                                                         |
-| P2 Production Polish Batch 1      | Passkey rename, user restore, revoke-all sessions, phone CRUD, leave/edit org, responsive layout, form validation           |
-| P2 Production Polish Batch 2      | Session IP capture (C12), allowlist/blocklist (C1+C2), OrganizationList (U1), magic links (C3), webhook delivery logs (D11) |
-| P2/P3 Batch 3                     | Dark mode (U2), global search (D8), keyboard shortcuts (D9), redirect URLs (C6), testing tokens (C4), bulk operations (D10) |
-| SDK Quality Hardening             | Fixed @blerp/nextjs stubs: real currentUser(), BlerpProvider auth hydration, real has(), real SignIn/SignUp                 |
-| Custom Roles (C13)                | DB table, CRUD service/controller/routes, dynamic RBAC, dashboard role dropdown                                             |
-| M2M Tokens (C5)                   | DB table, client_credentials grant, CRUD endpoints, Bearer token middleware                                                 |
+| Item                                    | Status              |
+| --------------------------------------- | ------------------- |
+| S3: M2M JWT verification                | ✅ Fixed 2026-03-20 |
+| S4: Persistent JWKS key pair            | ✅ Fixed 2026-03-20 |
+| S1+S2: Real useSignIn/useSignUp hooks   | ✅ Fixed 2026-03-20 |
+| S5: Real OAuth token exchange           | ✅ Fixed 2026-03-20 |
+| CI: ThemeProvider in Layout storybook   | ✅ Fixed 2026-03-20 |
+| Custom Roles (C13) + M2M Tokens (C5)    | ✅ Fixed 2026-03-20 |
+| SDK Quality Hardening                   | ✅ Fixed 2026-03-20 |
+| Dashboard UI Gaps (P0+P1+P2, 3 batches) | ✅ Fixed 2026-03-19 |

@@ -359,7 +359,19 @@ export function useSignIn() {
         setStatus((prev) => ({ ...prev, status: "failed" }));
         throw error;
       }
-      const response = data as { session: { id: string }; tokens: { access_token: string } };
+      const response = data as {
+        session?: { id: string };
+        tokens?: { access_token: string };
+        status?: string;
+        signin_id?: string;
+      };
+
+      // If the server says 2FA is needed, transition to needs_second_factor
+      if (response.status === "needs_second_factor" || !response.session) {
+        setStatus((prev: SignInStatus) => ({ ...prev, status: "needs_second_factor" }));
+        return { status: "needs_second_factor" as const };
+      }
+
       const result = { status: "complete" as const, session_id: response.session.id };
       setStatus((prev: SignInStatus) => ({ ...prev, status: "complete" }));
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
@@ -369,12 +381,20 @@ export function useSignIn() {
     }
   };
 
-  // TODO: Wire to TOTP verification endpoint when available
-  const attemptSecondFactor = async (_params: { strategy: string; code: string }) => {
+  const attemptSecondFactor = async (params: { strategy: string; code: string }) => {
     if (!status.id) throw new Error("No sign-in attempt in progress");
     setIsLoading(true);
     try {
-      const result = { status: "complete", session_id: `sess_${Date.now()}` } as const;
+      const { data, error } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
+        params: { path: { signin_id: status.id } },
+        body: { code: params.code },
+      });
+      if (error) {
+        setStatus((prev) => ({ ...prev, status: "failed" }));
+        throw error;
+      }
+      const response = data as { session: { id: string }; tokens: { access_token: string } };
+      const result = { status: "complete" as const, session_id: response.session.id };
       setStatus((prev: SignInStatus) => ({ ...prev, status: "complete" }));
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       return result;

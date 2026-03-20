@@ -447,16 +447,22 @@ _Objective_: Close critical UI gaps identified in `GAP_ANALYSIS.md` to reach Cle
 | C4   | Testing tokens (dev-only POST /auth/testing-tokens)              | ✅ Complete |
 | D10  | Bulk operations (POST /users/bulk + multi-select UI)             | ✅ Complete |
 
-### Remaining — P0 Security (1 item)
+### ✅ Resolved — P0 Security
 
-- **S3**: M2M JWT signature verification — `middleware/auth.ts` uses `decodeJwt()` not `jwtVerify()`, tokens can be forged
+- ~~S3~~: M2M JWT signature verification — fixed 2026-03-20 (`jwtVerify` with unified key pair)
 
-### Remaining — P1 Quality (4 items)
+### ✅ Resolved — Prior P1 Quality (S1-S5)
 
-- **S4**: JWKS key pair persistence — in-memory only, lost on restart
-- **S1**: `useSignIn()` hook — stubbed, returns mock state
-- **S2**: `useSignUp()` hook — stubbed, returns mock state
-- **S5**: OAuth token exchange — mock implementation in `oauth.service.ts`
+- ~~S4~~: JWKS key pair persistence — fixed 2026-03-20 (PEM files in `keys/`)
+- ~~S1~~: `useSignIn()` hook — fixed 2026-03-20 (wired to real API)
+- ~~S2~~: `useSignUp()` hook — fixed 2026-03-20 (wired to real API)
+- ~~S5~~: OAuth token exchange — fixed 2026-03-20 (real GitHub/Google)
+
+### Remaining — P1 Production Stubs (3 items, discovered 2026-03-20 fresh audit)
+
+- **BUG-18**: WebAuthn mock — RP ID hardcoded to "localhost", no crypto verification, passkeys fail on prod
+- **BUG-19**: Signup verification code hardcoded to "123456" — no email delivery service
+- **BUG-20**: `useSignIn().attemptSecondFactor()` stub — always returns success, ignores TOTP code
 
 ### Remaining — P2 (1 item)
 
@@ -466,7 +472,7 @@ _Objective_: Close critical UI gaps identified in `GAP_ANALYSIS.md` to reach Cle
 
 - Theming (D13), i18n (D14), email/SMS templates (C8), notification center (D15), appearance customization (U3), SMS MFA (U6)
 
-**Test Results**: 46/46 API unit tests, 155/155 E2E tests — all passing.
+**Test Results**: 46/46 API unit tests, 155/155 E2E tests, 16/16 Storybook tests — all passing. CI green.
 
 ---
 
