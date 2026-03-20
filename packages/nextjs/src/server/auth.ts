@@ -52,7 +52,7 @@ export async function currentUser(): Promise<User | null> {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3001";
+  const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
   const secretKey = process.env.BLERP_SECRET_KEY ?? "";
 
   const response = await fetch(`${apiUrl}/v1/users/${userId}`, {
