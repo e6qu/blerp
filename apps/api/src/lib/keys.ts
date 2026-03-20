@@ -3,6 +3,7 @@ import { jwt } from "./jwt";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { logger } from "./logger";
 
 interface KeyPair {
   publicKey: CryptoKey;
@@ -39,9 +40,9 @@ async function loadOrGenerate(): Promise<KeyPair> {
     writeFileSync(PRIVATE_PEM_PATH, privatePem, { mode: 0o600 });
     writeFileSync(PUBLIC_PEM_PATH, publicPem, { mode: 0o644 });
   } catch (err) {
-    console.warn(
-      "[keys] Could not persist key pair to disk — using in-memory only:",
-      (err as Error).message,
+    logger.warn(
+      { error: (err as Error).message },
+      "Could not persist key pair to disk — using in-memory only",
     );
   }
 

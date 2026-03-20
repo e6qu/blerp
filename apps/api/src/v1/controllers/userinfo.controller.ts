@@ -3,9 +3,7 @@ import * as schema from "../../db/schema";
 import { eq } from "drizzle-orm";
 
 export async function getUserInfo(req: Request, res: Response) {
-  // In a real app, this would use the access token from Authorization header
-  // For now, we mock it with X-User-Id for testing
-  const userId = req.header("X-User-Id");
+  const userId = req.user?.id;
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;

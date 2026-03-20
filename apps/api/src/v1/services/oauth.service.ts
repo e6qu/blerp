@@ -43,10 +43,7 @@ const PROVIDER_ENDPOINTS: Record<string, ProviderEndpoints> = {
 };
 
 export class OAuthService {
-  constructor(
-    private db: BetterSQLite3Database<typeof schema>,
-    private _tenantId: string,
-  ) {}
+  constructor(private db: BetterSQLite3Database<typeof schema>) {}
 
   private getProviderConfig(providerId: string): OAuthProviderConfig | null {
     const endpoints = PROVIDER_ENDPOINTS[providerId];
@@ -71,9 +68,9 @@ export class OAuthService {
   async getAuthorizeUrl(providerId: string, redirectUri: string) {
     const config = this.getProviderConfig(providerId);
     if (!config) {
-      // Mock fallback when env vars are not configured
-      const state = nanoid();
-      return `https://mock-oauth.com/${providerId}/authorize?client_id=mock&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+      throw new Error(
+        `OAuth provider "${providerId}" is not configured. Set ${providerId.toUpperCase()}_CLIENT_ID and ${providerId.toUpperCase()}_CLIENT_SECRET environment variables.`,
+      );
     }
 
     const state = nanoid();
@@ -90,7 +87,9 @@ export class OAuthService {
   async handleCallback(providerId: string, code: string, redirectUri?: string) {
     const config = this.getProviderConfig(providerId);
     if (!config) {
-      return this.handleMockCallback(providerId);
+      throw new Error(
+        `OAuth provider "${providerId}" is not configured. Set ${providerId.toUpperCase()}_CLIENT_ID and ${providerId.toUpperCase()}_CLIENT_SECRET environment variables.`,
+      );
     }
 
     // 1. Exchange code for access token
@@ -161,12 +160,6 @@ export class OAuthService {
 
     // 4. Find or create user with real data
     return this.findOrCreateUser(providerId, providerUserId, email);
-  }
-
-  private async handleMockCallback(providerId: string) {
-    const mockExternalId = `ext_${nanoid()}`;
-    const email = `oauth_${providerId}@example.com`;
-    return this.findOrCreateUser(providerId, mockExternalId, email);
   }
 
   private async findOrCreateUser(providerId: string, providerUserId: string, email: string) {

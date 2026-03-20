@@ -1,5 +1,8 @@
 import {} from "../../lib/redis";
 import { logger } from "../../lib/logger";
+import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import * as schema from "../../db/schema";
+import { count, eq, isNull } from "drizzle-orm";
 
 export interface QuotaConfig {
   maxUsers: number;
@@ -14,7 +17,10 @@ const DEFAULT_QUOTA: QuotaConfig = {
 };
 
 export class QuotaService {
-  constructor(private tenantId: string) {}
+  constructor(
+    private tenantId: string,
+    private db: BetterSQLite3Database<typeof schema>,
+  ) {}
 
   async checkQuota(resource: keyof QuotaConfig, currentCount: number) {
     const limit = DEFAULT_QUOTA[resource];
@@ -25,11 +31,22 @@ export class QuotaService {
   }
 
   async getUsage() {
-    // In a real app, you would fetch these from the tenant DB
+    const [usersResult] = await this.db
+      .select({ total: count() })
+      .from(schema.users)
+      .where(isNull(schema.users.deletedAt));
+
+    const [orgsResult] = await this.db.select({ total: count() }).from(schema.organizations);
+
+    const [sessionsResult] = await this.db
+      .select({ total: count() })
+      .from(schema.sessions)
+      .where(eq(schema.sessions.status, "active"));
+
     return {
-      users: 10, // Mock
-      organizations: 2, // Mock
-      sessions: 5, // Mock
+      users: usersResult?.total ?? 0,
+      organizations: orgsResult?.total ?? 0,
+      sessions: sessionsResult?.total ?? 0,
       limits: DEFAULT_QUOTA,
     };
   }

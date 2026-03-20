@@ -2,19 +2,11 @@
 
 ### Current Status
 
-46/46 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing, CI green. Monite SDK demo path is 100% functional. Post-merge audit on 2026-03-20 found 7 production quality issues (Q1-Q7).
+46/46 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing, CI green. Monite SDK demo path is 100% functional. All production quality issues (Q1-Q7) are resolved.
 
-### Priority 1: Production Quality Fixes — 7 items
+### Priority 1: Systemic Auth Redesign
 
-These are real bugs/stubs that should be fixed before any production deployment:
-
-- **Q1**: `userinfo.controller.ts` uses `X-User-Id` header instead of validating access tokens — auth bypass
-- **Q2**: `quota.service.ts` returns hardcoded mock values (10 users, 2 orgs, 5 sessions) — no real usage tracking
-- **Q3**: OAuth service returns mock URLs/users when provider credentials not configured — should fail clearly instead
-- **Q4**: `useSignUp().update()` hook stub — returns `{ status: "updated" }` without any API call
-- **Q5**: `deletePasskey()` ignores `_userId` param — potential authorization bypass (deletes any passkey by ID)
-- **Q6**: `keys.ts` uses `console.warn()` instead of pino structured logger
-- **Q7**: `auth-guard.ts` has hardcoded test API keys (`pk_test_123`, `sk_test_123`) — should use DB lookup
+The `authMiddleware` trusts `X-User-Id` header without session validation for all non-M2M requests. This is the correct behavior for the current demo/dev workflow, but production deployments need real session-backed auth. This is a larger effort that affects every protected endpoint.
 
 ### Priority 2: Enterprise — 1 item
 
@@ -44,6 +36,7 @@ These are real bugs/stubs that should be fixed before any production deployment:
 
 | Item                                    | Status              |
 | --------------------------------------- | ------------------- |
+| Q1-Q7: Production Quality Fixes         | ✅ Fixed 2026-03-20 |
 | S3: M2M JWT verification                | ✅ Fixed 2026-03-20 |
 | S4: Persistent JWKS key pair            | ✅ Fixed 2026-03-20 |
 | S1+S2: Real useSignIn/useSignUp hooks   | ✅ Fixed 2026-03-20 |

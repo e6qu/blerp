@@ -5,7 +5,7 @@ import { RedirectService } from "../services/redirect.service";
 export async function authorize(req: Request, res: Response) {
   const provider = req.params.provider as string;
   const redirect_uri = req.query.redirect_uri as string;
-  const service = new OAuthService(req.tenantDb!, req.tenantId!);
+  const service = new OAuthService(req.tenantDb!);
 
   if (redirect_uri) {
     const redirectService = new RedirectService(req.tenantDb!);
@@ -27,7 +27,7 @@ export async function authorize(req: Request, res: Response) {
 export async function callback(req: Request, res: Response) {
   const provider = req.params.provider as string;
   const code = req.query.code as string;
-  const service = new OAuthService(req.tenantDb!, req.tenantId!);
+  const service = new OAuthService(req.tenantDb!);
 
   try {
     const result = await service.handleCallback(provider, code);

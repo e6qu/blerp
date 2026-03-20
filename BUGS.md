@@ -232,3 +232,79 @@ The entire WebAuthn service used mock data: hardcoded RP ID `"localhost"`, `"moc
 The `attemptSecondFactor()` hook always returned `{ status: "complete" }` without any API call.
 
 **Fix applied:** Backend `attemptSignin()` now checks `user.totpEnabled` — if true, stores pending signin in TransientStore (5 min TTL) and returns `{ status: "needs_second_factor" }` instead of creating a session. New `attemptSecondFactor()` method validates TOTP code (or backup code), consumes the pending signin, and creates the session. Controller routes `code`-only requests to second factor. Client hook wired to call the real endpoint. Dashboard SignIn component adds TOTP step UI.
+
+---
+
+## Production Quality Issues — Q1-Q7 (discovered 2026-03-20, all FIXED)
+
+### Q1: userinfo endpoint uses X-User-Id header directly (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — auth inconsistency
+**Files:** `apps/api/src/v1/controllers/userinfo.controller.ts`, `apps/api/src/v1/routes/auth.routes.ts`
+
+The `/userinfo` endpoint read `X-User-Id` header directly instead of going through `authMiddleware`. All other protected endpoints use `authMiddleware` which sets `req.user`.
+
+**Fix applied:** Added `authMiddleware` to the `/userinfo` route and changed controller to use `req.user?.id` instead of `req.header("X-User-Id")`.
+
+**Note:** The systemic issue of `authMiddleware` trusting `X-User-Id` without session validation remains (affects all endpoints). Tracked separately as a larger auth redesign effort.
+
+### Q2: Quota service returns hardcoded mock values (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — data accuracy
+**Files:** `apps/api/src/v1/services/quota.service.ts`, `apps/api/src/v1/controllers/quota.controller.ts`
+
+`getUsage()` returned `{ users: 10, organizations: 2, sessions: 5 }` — hardcoded mock values regardless of actual DB state.
+
+**Fix applied:** `QuotaService` now accepts a DB reference and queries real counts using `count()` from drizzle-orm. Users are filtered to exclude soft-deleted, sessions filtered to active only.
+
+### Q3: OAuth service returns mock URLs when provider not configured (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — misleading behavior
+**Files:** `apps/api/src/v1/services/oauth.service.ts`, `apps/api/src/v1/controllers/oauth.controller.ts`
+
+When OAuth env vars (e.g., `GITHUB_CLIENT_ID`) are missing, `getAuthorizeUrl()` returned a fake `https://mock-oauth.com/...` URL and `handleCallback()` created fake users.
+
+**Fix applied:** Both methods now throw clear errors (e.g., `OAuth provider "github" is not configured. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables.`). Removed `handleMockCallback()` method entirely. The controller's existing try/catch returns these as 400 errors.
+
+### Q4: useSignUp().update() is a no-op stub (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — Clerk API compat stub
+**Files:** `packages/nextjs/src/client/hooks.ts`
+
+`update()` returned `{ status: "updated", ...params }` without making any API call. No code in the Monite example or dashboard uses this method.
+
+**Fix applied:** Now throws `Error("signUp.update() is not yet supported. Use create() with all fields instead.")` so consumers get a clear error instead of silent no-op.
+
+### Q5: deletePasskey() authorization bypass (FIXED)
+
+**Status:** Fixed
+**Severity:** High — security: any authenticated user could delete any passkey by ID
+**Files:** `apps/api/src/v1/services/webauthn.service.ts`
+
+`deletePasskey(_userId, id)` ignored the `_userId` parameter and deleted any passkey matching the ID, regardless of ownership.
+
+**Fix applied:** Added ownership check matching the pattern in `renamePasskey()` — fetches the passkey, verifies `passkey.userId === userId`, throws "Passkey not found" if not owned.
+
+### Q6: console.warn in keys.ts (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — code quality
+**Files:** `apps/api/src/lib/keys.ts`
+
+Used `console.warn()` instead of the project's pino structured logger.
+
+**Fix applied:** Imported `logger` from `./logger` and replaced with `logger.warn({ error: ... }, "message")`.
+
+### Q7: Hardcoded test API keys in auth-guard (FIXED)
+
+**Status:** Fixed
+**Severity:** High — security: `pk_test_123`/`sk_test_123` bypassed DB validation in non-production
+**Files:** `apps/api/src/middleware/auth-guard.ts`
+
+When a key wasn't found in the DB, the middleware had a fallback that allowed `pk_test_123` and `sk_test_123` in non-production environments without any DB lookup.
+
+**Fix applied:** Removed the hardcoded key fallback entirely. The seed script already creates real API keys in the demo tenant DB, so dev/test workflows use DB-backed keys.

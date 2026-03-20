@@ -132,7 +132,13 @@ export class WebAuthnService {
     });
   }
 
-  async deletePasskey(_userId: string, id: string) {
+  async deletePasskey(userId: string, id: string) {
+    const passkey = await this.db.query.passkeys.findFirst({
+      where: eq(schema.passkeys.id, id),
+    });
+    if (!passkey || passkey.userId !== userId) {
+      throw new Error("Passkey not found");
+    }
     await this.db.delete(schema.passkeys).where(eq(schema.passkeys.id, id));
   }
 }

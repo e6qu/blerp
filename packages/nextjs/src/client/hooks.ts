@@ -488,15 +488,8 @@ export function useSignUp() {
     }
   };
 
-  // TODO: No corresponding API endpoint — stub preserved for Clerk API compat
-  const update = async (params: Record<string, unknown>) => {
-    if (!status.id) throw new Error("No sign-up attempt in progress");
-    setIsLoading(true);
-    try {
-      return { status: "updated", ...params };
-    } finally {
-      setIsLoading(false);
-    }
+  const update = async (_params: Record<string, unknown>) => {
+    throw new Error("signUp.update() is not yet supported. Use create() with all fields instead.");
   };
 
   const reset = () => {
