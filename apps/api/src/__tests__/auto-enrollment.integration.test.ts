@@ -68,7 +68,7 @@ describe("Domain Auto-enrollment Integration", () => {
   });
 
   it("should automatically enroll user in organization with verified domain", async () => {
-    // 1. Create Signup (Mocked)
+    // 1. Create Signup
     const signup = await request(app)
       .post("/v1/auth/signups")
       .set("X-Tenant-Id", tenantId)
@@ -76,12 +76,13 @@ describe("Domain Auto-enrollment Integration", () => {
 
     expect(signup.status).toBe(201);
     const signupId = signup.body.id;
+    const verificationCode = signup.body.verification_code;
 
     // 2. Attempt Signup (Verify)
     const result = await request(app)
       .post(`/v1/auth/signups/${signupId}/attempt`)
       .set("X-Tenant-Id", tenantId)
-      .send({ code: "123456", email: "user@enterprise.com" });
+      .send({ code: verificationCode, email: "user@enterprise.com" });
 
     expect(result.status).toBe(200);
     const userId = result.body.userId;
@@ -104,11 +105,12 @@ describe("Domain Auto-enrollment Integration", () => {
       .send({ email: "user@unverified.com", strategy: "email_code" });
 
     const signupId = signup.body.id;
+    const verificationCode = signup.body.verification_code;
 
     const result = await request(app)
       .post(`/v1/auth/signups/${signupId}/attempt`)
       .set("X-Tenant-Id", tenantId)
-      .send({ code: "123456", email: "user@unverified.com" });
+      .send({ code: verificationCode, email: "user@unverified.com" });
 
     const userId = result.body.userId;
 

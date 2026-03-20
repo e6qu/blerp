@@ -1,11 +1,31 @@
 import { nanoid } from "nanoid";
+import { TOTP } from "otplib";
 import { eventBus } from "../../lib/events";
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
 import { eq, and, sql, desc, asc, like } from "drizzle-orm";
 import { deepMerge, Metadata } from "../../lib/metadata";
 import { crypto } from "../../lib/crypto";
+import { otp } from "../../lib/otp";
+import { logger } from "../../lib/logger";
+import { TransientStore } from "../../lib/transient-store";
 import { RestrictionService } from "./restriction.service";
+
+interface PendingSignin {
+  userId: string;
+  identifier: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+interface PendingSignup {
+  code: string;
+  email: string;
+  strategy: string;
+}
+
+const pendingSignins = new TransientStore<PendingSignin>(5 * 60 * 1000);
+const pendingSignups = new TransientStore<PendingSignup>(15 * 60 * 1000);
 
 export class AuthService {
   constructor(
@@ -15,7 +35,17 @@ export class AuthService {
 
   async createSignup(data: { email: string; strategy: string }) {
     const signupId = `sig_${nanoid()}`;
-    return {
+    const code = otp.generateNumericCode(6);
+
+    pendingSignups.set(signupId, {
+      code,
+      email: data.email,
+      strategy: data.strategy,
+    });
+
+    logger.info({ email: data.email, code }, "Signup verification code");
+
+    const response: Record<string, unknown> = {
       id: signupId,
       status: "needs_verification",
       identifier: data.email,
@@ -25,12 +55,26 @@ export class AuthService {
         expires_at: new Date(Date.now() + 15 * 60000).toISOString(),
       },
     };
+
+    if (process.env.NODE_ENV !== "production") {
+      response.verification_code = code;
+    }
+
+    return response;
   }
 
-  async attemptSignup(signupId: string, code: string, email: string = "pending@example.com") {
-    if (code !== "123456") {
+  async attemptSignup(signupId: string, code: string, _email: string = "pending@example.com") {
+    const pending = pendingSignups.get(signupId);
+    if (!pending) {
+      throw new Error("Signup attempt expired or not found");
+    }
+
+    if (code !== pending.code) {
       throw new Error("Invalid verification code");
     }
+
+    const email = pending.email;
+    pendingSignups.delete(signupId);
 
     // Check signup restrictions
     const restrictionService = new RestrictionService(this.db);
@@ -191,7 +235,7 @@ export class AuthService {
   }
 
   async attemptSignin(
-    _signinId: string,
+    signinId: string,
     identifier: string,
     password: string,
     metadata?: { ipAddress?: string; userAgent?: string },
@@ -219,13 +263,85 @@ export class AuthService {
       throw new Error("Invalid email or password");
     }
 
-    // Create a session
+    // If TOTP is enabled, defer session creation until 2FA is verified
+    if (user.totpEnabled) {
+      pendingSignins.set(signinId, {
+        userId: user.id,
+        identifier,
+        ipAddress: metadata?.ipAddress,
+        userAgent: metadata?.userAgent,
+      });
+      return {
+        status: "needs_second_factor" as const,
+        signin_id: signinId,
+      };
+    }
+
+    return this.createSessionForUser(user.id, metadata);
+  }
+
+  async attemptSecondFactor(
+    signinId: string,
+    code: string,
+    metadata?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const pending = pendingSignins.get(signinId);
+    if (!pending) {
+      throw new Error("Sign-in attempt expired or not found");
+    }
+
+    const user = await this.getUser(pending.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Try TOTP verification
+    let verified = false;
+    if (user.totpSecret) {
+      const totp = new TOTP();
+      const result = await totp.verify(code, { secret: user.totpSecret });
+      verified = result.valid;
+    }
+
+    // Try backup codes if TOTP didn't match
+    if (!verified) {
+      const backupCodes = (user.backupCodes ?? []) as string[];
+      const codeIndex = backupCodes.indexOf(code);
+      if (codeIndex >= 0) {
+        verified = true;
+        const updatedCodes = [...backupCodes];
+        updatedCodes.splice(codeIndex, 1);
+        await this.db
+          .update(schema.users)
+          .set({ backupCodes: updatedCodes, updatedAt: new Date() })
+          .where(eq(schema.users.id, user.id));
+      }
+    }
+
+    if (!verified) {
+      throw new Error("Invalid verification code");
+    }
+
+    pendingSignins.delete(signinId);
+
+    const mergedMetadata = {
+      ipAddress: metadata?.ipAddress ?? pending.ipAddress,
+      userAgent: metadata?.userAgent ?? pending.userAgent,
+    };
+
+    return this.createSessionForUser(user.id, mergedMetadata);
+  }
+
+  private async createSessionForUser(
+    userId: string,
+    metadata?: { ipAddress?: string; userAgent?: string },
+  ) {
     const sessionId = `ses_${nanoid()}`;
     const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const abandonAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await this.db.insert(schema.sessions).values({
       id: sessionId,
-      userId: user.id,
+      userId,
       status: "active",
       ipAddress: metadata?.ipAddress,
       userAgent: metadata?.userAgent,
@@ -237,12 +353,12 @@ export class AuthService {
     await this.db
       .update(schema.users)
       .set({ lastSignInAt: new Date(), updatedAt: new Date() })
-      .where(eq(schema.users.id, user.id));
+      .where(eq(schema.users.id, userId));
 
     return {
       session: {
         id: sessionId,
-        user_id: user.id,
+        user_id: userId,
         status: "active" as const,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

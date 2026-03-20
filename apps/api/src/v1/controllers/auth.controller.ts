@@ -41,10 +41,20 @@ export async function createSignin(req: Request, res: Response) {
 
 export async function attemptSignin(req: Request, res: Response) {
   const signinId = req.params.signin_id as string;
-  const { password, identifier } = req.body;
+  const { password, identifier, code } = req.body;
   const authService = new AuthService(req.tenantDb!, req.tenantId!);
 
   try {
+    // If code is present and password is absent, this is a second-factor attempt
+    if (code && !password) {
+      const result = await authService.attemptSecondFactor(signinId, String(code), {
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+      res.status(200).json(result);
+      return;
+    }
+
     if (!identifier) {
       res.status(400).json({ error: { message: "identifier is required" } });
       return;

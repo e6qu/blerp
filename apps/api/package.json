@@ -23,6 +23,7 @@
     "@opentelemetry/resources": "^2.5.1",
     "@opentelemetry/sdk-node": "^0.212.0",
     "@opentelemetry/semantic-conventions": "^1.39.0",
+    "@simplewebauthn/server": "^13.3.0",
     "argon2": "^0.44.0",
     "better-sqlite3": "^12.6.2",
     "cookie-parser": "^1.4.7",

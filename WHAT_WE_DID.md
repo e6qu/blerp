@@ -749,3 +749,58 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 
 - Tests run: `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), `bun run test` (46/46 pass, 16 files), `bun run test:e2e` (155/155 pass)
 - Files touched: `apps/api/src/lib/keys.ts` (new), `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/controllers/discovery.controller.ts`, `apps/api/src/v1/controllers/m2m.controller.ts`, `apps/api/src/v1/services/oauth.service.ts`, `apps/api/src/__tests__/server-smoke.test.ts`, `packages/nextjs/src/client/hooks.ts`, `.gitignore`, `GAP_ANALYSIS.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`
+
+## 2026-03-20 — CI Fix: ThemeProvider in Storybook Decorator
+
+- Summary: CI Build job failed because `Layout.stories.tsx` rendered `<Layout />` without `<ThemeProvider>` wrapper. Layout calls `useTheme()` which requires the context. Also committed all 110 prior uncommitted files from the gap-analysis branch (new controllers, services, dashboard components, hooks, drizzle migrations).
+- Tests run: `bun run test` (dashboard storybook — 16/16 pass), CI green
+- Files touched: `apps/dashboard/src/components/Layout.stories.tsx`
+
+## 2026-03-20 — Fresh Audit: Remaining Stubs and Mock Implementations
+
+- Summary: Deep audit of entire codebase revealed 3 remaining production-impacting stubs not yet documented:
+  1. **BUG-18: WebAuthn service is fully mocked** — `webauthn.service.ts` hardcodes RP ID to "localhost", user name to "user@example.com", public key to "mock_public_key". No real cryptographic verification occurs. Passkeys won't work on production domains.
+  2. **BUG-19: Signup verification code is hardcoded** — `auth.service.ts:31` checks `code !== "123456"`. No real email/OTP delivery exists. All signup verification requires exactly "123456".
+  3. **BUG-20: useSignIn().attemptSecondFactor() is stubbed** — `hooks.ts` always returns success for 2FA step without calling any API. TOTP codes are not validated during sign-in.
+- Tests run: N/A (audit only)
+- Files touched: `BUGS.md`, `GAP_ANALYSIS.md`, `STATUS.md`, `DO_NEXT.md`, `PLAN.md`, `WHAT_WE_DID.md`
+
+## 2026-03-20 — Fix Production Stubs (BUG-18, BUG-19, BUG-20)
+
+- Summary: Fixed all 3 remaining production stubs discovered during the fresh audit.
+
+### Phase 0: Shared Infrastructure
+
+- New `TransientStore<T>` class (`apps/api/src/lib/transient-store.ts`) — typed, TTL-based in-memory Map used by all three fixes for short-lived state (signin pending, signup codes, WebAuthn challenges).
+
+### Phase 1: BUG-20 — Sign-in 2FA Step
+
+- `attemptSignin()` now checks `user.totpEnabled` — if true, stores pending signin in TransientStore (5 min TTL) and returns `{ status: "needs_second_factor" }` instead of creating session
+- New `attemptSecondFactor()` method validates TOTP code via `otplib TOTP.verify()`, falls back to backup codes (consuming used code), creates session on success
+- New `createSessionForUser()` private helper extracted to avoid duplication
+- Controller routes `code`-only requests (no password) to `attemptSecondFactor()`
+- Client hook `attemptFirstFactor()` detects `needs_second_factor` response and transitions state
+- Client hook `attemptSecondFactor()` wired to real `POST /v1/auth/signins/{id}/attempt` with `{ code }`
+- Dashboard `SignIn.tsx` adds `"totp"` step with 6-digit input, autoComplete="one-time-code"
+
+### Phase 2: BUG-19 — Signup Verification Code
+
+- `createSignup()` generates random 6-digit code via `otp.generateNumericCode()`, stores in TransientStore (15 min TTL)
+- Code logged via pino for dev/test visibility
+- In non-production, code returned in response as `verification_code`
+- `attemptSignup()` validates against stored code, uses stored email (prevents tampering)
+- Updated `auth.integration.test.ts` and `auto-enrollment.integration.test.ts` to use dynamic codes
+
+### Phase 3: BUG-18 — Real WebAuthn
+
+- Installed `@simplewebauthn/server@13.3.0`
+- Full rewrite of `webauthn.service.ts`:
+  - `generateRegistrationOptions()` uses real user data, excludes existing passkeys, configurable RP ID/name/origin via env vars
+  - `verifyRegistration()` performs real cryptographic verification, stores real public key (base64url) + counter
+  - Challenge stored in TransientStore (5 min TTL)
+- RP config reads from `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN` env vars with smart fallbacks
+
+### Verification
+
+- Tests run: `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), `bun run test` (46/46 pass), `bun run test:e2e` (155/155 pass), `cd apps/dashboard && bun run test` (16/16 pass)
+- Files touched: `apps/api/src/lib/transient-store.ts` (new), `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/auth.controller.ts`, `apps/api/src/v1/services/webauthn.service.ts`, `packages/nextjs/src/client/hooks.ts`, `apps/dashboard/src/components/auth/SignIn.tsx`, `apps/api/src/__tests__/auth.integration.test.ts`, `apps/api/src/__tests__/auto-enrollment.integration.test.ts`, `apps/api/package.json`, `BUGS.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`, `GAP_ANALYSIS.md`

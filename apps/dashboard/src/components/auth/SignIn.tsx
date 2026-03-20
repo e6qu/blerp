@@ -4,7 +4,7 @@ import { GitBranch, Mail, ArrowLeft, Wand2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMagicLink } from "../../hooks/useMagicLink";
 
-type Step = "email" | "password" | "magic-link-sent" | "magic-link-verify";
+type Step = "email" | "password" | "totp" | "magic-link-sent" | "magic-link-verify";
 
 export function SignIn() {
   const [step, setStep] = useState<Step>("email");
@@ -13,6 +13,7 @@ export function SignIn() {
   const [signinId, setSigninId] = useState<string | null>(null);
   const [magicToken, setMagicToken] = useState("");
   const [magicLinkToken, setMagicLinkToken] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const magicLink = useMagicLink();
@@ -56,8 +57,13 @@ export function SignIn() {
       if (apiError) {
         const errorData = apiError as { error?: { message?: string } };
         setError(errorData.error?.message || "Invalid credentials");
-      } else if (data.session) {
-        window.location.assign("/");
+      } else {
+        const response = data as { session?: { id: string }; status?: string };
+        if (response.status === "needs_second_factor" || !response.session) {
+          setStep("totp");
+        } else {
+          window.location.assign("/");
+        }
       }
     } finally {
       setIsSubmitting(false);
@@ -82,10 +88,33 @@ export function SignIn() {
   const handleBack = () => {
     setStep("email");
     setPassword("");
+    setTotpCode("");
     setMagicToken("");
     setMagicLinkToken(null);
     setError(null);
     magicLink.setError(null);
+  };
+
+  const handleTotpSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const { data, error: apiError } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
+        params: { path: { signin_id: signinId! } },
+        body: { code: totpCode },
+      });
+
+      if (apiError) {
+        const errorData = apiError as { error?: { message?: string } };
+        setError(errorData.error?.message || "Invalid verification code");
+      } else if ((data as { session?: { id: string } }).session) {
+        window.location.assign("/");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleMagicLinkRequest = async () => {
@@ -287,6 +316,52 @@ export function SignIn() {
             className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
           >
             {isSubmitting ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+      )}
+
+      {step === "totp" && (
+        <form onSubmit={handleTotpSubmit} className="space-y-4">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex items-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-2"
+          >
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back
+          </button>
+
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Enter the 6-digit code from your authenticator app
+          </p>
+
+          <div>
+            <label
+              htmlFor="signin-totp"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
+              Verification code
+            </label>
+            <input
+              id="signin-totp"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 shadow-sm focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none focus:ring-blue-500 dark:ring-blue-400 sm:text-sm tracking-widest text-center text-lg"
+              required
+              autoFocus
+              autoComplete="one-time-code"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            {isSubmitting ? "Verifying..." : "Verify"}
           </button>
         </form>
       )}

@@ -52,15 +52,17 @@ describe("Auth Integration", () => {
     expect(signupRes.status).toBe(201);
     expect(signupRes.body.id).toBeDefined();
     expect(signupRes.body.status).toBe("needs_verification");
+    expect(signupRes.body.verification_code).toBeDefined();
 
     const signupId = signupRes.body.id;
+    const verificationCode = signupRes.body.verification_code;
 
-    // 2. Attempt Verification
+    // 2. Attempt Verification with dynamic code
     const attemptRes = await request(app)
       .post(`/v1/auth/signups/${signupId}/attempt`)
       .set("X-Tenant-Id", tenantId)
       .send({
-        code: "123456",
+        code: verificationCode,
       });
 
     expect(attemptRes.status).toBe(200);
@@ -68,8 +70,19 @@ describe("Auth Integration", () => {
   });
 
   it("should fail verification with wrong code", async () => {
+    // First create a valid signup so we have a real pending entry
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "wrong-code@blerp.dev",
+        strategy: "password",
+      });
+
+    const signupId = signupRes.body.id;
+
     const attemptRes = await request(app)
-      .post("/v1/auth/signups/sig_123/attempt")
+      .post(`/v1/auth/signups/${signupId}/attempt`)
       .set("X-Tenant-Id", tenantId)
       .send({
         code: "wrong",
