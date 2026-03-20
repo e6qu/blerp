@@ -1,6 +1,6 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export class MembershipService {
@@ -45,5 +45,33 @@ export class MembershipService {
 
   async delete(id: string) {
     await this.db.delete(schema.memberships).where(eq(schema.memberships.id, id));
+  }
+
+  async leaveOrganization(organizationId: string, userId: string) {
+    const membership = await this.db.query.memberships.findFirst({
+      where: and(
+        eq(schema.memberships.organizationId, organizationId),
+        eq(schema.memberships.userId, userId),
+      ),
+    });
+    if (!membership) {
+      throw new Error("Membership not found");
+    }
+
+    if (membership.role === "owner") {
+      const owners = await this.db.query.memberships.findMany({
+        where: and(
+          eq(schema.memberships.organizationId, organizationId),
+          eq(schema.memberships.role, "owner"),
+        ),
+      });
+      if (owners.length <= 1) {
+        throw new Error(
+          "Cannot leave organization — you are the last owner. Transfer ownership first.",
+        );
+      }
+    }
+
+    await this.db.delete(schema.memberships).where(eq(schema.memberships.id, membership.id));
   }
 }

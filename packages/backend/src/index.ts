@@ -112,3 +112,11 @@ export function createBlerpClientFromEnv(): BlerpClient {
     secretKey: getSecretKeyOrThrow(),
   });
 }
+
+/**
+ * Clerk-compatible async factory. Returns a BlerpClient configured from env vars.
+ * Usage: `const client = await clerkClient();`
+ */
+export async function clerkClient(): Promise<BlerpClient> {
+  return createBlerpClientFromEnv();
+}

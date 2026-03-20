@@ -89,35 +89,40 @@ export function CreateWebhookModal({ isOpen, onClose }: CreateWebhookModalProps)
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center">
         <div className="fixed inset-0 bg-black/50" onClick={handleClose}></div>
-        <div className="relative z-10 w-full max-w-md rounded-xl border bg-white p-6 shadow-xl">
+        <div className="relative z-10 w-full max-w-md rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Webhook created</h2>
-            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Webhook created</h2>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
 
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Your webhook endpoint has been created. Save this signing secret now — it won&apos;t
               be shown again.
             </p>
 
-            <div className="rounded-lg bg-gray-50 p-4">
-              <label className="mb-1 block text-xs font-medium text-gray-500">Signing Secret</label>
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-4">
+              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Signing Secret
+              </label>
               <div className="flex items-center gap-2">
-                <code className="flex-1 rounded bg-gray-100 px-2 py-1.5 text-sm font-mono text-gray-800 break-all">
+                <code className="flex-1 rounded bg-gray-100 dark:bg-gray-700 px-2 py-1.5 text-sm font-mono text-gray-800 dark:text-gray-100 break-all">
                   {createdSecret}
                 </code>
                 <button
                   onClick={handleCopySecret}
-                  className="rounded p-2 hover:bg-gray-200"
+                  className="rounded p-2 hover:bg-gray-200 dark:hover:bg-gray-600"
                   title="Copy to clipboard"
                 >
                   {copied ? (
                     <Check className="h-4 w-4 text-green-600" />
                   ) : (
-                    <Copy className="h-4 w-4 text-gray-500" />
+                    <Copy className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                   )}
                 </button>
               </div>
@@ -138,17 +143,23 @@ export function CreateWebhookModal({ isOpen, onClose }: CreateWebhookModalProps)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose}></div>
-      <div className="relative z-10 w-full max-w-lg rounded-xl border bg-white p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Add webhook</h2>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Add webhook</h2>
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="url" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="url"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
               Endpoint URL
             </label>
             <input
@@ -156,31 +167,33 @@ export function CreateWebhookModal({ isOpen, onClose }: CreateWebhookModalProps)
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm dark:bg-gray-800 dark:text-gray-100"
               placeholder="https://example.com/webhooks"
               required
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Webhook payloads will be sent to this URL via POST requests.
             </p>
           </div>
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="block text-sm font-medium text-gray-700">Events</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                Events
+              </label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={selectAll}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Select all
                 </button>
-                <span className="text-gray-300">|</span>
+                <span className="text-gray-300 dark:text-gray-600">|</span>
                 <button
                   type="button"
                   onClick={deselectAll}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Deselect all
                 </button>
@@ -190,23 +203,23 @@ export function CreateWebhookModal({ isOpen, onClose }: CreateWebhookModalProps)
               {AVAILABLE_EVENTS.map((event) => (
                 <label
                   key={event.id}
-                  className="flex items-center gap-2 rounded-lg border p-2 cursor-pointer hover:bg-gray-50"
+                  className="flex items-center gap-2 rounded-lg border dark:border-gray-600 p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <input
                     type="checkbox"
                     checked={selectedEvents.has(event.id)}
                     onChange={() => toggleEvent(event.id)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-800"
                   />
-                  <span className="text-sm text-gray-700">{event.label}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-200">{event.label}</span>
                 </label>
               ))}
             </div>
           </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-3">
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3">
+              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
             </div>
           )}
 
@@ -214,7 +227,7 @@ export function CreateWebhookModal({ isOpen, onClose }: CreateWebhookModalProps)
             <button
               type="button"
               onClick={handleClose}
-              className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Cancel
             </button>

@@ -1,10 +1,20 @@
 import { Request, Response } from "express";
 import { OAuthService } from "../services/oauth.service";
+import { RedirectService } from "../services/redirect.service";
 
 export async function authorize(req: Request, res: Response) {
   const provider = req.params.provider as string;
   const redirect_uri = req.query.redirect_uri as string;
   const service = new OAuthService(req.tenantDb!, req.tenantId!);
+
+  if (redirect_uri) {
+    const redirectService = new RedirectService(req.tenantDb!);
+    const allowed = await redirectService.isAllowed(redirect_uri);
+    if (!allowed) {
+      res.status(400).json({ error: { message: "redirect_uri is not in the allowed list" } });
+      return;
+    }
+  }
 
   try {
     const url = await service.getAuthorizeUrl(provider, redirect_uri);

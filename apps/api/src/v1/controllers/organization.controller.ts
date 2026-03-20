@@ -49,11 +49,20 @@ export async function createOrganization(req: Request, res: Response) {
 }
 
 export async function listOrganizations(req: Request, res: Response) {
-  const { domain } = req.query as { domain?: string };
+  const { domain, limit, offset, query } = req.query as {
+    domain?: string;
+    limit?: string;
+    offset?: string;
+    query?: string;
+  };
   const cacheKey = `blerp:orgs:${req.tenantId}`;
 
-  if (!domain) {
-    const cached = await cache.get<{ data: Organization[] }>(cacheKey);
+  const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+  const parsedOffset = offset ? parseInt(offset, 10) : undefined;
+
+  // Only use cache for non-paginated, non-filtered requests
+  if (!domain && !parsedLimit && !parsedOffset && !query) {
+    const cached = await cache.get<{ data: Organization[]; meta?: { total: number } }>(cacheKey);
     if (cached) {
       return res.status(200).json(cached);
     }
@@ -61,10 +70,10 @@ export async function listOrganizations(req: Request, res: Response) {
 
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
-  const orgs = await service.list({ domain });
-  const mappedOrgs = orgs.map(mapOrganization);
-  const response = { data: mappedOrgs };
-  if (!domain) {
+  const result = await service.list({ domain, query, limit: parsedLimit, offset: parsedOffset });
+  const mappedOrgs = result.data.map(mapOrganization);
+  const response = { data: mappedOrgs, meta: { total: result.totalCount } };
+  if (!domain && !parsedLimit && !parsedOffset && !query) {
     await cache.set(cacheKey, response, 300);
   }
   res.status(200).json(response);

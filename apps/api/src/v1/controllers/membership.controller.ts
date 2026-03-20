@@ -89,3 +89,20 @@ export async function deleteMembership(req: Request, res: Response) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
 }
+
+export async function leaveOrganization(req: Request, res: Response) {
+  const organizationId = req.params.organization_id as string;
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: { message: "Unauthorized" } });
+    return;
+  }
+  const service = new MembershipService(req.tenantDb!);
+
+  try {
+    await service.leaveOrganization(organizationId, userId);
+    res.status(204).send();
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}

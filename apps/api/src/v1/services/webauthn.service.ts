@@ -33,6 +33,19 @@ export class WebAuthnService {
     return this.db.select().from(schema.passkeys).where(eq(schema.passkeys.userId, userId));
   }
 
+  async renamePasskey(userId: string, id: string, name: string) {
+    const passkey = await this.db.query.passkeys.findFirst({
+      where: eq(schema.passkeys.id, id),
+    });
+    if (!passkey || passkey.userId !== userId) {
+      throw new Error("Passkey not found");
+    }
+    await this.db.update(schema.passkeys).set({ name }).where(eq(schema.passkeys.id, id));
+    return this.db.query.passkeys.findFirst({
+      where: eq(schema.passkeys.id, id),
+    });
+  }
+
   async deletePasskey(userId: string, id: string) {
     await this.db.delete(schema.passkeys).where(eq(schema.passkeys.id, id));
   }

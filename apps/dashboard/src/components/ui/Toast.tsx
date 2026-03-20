@@ -58,9 +58,10 @@ const iconMap = {
 };
 
 const colorMap = {
-  success: "bg-green-50 border-green-200 text-green-800",
-  error: "bg-red-50 border-red-200 text-red-800",
-  info: "bg-blue-50 border-blue-200 text-blue-800",
+  success: "bg-green-50 dark:bg-green-900/30 border-green-200 text-green-800 dark:text-green-300",
+  error:
+    "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-400",
+  info: "bg-blue-50 dark:bg-blue-900/30 border-blue-200 text-blue-800 dark:text-blue-400",
 };
 
 const iconColorMap = {

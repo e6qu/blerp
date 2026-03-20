@@ -15,4 +15,5 @@ test-results/
 
 # Generated at runtime
 apps/api/tenants/
+keys/
 apps/docs/.vitepress/cache/

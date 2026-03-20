@@ -4,6 +4,8 @@ import { UsageDashboard } from "./UsageDashboard";
 import { ApiKeysList } from "./ApiKeysList";
 import { ProjectSettingsForm } from "./ProjectSettingsForm";
 import { DeleteProjectModal } from "./DeleteProjectModal";
+import { SignupRestrictions } from "./SignupRestrictions";
+import { RedirectUrlsList } from "./RedirectUrlsList";
 import { useProject } from "../../hooks/useProject";
 
 type TabKey = "general" | "audit" | "usage";
@@ -15,18 +17,18 @@ export function SettingsPage() {
 
   return (
     <div className="p-8">
-      <div className="mx-auto max-w-4xl rounded-xl border bg-white shadow-sm overflow-hidden">
-        <div className="bg-gray-50 border-b px-8 py-4">
-          <h2 className="text-xl font-bold text-gray-900">Settings</h2>
+      <div className="mx-auto max-w-4xl rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700 px-8 py-4">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Settings</h2>
         </div>
 
-        <div className="flex border-b overflow-x-auto">
+        <div className="flex border-b dark:border-gray-700 overflow-x-auto">
           <button
             onClick={() => setActiveTab("general")}
             className={`px-8 py-3 text-sm font-medium whitespace-nowrap ${
               activeTab === "general"
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
+                ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
             General
@@ -35,8 +37,8 @@ export function SettingsPage() {
             onClick={() => setActiveTab("audit")}
             className={`px-8 py-3 text-sm font-medium whitespace-nowrap ${
               activeTab === "audit"
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
+                ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
             Audit Logs
@@ -45,8 +47,8 @@ export function SettingsPage() {
             onClick={() => setActiveTab("usage")}
             className={`px-8 py-3 text-sm font-medium whitespace-nowrap ${
               activeTab === "usage"
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
+                ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
             Usage
@@ -74,22 +76,38 @@ export function SettingsPage() {
 function GeneralTab({ onDeleteClick }: { onDeleteClick: () => void }) {
   return (
     <div className="space-y-6">
-      <div className="border rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">Project Settings</h3>
+      <div className="border dark:border-gray-700 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-50 mb-3">
+          Project Settings
+        </h3>
         <ProjectSettingsForm />
       </div>
 
-      <div className="border rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">API Keys</h3>
+      <div className="border dark:border-gray-700 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-50 mb-3">API Keys</h3>
         <ApiKeysList />
       </div>
 
-      <div className="border rounded-lg p-4 border-red-200 bg-red-50">
-        <h3 className="text-sm font-medium text-red-900">Danger Zone</h3>
-        <p className="text-sm text-red-700 mt-1">Delete this project and all associated data.</p>
+      <div className="border dark:border-gray-700 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-50 mb-3">
+          Signup Restrictions
+        </h3>
+        <SignupRestrictions />
+      </div>
+
+      <div className="border dark:border-gray-700 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-50 mb-3">Redirect URLs</h3>
+        <RedirectUrlsList />
+      </div>
+
+      <div className="border rounded-lg p-4 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+        <h3 className="text-sm font-medium text-red-900 dark:text-red-200">Danger Zone</h3>
+        <p className="text-sm text-red-700 dark:text-red-400 mt-1">
+          Delete this project and all associated data.
+        </p>
         <button
           onClick={onDeleteClick}
-          className="mt-3 text-sm text-red-600 hover:underline font-medium"
+          className="mt-3 text-sm text-red-600 dark:text-red-400 hover:underline font-medium"
         >
           Delete project
         </button>

@@ -43,17 +43,59 @@
 | 2026-03-19 | Dashboard UI Gaps — Phase 8 (User Management) | completed | Admin user list page with search/filter/pagination |
 | 2026-03-19 | Dashboard UI Gaps — Phase 9 (Avatars) | completed | Backend upload endpoint + AvatarUpload component |
 | 2026-03-19 | Bug fixes (BUG-11 through BUG-17) | completed | 7 test bugs fixed, all 155 E2E + 46 unit tests passing |
+| 2026-03-19 | CI lint fix + pre-commit typecheck | completed | ESLint errors fixed, typecheck added to pre-commit hook |
+| 2026-03-19 | Comprehensive gap analysis v2 | completed | Deep audit vs Clerk API + Monite SDK demo, 37 gaps identified |
+| 2026-03-19 | Monite SDK Parity (M2, M3, M5, M6) | completed | OrgSwitcher nav props, createRouteMatcher, clerkClient factory |
+| 2026-03-19 | Clerk P1 Quality (C9, C10, C11) | completed | User search/orderBy, org list pagination with meta.total |
+| 2026-03-19 | Dashboard Quality (D1, D6) | completed | Audit log filtering UI, ErrorBoundary wrapper |
+
+| 2026-03-19 | P2 Production Polish Batch | completed | Passkey rename, user restore, revoke-all, phone CRUD, leave/edit org, responsive layout, form validation |
+| 2026-03-19 | P2 Production Polish Batch 2 | completed | Session IP capture, allowlist/blocklist, OrganizationList, magic links, webhook delivery logs |
+| 2026-03-19 | P2/P3 Batch 3 — Dark Mode | completed | ThemeProvider, dark: variants on all 46 components, theme toggle, system preference detection |
+| 2026-03-19 | P2/P3 Batch 3 — Global Search | completed | Command palette (Cmd+K), debounced user/org search, org query backend |
+| 2026-03-19 | P2/P3 Batch 3 — Keyboard Shortcuts | completed | useKeyboardShortcuts hook, Cmd+K search, Cmd+Shift+D dark mode toggle |
+| 2026-03-19 | P2/P3 Batch 3 — Redirect URLs | completed | Backend CRUD + OAuth validation + settings UI |
+| 2026-03-19 | P2/P3 Batch 3 — Testing Tokens | completed | Dev-only POST /auth/testing-tokens endpoint |
+| 2026-03-19 | P2/P3 Batch 3 — Bulk Operations | completed | POST /users/bulk + multi-select UI + floating action bar |
+
+| 2026-03-20 | SDK Quality Hardening | completed | Fixed @blerp/nextjs stubs: real currentUser(), BlerpProvider auth hydration, real has() permission check |
+| 2026-03-20 | SDK SignIn/SignUp Components | completed | Real two-step auth flow components for @blerp/nextjs (replacing placeholders) |
+| 2026-03-20 | Custom Roles (C13) | completed | DB table, CRUD service/controller/routes, dynamic RBAC resolution, dashboard role dropdown |
+| 2026-03-20 | M2M Tokens (C5) | completed | DB table, client_credentials OAuth2 grant, CRUD endpoints, Bearer token auth middleware |
+| 2026-03-20 | P0 Security: M2M JWT verification (S3) | completed | Replaced decodeJwt() with jwtVerify() using unified key pair |
+| 2026-03-20 | P1: Persistent JWKS key pair (S4) | completed | New keys.ts module, PEM persistence to keys/ dir |
+| 2026-03-20 | P1: Real useSignIn/useSignUp hooks (S1+S2) | completed | Wired to POST /v1/auth/signins and /signups endpoints |
+| 2026-03-20 | P1: Real OAuth token exchange (S5) | completed | GitHub/Google real exchange with env var fallback to mock |
+
+| 2026-03-20 | Deep audit of SDK + API | completed | Found 5 new gaps: M2M JWT not verified (P0), stubbed hooks, in-memory JWKS, mock OAuth |
 
 ## Summary
 
-All development work complete through M8, M12, and Dashboard UI Gap Analysis:
+All development work complete through M8, M12, Dashboard UI Gap Analysis (P0+P1), Monite SDK parity, Clerk P1 quality gaps, P2 Production Polish (Batches 1-3), SDK Quality Hardening, Custom Roles, and M2M Tokens.
+
+**Monite SDK demo parity: 100% complete.** Deep audit on 2026-03-20 identified 5 gaps (1 security, 4 quality) that block real production deployment.
+
+### What's Done
 
 - **8 Core Milestones** (M1-M8): Platform foundations, enterprise features, SDKs, E2E testing
 - **M12 Dashboard Features**: Complete (Phases A, B, C)
-- **Dashboard UI Gaps**: 9 phases complete (Sign In, Deletions, Connected Accounts, Pagination, Toasts, Skeletons, Sessions/Security, User Management, Avatars)
+- **Dashboard UI Gaps**: All P0+P1+P2 items resolved (31 items across 3 batches)
+- **Monite SDK 100% Parity**: All M1-M6 gaps closed
+- **SDK Quality Hardening**: Fixed critical @blerp/nextjs stubs (currentUser, BlerpProvider, has(), SignIn/SignUp)
+- **Custom Roles (C13)**: Fine-grained RBAC with custom permissions per org
+- **M2M Tokens (C5)**: Machine-to-machine auth with OAuth2 client_credentials grant
+- **Clerk API Coverage**: 77+ endpoints, 13/14 Clerk features implemented
+- **Dashboard Features**: Dark mode, global search, keyboard shortcuts, bulk ops, responsive layout, form validation, redirect URLs, etc.
 - **Test Suite**: 46/46 API unit tests, 155/155 E2E tests — all passing
-- **Engineering Standards**: Error handling, CI/CD optimization, strict type safety
+- **Engineering Standards**: Error handling, CI/CD, strict type safety, lint+typecheck pre-commit
+
+### What Remains (from GAP_ANALYSIS.md)
+
+| Priority | Items | Details                                                                                                                    |
+| -------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
+| P0       | 1     | M2M JWT signature verification (S3) — security vulnerability                                                               |
+| P1       | 4     | JWKS persistence (S4), useSignIn/useSignUp hooks (S1+S2), real OAuth exchange (S5)                                         |
+| P2       | 1     | SAML connections (C7) — enterprise SSO, 4-6 week effort                                                                    |
+| P3       | 6     | Theming API (U3), i18n (U4), email templates (C8), notification center (D15), SMS MFA (U6), appearance customization (D13) |
 
 **Blocked**: M9 (Production Infrastructure) pending AWS credentials.
-
-**Next Steps**: M10 (Multi-Language SDK), M11 (Security & Compliance), or M8 Phase H remaining E2E tests.

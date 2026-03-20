@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { BrowserRouter } from "react-router-dom";
 import { Layout } from "./Layout";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "../hooks/useTheme";
 
 const queryClient = new QueryClient();
 
@@ -11,9 +12,11 @@ const meta: Meta<typeof Layout> = {
   decorators: [
     (Story) => (
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Story />
-        </BrowserRouter>
+        <ThemeProvider>
+          <BrowserRouter>
+            <Story />
+          </BrowserRouter>
+        </ThemeProvider>
       </QueryClientProvider>
     ),
   ],

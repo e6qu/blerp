@@ -33,41 +33,41 @@ export function OrganizationInvitations({ organizationId }: { organizationId: st
       </div>
 
       {invitations && invitations.length > 0 ? (
-        <div className="overflow-hidden rounded-lg border bg-white">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden rounded-lg border bg-white dark:bg-gray-800">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Role
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {invitations.map((invitation: Invitation) => (
                 <tr key={invitation.id}>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900 dark:text-gray-50">
                     {invitation.email}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {invitation.role}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span
                       className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
                         invitation.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800"
+                          ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
                           : invitation.status === "accepted"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                            : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
                       }`}
                     >
                       {invitation.status}
@@ -78,7 +78,7 @@ export function OrganizationInvitations({ organizationId }: { organizationId: st
                       <button
                         onClick={() => handleRevoke(invitation.id)}
                         disabled={revokeInvitation.isPending}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                        className="text-red-600 dark:text-red-400 hover:text-red-900 disabled:opacity-50"
                       >
                         Revoke
                       </button>
@@ -90,7 +90,7 @@ export function OrganizationInvitations({ organizationId }: { organizationId: st
           </table>
         </div>
       ) : (
-        <div className="flex h-32 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-gray-500">
+        <div className="flex h-32 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
           <p>No invitations yet.</p>
           <p className="text-sm">Invite members to collaborate on this organization.</p>
         </div>

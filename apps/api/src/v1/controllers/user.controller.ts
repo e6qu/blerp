@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { AuthService } from "../services/auth.service";
 import type { components } from "@blerp/shared";
 import * as schema from "../../db/schema";
@@ -42,15 +42,19 @@ function mapUser(user: UserWithRelations): User {
 
 export async function listUsers(req: Request, res: Response) {
   const service = new AuthService(req.tenantDb!, req.tenantId!);
-  const { status, metadata_key, metadata_value, limit, cursor } = req.query;
+  const { status, metadata_key, metadata_value, limit, cursor, query, order_by, include_deleted } =
+    req.query;
 
   try {
     const users = await service.listUsers({
       status: status as "active" | "inactive" | "banned",
       metadataKey: metadata_key as string,
       metadataValue: metadata_value as string,
+      query: query as string,
+      orderBy: order_by as string,
       limit: limit ? parseInt(limit as string, 10) : undefined,
       cursor: cursor as string,
+      includeDeleted: include_deleted === "true",
     });
     const mappedUsers = (users as unknown as UserWithRelations[]).map((u) => mapUser(u));
     res.status(200).json({ data: mappedUsers });
@@ -109,6 +113,76 @@ export async function deleteUser(req: Request, res: Response) {
       .set({ deletedAt: new Date() })
       .where(eq(schema.users.id, id));
     res.status(204).send();
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}
+
+export async function restoreUser(req: Request, res: Response) {
+  const id = (req.params.user_id || req.params.id) as string;
+  const service = new AuthService(req.tenantDb!, req.tenantId!);
+
+  try {
+    const user = await service.getUser(id);
+    if (!user) {
+      res.status(404).json({ error: { message: "User not found" } });
+      return;
+    }
+    if (!user.deletedAt) {
+      res.status(400).json({ error: { message: "User is not deleted" } });
+      return;
+    }
+    await req
+      .tenantDb!.update(schema.users)
+      .set({ deletedAt: null, status: "active", updatedAt: new Date() })
+      .where(eq(schema.users.id, id));
+    const restored = await service.getUser(id);
+    res.status(200).json(mapUser(restored as unknown as UserWithRelations));
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}
+
+export async function bulkUpdateUsers(req: Request, res: Response) {
+  const { user_ids, action } = req.body as {
+    user_ids?: string[];
+    action?: "delete" | "ban" | "activate";
+  };
+
+  if (!user_ids?.length) {
+    res.status(400).json({ error: { message: "user_ids array is required" } });
+    return;
+  }
+  if (!action || !["delete", "ban", "activate"].includes(action)) {
+    res.status(400).json({ error: { message: "action must be one of: delete, ban, activate" } });
+    return;
+  }
+
+  const now = new Date();
+
+  try {
+    switch (action) {
+      case "delete":
+        await req
+          .tenantDb!.update(schema.users)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(inArray(schema.users.id, user_ids));
+        break;
+      case "ban":
+        await req
+          .tenantDb!.update(schema.users)
+          .set({ status: "banned", updatedAt: now })
+          .where(inArray(schema.users.id, user_ids));
+        break;
+      case "activate":
+        await req
+          .tenantDb!.update(schema.users)
+          .set({ status: "active", deletedAt: null, updatedAt: now })
+          .where(inArray(schema.users.id, user_ids));
+        break;
+    }
+
+    res.status(200).json({ success: true, affected: user_ids.length, action });
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }

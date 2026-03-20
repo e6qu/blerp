@@ -1,7 +1,7 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { eventBus } from "../../lib/events";
 import * as schema from "../../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, count, like, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { deepMerge, Metadata } from "../../lib/metadata";
 
@@ -26,7 +26,10 @@ export class OrganizationService {
     return this.get(id);
   }
 
-  async list(filters?: { domain?: string }) {
+  async list(filters?: { domain?: string; query?: string; limit?: number; offset?: number }) {
+    const limit = filters?.limit ?? 20;
+    const offset = filters?.offset ?? 0;
+
     if (filters?.domain) {
       const results = await this.db
         .select({ organization: schema.organizations })
@@ -41,9 +44,32 @@ export class OrganizationService {
             eq(schema.organizationDomains.verificationStatus, "verified"),
           ),
         );
-      return results.map((r) => r.organization);
+      return { data: results.map((r) => r.organization), totalCount: results.length };
     }
-    return this.db.select().from(schema.organizations);
+
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (filters?.query) {
+      const pattern = `%${filters.query}%`;
+      conditions.push(
+        or(like(schema.organizations.name, pattern), like(schema.organizations.slug, pattern))!,
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [totalResult] = await this.db
+      .select({ total: count() })
+      .from(schema.organizations)
+      .where(whereClause);
+    const totalCount = totalResult?.total ?? 0;
+
+    const data = await this.db
+      .select()
+      .from(schema.organizations)
+      .where(whereClause)
+      .limit(limit)
+      .offset(offset);
+    return { data, totalCount };
   }
 
   async get(id: string) {

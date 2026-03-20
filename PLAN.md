@@ -6,20 +6,26 @@
 
 ## Milestones Overview
 
-| Milestone | Description                           | Status      |
-| --------- | ------------------------------------- | ----------- |
-| M1        | Core Platform Foundations             | ✅ Complete |
-| M2        | Enterprise & Ecosystem Expansion      | ✅ Complete |
-| M3        | Experience & Scale                    | ✅ Complete |
-| M4        | Framework Adapters (Next.js Parity)   | ✅ Complete |
-| M5        | Monite SDK Parity & Advanced Metadata | ✅ Complete |
-| M6        | Monite SDK Full Feature Parity        | ✅ Complete |
-| M7        | Clerk SDK Parity                      | ✅ Complete |
-| M8        | UI Flow E2E Testing                   | ✅ Complete |
-| M9        | Production Infrastructure             | ⏸️ Blocked  |
-| M10       | Multi-Language SDK Support            | 📋 Planned  |
-| M11       | Advanced Security & Compliance        | 📋 Planned  |
-| M12       | Dashboard Feature Completion          | ✅ Complete |
+| Milestone | Description                                                                           | Status              |
+| --------- | ------------------------------------------------------------------------------------- | ------------------- |
+| M1        | Core Platform Foundations                                                             | ✅ Complete         |
+| M2        | Enterprise & Ecosystem Expansion                                                      | ✅ Complete         |
+| M3        | Experience & Scale                                                                    | ✅ Complete         |
+| M4        | Framework Adapters (Next.js Parity)                                                   | ✅ Complete         |
+| M5        | Monite SDK Parity & Advanced Metadata                                                 | ✅ Complete         |
+| M6        | Monite SDK Full Feature Parity                                                        | ✅ Complete         |
+| M7        | Clerk SDK Parity                                                                      | ✅ Complete         |
+| M8        | UI Flow E2E Testing                                                                   | ✅ Complete         |
+| M9        | Production Infrastructure                                                             | ⏸️ Blocked          |
+| M10       | Multi-Language SDK Support                                                            | 📋 Planned          |
+| M11       | Advanced Security & Compliance                                                        | 📋 Planned          |
+| M12       | Dashboard Feature Completion                                                          | ✅ Complete         |
+| —         | Dashboard UI Gap Analysis (Clerk/Monite Parity)                                       | ✅ Complete (P0+P1) |
+| —         | Monite SDK 100% Parity + Clerk P1 Quality                                             | ✅ Complete         |
+| —         | P2 Production Polish Batch 1                                                          | ✅ Complete         |
+| —         | P2 Production Polish Batch 2                                                          | ✅ Complete         |
+| —         | P2/P3 Batch 3 (Dark Mode, Search, Shortcuts, Redirect URLs, Testing Tokens, Bulk Ops) | ✅ Complete         |
+| —         | SDK Quality Hardening + Custom Roles (C13) + M2M Tokens (C5)                          | ✅ Complete         |
 
 ---
 
@@ -376,10 +382,97 @@ _Objective_: Implement placeholder features in the dashboard UI.
 
 ---
 
+## Dashboard UI Gap Analysis (Clerk/Monite Parity) ✅
+
+_Objective_: Close critical UI gaps identified in `GAP_ANALYSIS.md` to reach Clerk production quality.
+
+### Completed — P0 + P1 (2026-03-19)
+
+| Phase | Feature                                                  | Status      |
+| ----- | -------------------------------------------------------- | ----------- |
+| 1     | Sign In Page (backend + frontend two-step flow)          | ✅ Complete |
+| 2     | Org Deletion + Account Deletion (type-to-confirm modals) | ✅ Complete |
+| 3     | Connected Accounts (OAuth identity connect/disconnect)   | ✅ Complete |
+| 4     | Pagination (reusable component + hook)                   | ✅ Complete |
+| 5     | Toast Notification System (context-based, auto-dismiss)  | ✅ Complete |
+| 6     | Loading Skeletons (10 components upgraded)               | ✅ Complete |
+| 7     | Session Info + Backup Codes + Passkey Delete             | ✅ Complete |
+| 8     | Admin User Management Page (/admin/users)                | ✅ Complete |
+| 9     | Avatar Upload (backend + frontend)                       | ✅ Complete |
+
+### Completed — Monite SDK 100% Parity + Clerk P1 (2026-03-19)
+
+| Item  | Feature                                                             | Status      |
+| ----- | ------------------------------------------------------------------- | ----------- |
+| M2+M3 | OrganizationSwitcher nav props (afterSelect/afterLeave/afterCreate) | ✅ Complete |
+| M5    | `createRouteMatcher()` + callback-form `blerpMiddleware`            | ✅ Complete |
+| M6    | `clerkClient()` async factory in `@blerp/backend`                   | ✅ Complete |
+| C9    | User full-text search (`query` param)                               | ✅ Complete |
+| C10   | User `orderBy` param                                                | ✅ Complete |
+| C11   | Organization list pagination (`limit`/`offset`/`meta.total`)        | ✅ Complete |
+| D1    | Audit log filtering (action, date range, server-side)               | ✅ Complete |
+| D6    | Error boundaries (React ErrorBoundary wrapping Routes)              | ✅ Complete |
+
+### Completed — P2 Production Polish Batch 1 (2026-03-19)
+
+| Item | Feature                                                     | Status      |
+| ---- | ----------------------------------------------------------- | ----------- |
+| D2   | Passkey rename (inline edit UI + backend PATCH)             | ✅ Complete |
+| C14  | User restore (undelete + soft-delete filter)                | ✅ Complete |
+| D12  | Revoke all sessions (backend + UI with confirmation)        | ✅ Complete |
+| U5   | Phone number CRUD (backend + hooks + PhoneNumberList UI)    | ✅ Complete |
+| D3   | Leave organization (last-owner guard + confirmation modal)  | ✅ Complete |
+| D4   | Org profile editing (EditOrganizationModal)                 | ✅ Complete |
+| D5   | Responsive/mobile layout (hamburger menu + overlay sidebar) | ✅ Complete |
+| D7   | Form validation (useFormValidation hook + adopted in forms) | ✅ Complete |
+
+### Completed — P2 Production Polish Batch 2 (2026-03-19)
+
+| Item  | Feature                                                                        | Status      |
+| ----- | ------------------------------------------------------------------------------ | ----------- |
+| C12   | Session IP/UA capture (DB columns + controller mapping + UI column)            | ✅ Complete |
+| C1+C2 | Allowlist/blocklist identifiers (DB table + service + UI + signup enforcement) | ✅ Complete |
+| U1    | OrganizationList component (extracted from OrganizationsPage)                  | ✅ Complete |
+| C3    | Sign-in tokens / magic links (DB table + service + routes + SignIn UI)         | ✅ Complete |
+| D11   | Webhook delivery logs (DB table + worker logging + service + UI)               | ✅ Complete |
+
+### Completed — P2/P3 Batch 3 (2026-03-19)
+
+| Item | Feature                                                          | Status      |
+| ---- | ---------------------------------------------------------------- | ----------- |
+| U2   | Dark mode (ThemeProvider + dark: variants on all 46+ components) | ✅ Complete |
+| D8   | Global search (Cmd+K command palette, org query backend)         | ✅ Complete |
+| D9   | Keyboard shortcuts (useKeyboardShortcuts hook)                   | ✅ Complete |
+| C6   | Redirect URLs (DB + CRUD + OAuth validation + settings UI)       | ✅ Complete |
+| C4   | Testing tokens (dev-only POST /auth/testing-tokens)              | ✅ Complete |
+| D10  | Bulk operations (POST /users/bulk + multi-select UI)             | ✅ Complete |
+
+### Remaining — P0 Security (1 item)
+
+- **S3**: M2M JWT signature verification — `middleware/auth.ts` uses `decodeJwt()` not `jwtVerify()`, tokens can be forged
+
+### Remaining — P1 Quality (4 items)
+
+- **S4**: JWKS key pair persistence — in-memory only, lost on restart
+- **S1**: `useSignIn()` hook — stubbed, returns mock state
+- **S2**: `useSignUp()` hook — stubbed, returns mock state
+- **S5**: OAuth token exchange — mock implementation in `oauth.service.ts`
+
+### Remaining — P2 (1 item)
+
+- SAML connections (C7) — deferred, 4-6 week effort
+
+### Remaining — P3 (6 items)
+
+- Theming (D13), i18n (D14), email/SMS templates (C8), notification center (D15), appearance customization (U3), SMS MFA (U6)
+
+**Test Results**: 46/46 API unit tests, 155/155 E2E tests — all passing.
+
+---
+
 ## Future Considerations (Not Currently Planned)
 
 - **Billing Components**: `<PricingTable />`, `<CheckoutButton />`
-- **M2M Tokens**: Machine-to-machine authentication
 - **OAuth Applications**: Blerp as an OAuth provider
 - **Web3 Authentication**: MetaMask, Coinbase Wallet, Solana wallets
 - **Native Mobile SDKs**: iOS (Swift), Android (Kotlin)

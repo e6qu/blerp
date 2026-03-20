@@ -3,6 +3,7 @@ import * as organizationController from "../controllers/organization.controller"
 import * as membershipController from "../controllers/membership.controller";
 import * as invitationController from "../controllers/invitation.controller";
 import * as domainController from "../controllers/domain.controller";
+import * as roleController from "../controllers/role.controller";
 import { authMiddleware } from "../../middleware/auth";
 import { requirePermission } from "../../middleware/rbac";
 
@@ -30,6 +31,13 @@ router.delete(
   authMiddleware,
   requirePermission("org:write"),
   organizationController.deleteOrganization,
+);
+
+// Leave organization (before memberships CRUD to avoid param collision)
+router.post(
+  "/organizations/:organization_id/leave",
+  authMiddleware,
+  membershipController.leaveOrganization,
 );
 
 // Memberships
@@ -102,6 +110,32 @@ router.post(
   authMiddleware,
   requirePermission("org:write"),
   domainController.verifyDomain,
+);
+
+// Custom Roles
+router.get(
+  "/organizations/:organization_id/roles",
+  authMiddleware,
+  requirePermission("org:read"),
+  roleController.listRoles,
+);
+router.post(
+  "/organizations/:organization_id/roles",
+  authMiddleware,
+  requirePermission("org:write"),
+  roleController.createRole,
+);
+router.patch(
+  "/organizations/:organization_id/roles/:role_id",
+  authMiddleware,
+  requirePermission("org:write"),
+  roleController.updateRole,
+);
+router.delete(
+  "/organizations/:organization_id/roles/:role_id",
+  authMiddleware,
+  requirePermission("org:write"),
+  roleController.deleteRole,
 );
 
 export { router as organizationRoutes };
