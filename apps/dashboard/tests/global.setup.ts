@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const API_URL = process.env.BLERP_API_URL || "http://localhost:3000";
 const TENANT_ID = "demo-tenant";
@@ -10,7 +11,8 @@ export interface E2ESession {
   userId: string;
 }
 
-const SESSION_PATH = path.join(__dirname, ".e2e-session.json");
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const SESSION_PATH = path.join(currentDir, ".e2e-session.json");
 
 async function globalSetup() {
   // 1. Trigger tenant DB initialization (and auto-seed in dev mode)
