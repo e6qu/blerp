@@ -1,6 +1,6 @@
 # Comprehensive Gap Analysis: Blerp vs Clerk + Monite SDK Parity
 
-> Updated 2026-03-20 after deep audit of SDK, API, and middleware. All P0 security, S1-S5 quality gaps, and production stubs (BUG-18, BUG-19, BUG-20) resolved.
+> Updated 2026-03-20 after PR #44 merge. All P0 security, S1-S5 quality gaps, production stubs (BUG-18-20), and quality issues (Q1-Q7) resolved.
 
 ## Goal
 
@@ -190,31 +190,31 @@ The `with-nextjs-and-clerk-auth` Monite demo can run against Blerp today with **
 
 ---
 
-## Part 7: Remaining Production Quality Issues (discovered 2026-03-20 post-merge audit)
+## Part 7: Production Quality Issues — All Resolved (PR #44, 2026-03-20)
 
-| #   | Issue                                | File                     | Severity | Notes                                                               |
-| --- | ------------------------------------ | ------------------------ | -------- | ------------------------------------------------------------------- |
-| Q1  | **Userinfo uses X-User-Id header**   | `userinfo.controller.ts` | Medium   | Should validate access token from Authorization header              |
-| Q2  | **Quota service returns mock data**  | `quota.service.ts`       | Medium   | Hard-coded `users: 10, organizations: 2, sessions: 5`               |
-| Q3  | **OAuth mock fallback**              | `oauth.service.ts`       | Low      | Returns mock URLs/users when env vars missing; should fail with 501 |
-| Q4  | **useSignUp().update() stub**        | `hooks.ts`               | Low      | Returns `{ status: "updated" }` without API call; Clerk compat stub |
-| Q5  | **deletePasskey no ownership check** | `webauthn.service.ts`    | Medium   | `_userId` is ignored — any authenticated user could delete any key  |
-| Q6  | **console.warn in key loading**      | `keys.ts`                | Low      | Should use pino logger                                              |
-| Q7  | **Hardcoded test API keys**          | `auth-guard.ts`          | Low      | `pk_test_123`/`sk_test_123` in dev mode; fine for dev, but fragile  |
+| #   | Issue                                | File                     | Severity | Status                                                |
+| --- | ------------------------------------ | ------------------------ | -------- | ----------------------------------------------------- |
+| Q1  | **Userinfo uses X-User-Id header**   | `userinfo.controller.ts` | Medium   | ✅ Fixed — authMiddleware added, uses req.user?.id    |
+| Q2  | **Quota service returns mock data**  | `quota.service.ts`       | Medium   | ✅ Fixed — queries real DB counts via drizzle count() |
+| Q3  | **OAuth mock fallback**              | `oauth.service.ts`       | Low      | ✅ Fixed — throws clear error when not configured     |
+| Q4  | **useSignUp().update() stub**        | `hooks.ts`               | Low      | ✅ Fixed — throws unsupported error                   |
+| Q5  | **deletePasskey no ownership check** | `webauthn.service.ts`    | Medium   | ✅ Fixed — ownership check before delete              |
+| Q6  | **console.warn in key loading**      | `keys.ts`                | Low      | ✅ Fixed — uses pino logger                           |
+| Q7  | **Hardcoded test API keys**          | `auth-guard.ts`          | Low      | ✅ Fixed — removed, all keys must be DB-backed        |
 
 ---
 
 ## Priority Summary
 
-| Priority                    | Total | Done | Remaining                        |
-| --------------------------- | ----- | ---- | -------------------------------- |
-| **Monite Critical (M1-M6)** | 6     | 6    | 0                                |
-| **P0 Security**             | 1     | 1    | 0                                |
-| **P1 Quality**              | 12    | 12   | 0                                |
-| **Production Quality**      | 7     | 0    | 7 (Q1-Q7, discovered post-merge) |
-| **P2 Production**           | 21    | 20   | 1 (SAML)                         |
-| **P3 Future**               | 9     | 2    | 6                                |
-| **SDK Stubs**               | 6     | 6    | 0                                |
+| Priority                    | Total | Done | Remaining |
+| --------------------------- | ----- | ---- | --------- |
+| **Monite Critical (M1-M6)** | 6     | 6    | 0         |
+| **P0 Security**             | 1     | 1    | 0         |
+| **P1 Quality**              | 12    | 12   | 0         |
+| **Production Quality**      | 7     | 7    | 0         |
+| **P2 Production**           | 21    | 20   | 1 (SAML)  |
+| **P3 Future**               | 9     | 2    | 6         |
+| **SDK Stubs**               | 6     | 6    | 0         |
 
 ### Recommended Next Steps
 
@@ -226,8 +226,9 @@ The `with-nextjs-and-clerk-auth` Monite demo can run against Blerp today with **
 5. ✅ Real WebAuthn passkeys (BUG-18)     <- Done 2026-03-20
 6. ✅ Real signup verification (BUG-19)   <- Done 2026-03-20
 7. ✅ Sign-in 2FA endpoint (BUG-20)       <- Done 2026-03-20
-8. Fix Q1-Q7 production quality issues    <- Next (quick fixes)
-9. SAML SSO (C7)                          <- only remaining P2 item
+8. ✅ Fix Q1-Q7 production quality        <- Done 2026-03-20 (PR #44)
+9. Systemic auth redesign (X-User-Id)     <- Next priority
+10. SAML SSO (C7)                         <- only remaining P2 item
 ```
 
 ---
