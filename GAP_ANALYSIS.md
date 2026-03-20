@@ -190,28 +190,44 @@ The `with-nextjs-and-clerk-auth` Monite demo can run against Blerp today with **
 
 ---
 
+## Part 7: Remaining Production Quality Issues (discovered 2026-03-20 post-merge audit)
+
+| #   | Issue                                | File                     | Severity | Notes                                                               |
+| --- | ------------------------------------ | ------------------------ | -------- | ------------------------------------------------------------------- |
+| Q1  | **Userinfo uses X-User-Id header**   | `userinfo.controller.ts` | Medium   | Should validate access token from Authorization header              |
+| Q2  | **Quota service returns mock data**  | `quota.service.ts`       | Medium   | Hard-coded `users: 10, organizations: 2, sessions: 5`               |
+| Q3  | **OAuth mock fallback**              | `oauth.service.ts`       | Low      | Returns mock URLs/users when env vars missing; should fail with 501 |
+| Q4  | **useSignUp().update() stub**        | `hooks.ts`               | Low      | Returns `{ status: "updated" }` without API call; Clerk compat stub |
+| Q5  | **deletePasskey no ownership check** | `webauthn.service.ts`    | Medium   | `_userId` is ignored — any authenticated user could delete any key  |
+| Q6  | **console.warn in key loading**      | `keys.ts`                | Low      | Should use pino logger                                              |
+| Q7  | **Hardcoded test API keys**          | `auth-guard.ts`          | Low      | `pk_test_123`/`sk_test_123` in dev mode; fine for dev, but fragile  |
+
+---
+
 ## Priority Summary
 
-| Priority                    | Total | Done | Remaining |
-| --------------------------- | ----- | ---- | --------- |
-| **Monite Critical (M1-M6)** | 6     | 6    | 0         |
-| **P0 Security**             | 1     | 1    | 0         |
-| **P1 Quality**              | 12    | 12   | 0         |
-| **P2 Production**           | 21    | 20   | 1 (SAML)  |
-| **P3 Future**               | 9     | 2    | 6         |
-| **SDK Stubs**               | 6     | 6    | 0         |
+| Priority                    | Total | Done | Remaining                        |
+| --------------------------- | ----- | ---- | -------------------------------- |
+| **Monite Critical (M1-M6)** | 6     | 6    | 0                                |
+| **P0 Security**             | 1     | 1    | 0                                |
+| **P1 Quality**              | 12    | 12   | 0                                |
+| **Production Quality**      | 7     | 0    | 7 (Q1-Q7, discovered post-merge) |
+| **P2 Production**           | 21    | 20   | 1 (SAML)                         |
+| **P3 Future**               | 9     | 2    | 6                                |
+| **SDK Stubs**               | 6     | 6    | 0                                |
 
 ### Recommended Next Steps
 
 ```
-1. ✅ Fix M2M JWT verification (S3)    <- Done 2026-03-20
-2. ✅ Persistent JWKS key pair (S4)    <- Done 2026-03-20
-3. ✅ Real useSignIn/useSignUp (S1+S2) <- Done 2026-03-20
-4. ✅ Real OAuth token exchange (S5)   <- Done 2026-03-20
+1. ✅ Fix M2M JWT verification (S3)       <- Done 2026-03-20
+2. ✅ Persistent JWKS key pair (S4)       <- Done 2026-03-20
+3. ✅ Real useSignIn/useSignUp (S1+S2)    <- Done 2026-03-20
+4. ✅ Real OAuth token exchange (S5)      <- Done 2026-03-20
 5. ✅ Real WebAuthn passkeys (BUG-18)     <- Done 2026-03-20
 6. ✅ Real signup verification (BUG-19)   <- Done 2026-03-20
 7. ✅ Sign-in 2FA endpoint (BUG-20)       <- Done 2026-03-20
-8. SAML SSO (C7)                       <- only remaining P2 item
+8. Fix Q1-Q7 production quality issues    <- Next (quick fixes)
+9. SAML SSO (C7)                          <- only remaining P2 item
 ```
 
 ---

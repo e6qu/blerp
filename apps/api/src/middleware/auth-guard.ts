@@ -6,11 +6,9 @@ export function authGuard(options: { type: "publishable" | "secret" | "any" }) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.header("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      res
-        .status(401)
-        .json({
-          error: { code: "unauthorized", message: "Missing or invalid authorization header" },
-        });
+      res.status(401).json({
+        error: { code: "unauthorized", message: "Missing or invalid authorization header" },
+      });
       return;
     }
 
@@ -40,14 +38,6 @@ export function authGuard(options: { type: "publishable" | "secret" | "any" }) {
     });
 
     if (!keyRecord) {
-      // For demo purposes, if it's a test key, allow it
-      if (
-        process.env.NODE_ENV !== "production" &&
-        (key === "pk_test_123" || key === "sk_test_123")
-      ) {
-        return next();
-      }
-
       res.status(401).json({ error: { code: "unauthorized", message: "Invalid API key" } });
       return;
     }

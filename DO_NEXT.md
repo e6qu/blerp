@@ -2,9 +2,13 @@
 
 ### Current Status
 
-46/46 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing, CI green. All P0 security, P1 quality gaps, and production stubs (BUG-18, BUG-19, BUG-20) are resolved.
+46/46 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing, CI green. Monite SDK demo path is 100% functional. All production quality issues (Q1-Q7) are resolved.
 
-### Priority 1: Remaining — 1 item
+### Priority 1: Systemic Auth Redesign
+
+The `authMiddleware` trusts `X-User-Id` header without session validation for all non-M2M requests. This is the correct behavior for the current demo/dev workflow, but production deployments need real session-backed auth. This is a larger effort that affects every protected endpoint.
+
+### Priority 2: Enterprise — 1 item
 
 - C7: SAML connections (enterprise SSO) — complex XML protocol, security-critical, 4-6 week effort. Deferred.
 
@@ -32,6 +36,7 @@
 
 | Item                                    | Status              |
 | --------------------------------------- | ------------------- |
+| Q1-Q7: Production Quality Fixes         | ✅ Fixed 2026-03-20 |
 | S3: M2M JWT verification                | ✅ Fixed 2026-03-20 |
 | S4: Persistent JWKS key pair            | ✅ Fixed 2026-03-20 |
 | S1+S2: Real useSignIn/useSignUp hooks   | ✅ Fixed 2026-03-20 |

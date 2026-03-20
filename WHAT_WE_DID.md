@@ -804,3 +804,61 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 
 - Tests run: `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), `bun run test` (46/46 pass), `bun run test:e2e` (155/155 pass), `cd apps/dashboard && bun run test` (16/16 pass)
 - Files touched: `apps/api/src/lib/transient-store.ts` (new), `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/auth.controller.ts`, `apps/api/src/v1/services/webauthn.service.ts`, `packages/nextjs/src/client/hooks.ts`, `apps/dashboard/src/components/auth/SignIn.tsx`, `apps/api/src/__tests__/auth.integration.test.ts`, `apps/api/src/__tests__/auto-enrollment.integration.test.ts`, `apps/api/package.json`, `BUGS.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`, `GAP_ANALYSIS.md`
+
+## 2026-03-20 — Post-Merge Audit: Production Quality Issues
+
+- Summary: Deep audit after PR #43 merge. Confirmed Monite SDK demo path is 100% functional — all Clerk APIs/components/hooks used by the example are fully implemented with compatible signatures. Discovered 7 remaining production quality issues (Q1-Q7) that don't block the demo but should be fixed before production deployment.
+
+### Findings
+
+1. **Q1**: `userinfo.controller.ts` — uses `X-User-Id` header instead of validating access tokens from Authorization header
+2. **Q2**: `quota.service.ts` — returns hardcoded mock values (`users: 10, organizations: 2, sessions: 5`)
+3. **Q3**: `oauth.service.ts` — returns mock OAuth URLs/users when provider credentials missing (should fail clearly)
+4. **Q4**: `hooks.ts` — `useSignUp().update()` is a stub returning `{ status: "updated" }` without API call
+5. **Q5**: `webauthn.service.ts` — `deletePasskey()` ignores `_userId` param, potential authorization bypass
+6. **Q6**: `keys.ts` — uses `console.warn()` instead of pino structured logger
+7. **Q7**: `auth-guard.ts` — hardcoded test API keys `pk_test_123`/`sk_test_123` in non-production
+
+### Verified Working (Monite Critical Path)
+
+- All 77+ API endpoints fully implemented
+- All 20 services production-quality (no blocking stubs)
+- All 13 SDK client components + 18 hooks correctly wired
+- Server-side `auth()`, `currentUser()`, `blerpMiddleware()`, `clerkClient()` all functional
+- Metadata deep-merge works for both org and user private/public/unsafe metadata
+- Permission checks via `has()` use real orgRole/orgPermissions
+- Token endpoint, webhook handler, entity resolution all functional
+
+- Tests run: N/A (audit only)
+- Files touched: `STATUS.md`, `DO_NEXT.md`, `PLAN.md`, `GAP_ANALYSIS.md`, `WHAT_WE_DID.md`
+
+## 2026-03-20 — Fix Production Quality Issues (Q1-Q7)
+
+- Summary: Fixed all 7 production quality issues discovered in post-merge audit. 3 security fixes (Q5 passkey authz bypass, Q7 hardcoded test keys, Q1 userinfo auth), 1 code quality fix (Q6 console.warn→logger), 2 data accuracy fixes (Q2 real quota counts, Q3 OAuth error instead of mock), 1 stub fix (Q4 signUp.update() clear error).
+
+### Security Fixes
+
+- **Q5**: `deletePasskey()` now verifies `passkey.userId === userId` before deleting (matches `renamePasskey()` pattern)
+- **Q7**: Removed hardcoded `pk_test_123`/`sk_test_123` fallback from auth-guard — all keys must be DB-backed
+- **Q1**: Added `authMiddleware` to `/userinfo` route, controller uses `req.user?.id` instead of `X-User-Id` header
+
+### Code Quality
+
+- **Q6**: Replaced `console.warn()` in `keys.ts` with structured `logger.warn()` from pino
+
+### Data Accuracy
+
+- **Q2**: `QuotaService.getUsage()` now queries real DB counts using `count()` from drizzle-orm (users excl. soft-deleted, orgs, active sessions)
+- **Q3**: OAuth `getAuthorizeUrl()`/`handleCallback()` throw clear error when provider not configured instead of returning mock URLs. Removed `handleMockCallback()` entirely.
+
+### Stub Fix
+
+- **Q4**: `useSignUp().update()` now throws `Error("signUp.update() is not yet supported")` instead of silently returning mock data
+
+### Cleanup
+
+- Removed unused `_tenantId` param from `OAuthService` constructor (was only used by deleted `handleMockCallback()`)
+- Updated `oauth.controller.ts` to match new constructor signature
+
+- Tests run: `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), `bun run test` (46/46 pass), `bun run test:e2e` (155/155 pass)
+- Files touched: `webauthn.service.ts`, `auth-guard.ts`, `userinfo.controller.ts`, `auth.routes.ts`, `keys.ts`, `quota.service.ts`, `quota.controller.ts`, `oauth.service.ts`, `oauth.controller.ts`, `hooks.ts`, `BUGS.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`

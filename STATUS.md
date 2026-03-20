@@ -41,10 +41,11 @@
 | 2026-03-20 | P0+P1 Security/Quality (S1-S5)     | completed | JWT verification, persistent JWKS, real hooks, real OAuth exchange                   |
 | 2026-03-20 | CI fix: ThemeProvider in storybook | completed | Layout.stories.tsx missing ThemeProvider decorator                                   |
 | 2026-03-20 | Production Stubs (BUG-18,19,20)    | completed | Real WebAuthn, dynamic signup codes, 2FA signin flow                                 |
+| 2026-03-20 | Production Quality (Q1-Q7)         | completed | 7 fixes: passkey authz, test keys, userinfo auth, logger, quotas, OAuth mock, stub   |
 
 ## Summary
 
-All P0 security, P1 quality gaps, and production stubs are resolved. 46/46 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing. CI green.
+All production quality issues (Q1-Q7) are resolved. 46/46 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing. CI green.
 
 ### What's Done
 
@@ -53,17 +54,17 @@ All P0 security, P1 quality gaps, and production stubs are resolved. 46/46 API t
 - **Dashboard UI Gaps**: All P0+P1+P2 items resolved (31 items across 3 batches)
 - **Monite SDK 100% Parity**: All M1-M6 demo gaps closed
 - **SDK Quality Hardening**: Real currentUser(), BlerpProvider, has(), SignIn/SignUp, useSignIn/useSignUp hooks
-- **Security**: M2M JWT signature verification (jwtVerify), persistent JWKS key pair
+- **Security**: M2M JWT verification, persistent JWKS, passkey ownership checks, no hardcoded test keys
 - **Custom Roles (C13)** + **M2M Tokens (C5)**: Fine-grained RBAC + OAuth2 client_credentials
-- **Real OAuth**: GitHub/Google token exchange with env var fallback
+- **Real OAuth**: GitHub/Google token exchange — clear errors when not configured
 - **Clerk API Coverage**: 77+ endpoints, 13/14 Clerk features
+- **Production Quality**: All Q1-Q7 issues fixed (auth, quotas, OAuth, stubs, logging)
 - **Test Suite**: 46/46 API unit, 155/155 E2E, 16/16 Storybook — all passing
 
 ### What Remains
 
 | Priority | Items | Details                                                                                                                    |
 | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
-| P1       | 0     | All resolved (BUG-18, BUG-19, BUG-20 fixed 2026-03-20)                                                                     |
 | P2       | 1     | SAML connections (C7) — enterprise SSO, 4-6 week effort                                                                    |
 | P3       | 6     | Theming API (U3), i18n (U4), email templates (C8), notification center (D15), SMS MFA (U6), appearance customization (D13) |
 

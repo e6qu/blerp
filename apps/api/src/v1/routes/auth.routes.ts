@@ -37,7 +37,7 @@ router.post("/auth/signins/:signin_id/attempt", authController.attemptSignin);
 router.get("/auth/oauth/:provider", oauthController.authorize);
 router.get("/auth/oauth/:provider/callback", oauthController.callback);
 
-router.get("/userinfo", userinfoController.getUserInfo);
+router.get("/userinfo", authMiddleware, userinfoController.getUserInfo);
 
 // Users (bulk must come before :user_id routes)
 router.post("/users/bulk", authMiddleware, userController.bulkUpdateUsers);
