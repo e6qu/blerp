@@ -12,6 +12,7 @@ storybook-static
 
 playwright-report/
 test-results/
+.e2e-session.json
 
 # Generated at runtime
 apps/api/tenants/

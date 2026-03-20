@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 
 test.describe("Protected Routes", () => {
   test("home page loads with main content", async ({ page }) => {
