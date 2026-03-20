@@ -308,3 +308,23 @@ Used `console.warn()` instead of the project's pino structured logger.
 When a key wasn't found in the DB, the middleware had a fallback that allowed `pk_test_123` and `sk_test_123` in non-production environments without any DB lookup.
 
 **Fix applied:** Removed the hardcoded key fallback entirely. The seed script already creates real API keys in the demo tenant DB, so dev/test workflows use DB-backed keys.
+
+---
+
+## Open — Monite SDK example issues (discovered 2026-03-20)
+
+### BUG-21: Monite SDK example missing Tailwind CSS configuration
+
+**Status:** Open
+**Severity:** Low (cosmetic)
+**Files:** `examples/monite-sdk-parity/`
+
+The Monite SDK parity example uses Tailwind CSS utility classes throughout all pages but has no Tailwind CSS configuration (no `tailwind.config.js`, PostCSS config, or global CSS import). Pages render with browser-default styling only.
+
+### BUG-22: Server-side currentUser() fails with placeholder secret key
+
+**Status:** Open
+**Severity:** Medium
+**Files:** `packages/nextjs/src/server/auth.ts`, `examples/monite-sdk-parity/.env.example`
+
+The `currentUser()` server function sends `BLERP_SECRET_KEY` as a Bearer token to the API. The API only accepts JWTs for Bearer auth, not plain API keys. With a placeholder secret key, `currentUser()` returns `null`, causing the dashboard to show empty user context. Fix options: (a) make `currentUser()` forward the session JWT from cookies, or (b) add API key auth to the API's auth middleware.
