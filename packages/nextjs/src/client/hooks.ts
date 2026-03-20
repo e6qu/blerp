@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBlerpClient } from "./BlerpProvider";
 import { useAuth } from "./BlerpProvider";
 import type { components, paths } from "@blerp/shared";
+import Cookies from "js-cookie";
 
 type Organization = components["schemas"]["Organization"];
 type Membership = components["schemas"]["Membership"];
@@ -372,6 +373,13 @@ export function useSignIn() {
         return { status: "needs_second_factor" as const };
       }
 
+      if (response.tokens?.access_token) {
+        Cookies.set("__blerp_session", response.tokens.access_token, {
+          expires: 7,
+          sameSite: "lax",
+        });
+      }
+
       const result = { status: "complete" as const, session_id: response.session.id };
       setStatus((prev: SignInStatus) => ({ ...prev, status: "complete" }));
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
@@ -394,6 +402,14 @@ export function useSignIn() {
         throw error;
       }
       const response = data as { session: { id: string }; tokens: { access_token: string } };
+
+      if (response.tokens?.access_token) {
+        Cookies.set("__blerp_session", response.tokens.access_token, {
+          expires: 7,
+          sameSite: "lax",
+        });
+      }
+
       const result = { status: "complete" as const, session_id: response.session.id };
       setStatus((prev: SignInStatus) => ({ ...prev, status: "complete" }));
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
@@ -479,7 +495,15 @@ export function useSignUp() {
         setStatus((prev) => ({ ...prev, status: "failed" }));
         throw error;
       }
-      const result = data as { status: string };
+      const result = data as { status: string; tokens?: { access_token: string } };
+
+      if (result.tokens?.access_token) {
+        Cookies.set("__blerp_session", result.tokens.access_token, {
+          expires: 7,
+          sameSite: "lax",
+        });
+      }
+
       setStatus((prev: SignUpStatus) => ({ ...prev, status: "complete" }));
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       return result;
