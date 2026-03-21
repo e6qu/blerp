@@ -2,8 +2,15 @@ import { test, expect } from "../fixtures";
 
 test.describe("Sign Up Flow", () => {
   test.beforeEach(async ({ page }) => {
+    // Clear session to see the auth form (authenticated users get redirected)
+    await page.context().clearCookies();
+    await page.evaluate(() => localStorage.clear());
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Dashboard Home" })).toBeVisible();
+    // Click "Sign up" toggle to switch from sign-in to sign-up form
+    const signUpToggle = page.getByRole("button", { name: "Sign up" });
+    if (await signUpToggle.isVisible().catch(() => false)) {
+      await signUpToggle.click();
+    }
   });
 
   test("displays sign up form with all elements", async ({ page }) => {

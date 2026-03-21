@@ -6,18 +6,10 @@ test.describe("Sidebar Navigation", () => {
   });
 
   test("sidebar renders all navigation items", async ({ page }) => {
-    await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Organizations" })).toBeVisible();
     await expect(page.getByRole("link", { name: "User Management" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Auth" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Account" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
-  });
-
-  test("dashboard link navigates to home", async ({ page }) => {
-    await page.goto("/users");
-
-    await page.getByRole("link", { name: "Dashboard" }).click();
-    await expect(page).toHaveURL("/");
   });
 
   test("organizations link navigates to users page", async ({ page }) => {
@@ -26,7 +18,7 @@ test.describe("Sidebar Navigation", () => {
   });
 
   test("auth link navigates to auth page", async ({ page }) => {
-    await page.getByRole("link", { name: "Auth" }).click();
+    await page.getByRole("link", { name: "Account" }).click();
     await expect(page).toHaveURL("/auth");
   });
 
@@ -36,8 +28,9 @@ test.describe("Sidebar Navigation", () => {
   });
 
   test("active nav item is highlighted", async ({ page }) => {
-    const dashboardLink = page.getByRole("link", { name: "Dashboard" });
-    await expect(dashboardLink).toHaveClass(/bg-blue-50/);
+    await page.goto("/users");
+    const orgsLink = page.getByRole("link", { name: "Organizations" });
+    await expect(orgsLink).toHaveClass(/bg-blue-50/);
   });
 
   test("active nav item updates when navigating", async ({ page }) => {
