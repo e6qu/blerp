@@ -58,14 +58,15 @@
 - Configuration panels: project settings, API key management, audit log viewer.
 - UI infrastructure: toast notification system, loading skeletons, pagination component, avatar upload with initials fallback.
 
-### 3.2 Compatibility with Official Clerk SDKs
+### 3.2 SDK Packages & Clerk Compatibility
 
-- We do **not** ship a custom SDK. Instead, automated suites run the official Clerk SDKs (ClerkJS, `@clerk/clerk-react`, server SDKs) against Blerp to guarantee schema parity.
-- Documentation explains how to point those SDKs at Blerp endpoints for validation; any deviation is treated as a defect in our backend implementation.
+- **`@blerp/nextjs`**: Client and server components (`BlerpProvider`, `SignIn`, `SignUp`, `UserButton`, `OrganizationSwitcher`), middleware (`blerpMiddleware`, `createRouteMatcher`), hooks (`useAuth`, `useUser`, `useSignIn`, `useSignUp`), and server-side helpers (`auth()`, `currentUser()`).
+- **`@blerp/backend`**: Server-side SDK with `blerpClient()` providing `clerkClient()` parity for organizations, users, and sessions.
+- **`@blerp/testing`**: Playwright test helpers for E2E validation.
+- The API targets Clerk schema compatibility — official Clerk SDKs can also be pointed at Blerp endpoints for validation.
 
 ### 3.3 Templates & Docs
 
-- `create-blerp-app` scaffolds Vite SPAs that call REST endpoints directly (no SDK abstraction), showcasing JSON usage.
 - VitePress documentation includes guides, REST references generated from `openapi/blerp.v1.yaml`, and instructions for using official Clerk SDKs as a test harness.
 - Developer CLI `blerp dev` spins up docker-compose environments, seeds tenants, and aids compatibility testing.
 
@@ -74,7 +75,7 @@
 - Rate limiting (Redis sliding window), IP allow/deny lists, audit logging per request.
 - JWT signing with JOSE, JWKS publishing, request tracing via `Request-Id`.
 - Session tokens validated via JWT claims or Redis lookups; CSRF protection for dashboard.
-- Secrets via HashiCorp Vault (or dotenv for local), OTEL tracing/logging/metrics.
+- Secrets via environment variables (dotenv for local, platform secrets in production), OTEL tracing/logging/metrics.
 - Compliance levers: data residency (per-tenant DB location), retention policies, SOC2-ready audit trails.
 
 ## 5. Deployment & DevEx
@@ -91,7 +92,7 @@
 - Contract tests based on OpenAPI; integration tests via docker-compose (SQLite volumes, Redis).
 - k6 load tests (nightly) and security scans (OWASP ZAP baseline, dependency audit).
 
-### 2.5 Monite SDK Specifics (Milestone 6)
+### 6.1 Monite SDK Specifics (Milestone 6)
 
 - Deep-merge updates for `private_metadata`.
 - Organization Domains management (REST + UI).

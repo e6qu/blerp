@@ -54,8 +54,8 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
 
 ### 4.2 Frontend Stack Details
 
-- **Admin/Dashboard**: Vite + React SPA (no SSR) with Tailwind + Radix UI. Production bundles are emitted as static assets and served by Express. TanStack Query consumes the JSON REST API directly with clients generated from OpenAPI; MSW + Storybook provide rapid UI iteration.
-- **Validation Harness**: We explicitly do **not** ship a custom SDK. Instead, the unmodified official Clerk SDKs (ClerkJS, `@clerk/clerk-react`, server SDKs) are pointed at Blerp endpoints during compatibility testing. Our backend must satisfy the documented schemas so these SDKs work without changes.
+- **Admin/Dashboard**: Vite + React SPA with Tailwind + Radix UI. Production bundles are emitted as static assets and served by Express. TanStack Query consumes the JSON REST API directly with clients generated from OpenAPI; MSW + Storybook provide rapid UI iteration.
+- **SDK Packages**: `@blerp/nextjs` provides server-side auth (`auth()`, `currentUser()`), middleware (`blerpMiddleware`), and pre-built UI components for Next.js apps. `@blerp/backend` provides a server-side `blerpClient()` with `clerkClient()` parity. `@blerp/testing` provides Playwright helpers. The API also targets Clerk schema compatibility so official Clerk SDKs can be pointed at Blerp for validation.
 - **Docs+Templates**: VitePress (or plain Vite SPA) for docs plus simple Vite templates that showcase raw REST consumption. Tooling focuses on onboarding but defers to official Clerk SDKs/flows for compatibility checks.
 
 ### 4.3 Simplifying Assumptions
@@ -246,8 +246,8 @@ Content-Type: application/json
 
 ## 7. Frontend Flows & SDK Compatibility
 
-- **Internal SPA flows**: We ship Vite/React flows (sign-in/up, user management, organization management) that call the REST API directly, demonstrating behavior parity with Clerk’s published UX without introducing a new SDK.
-- **Official Clerk SDK validation**: Compatibility suites run the unmodified Clerk SDKs (ClerkJS, `@clerk/clerk-react`, `@clerk/clerk-sdk-node`, etc.) against Blerp. Success criteria: the SDKs function without code changes, confirming our backend matches Clerk’s documented schemas.
+- **Internal SPA flows**: The dashboard ships Vite/React flows (sign-in/up, user management, organization management) that call the REST API directly.
+- **SDK packages**: `@blerp/nextjs` provides server-side auth, middleware, and pre-built UI components. `@blerp/backend` provides `blerpClient()` with `clerkClient()` parity. The API targets Clerk schema compatibility so official Clerk SDKs can also be pointed at Blerp for validation.
 - **Templates & Docs**: Developer templates show raw REST usage; docs explain how to configure the official Clerk SDKs to point at Blerp endpoints for acceptance testing.
 
 ## 8. Data Model Highlights
@@ -266,7 +266,7 @@ All tables include row-level version + audit fields. Per-tenant SQLite files can
 ## 9. Security & Compliance
 
 - Zero trust network segmentation, TLS everywhere.
-- Secrets managed via HashiCorp Vault.
+- Secrets managed via environment variables (dotenv for local, platform secrets in production).
 - Rate limiting, IP allow/deny lists, automated threat detection.
 - Data at rest stored in plain SQLite files; rely on underlying disk/volume encryption (EFS/EBS) or infrastructure controls if additional protection is required.
 - SOC2/GDPR readiness: data residency selection, data retention policies, DPA templates.
@@ -275,8 +275,8 @@ All tables include row-level version + audit fields. Per-tenant SQLite files can
 
 ## 10. Observability
 
-- OpenTelemetry traces exported to Tempo; metrics via Prometheus; logs via Loki.
-- Structured log schema includes correlation IDs (request, session, user) and audit_event_id.
+- OpenTelemetry traces, metrics, and logs; configured via environment-specific backends.
+- Structured log schema (Pino) includes correlation IDs (request, session, user) and audit_event_id.
 - Synthetic monitors for OAuth providers and mail/SMS channels.
 
 ## 11. Scalability & Performance
@@ -300,17 +300,17 @@ All tables include row-level version + audit fields. Per-tenant SQLite files can
   - Lint (ESLint, Biome).
   - Type check (TypeScript strict).
   - Tests (unit/integration).
-  - Build Docker images (multi-arch) with SBOM.
-  - Push artifacts to AWS ECR (per environment) and sign them with cosign.
+  - Build Docker images (multi-arch).
+  - Push artifacts to AWS ECR (per environment).
   - Deploy via AWS ECS Fargate using blue/green deployments (AWS CodeDeploy or the GitHub `amazon-ecs-deploy-action`). Fargate services sit behind an Application Load Balancer; no CDN layer is permitted so dashboards and SDK assets are served straight from the ECS tasks.
-- Feature environments per pull request use ephemeral DB branches (Neon) plus short-lived ECS Fargate services (namespaced per PR). When cloud resources are unnecessary, devs can spin up the entire stack with docker-compose using the same images.
+- Feature environments per pull request use short-lived ECS Fargate services (namespaced per PR) or docker-compose with the same images.
 - Local development uses `docker-compose` (Express app, Redis, Mailpit, OTEL collector) with mounted SQLite volumes, ensuring the stack is fully self-hostable without any services beyond AWS primitives when desired.
 - Developer CLI `blerp dev` for local stack (TurboRepo workspace, docker-compose for infra). CLI wraps Compose for local workflows and `aws ecs`/`aws ecr` commands for Fargate deployments to keep parity without Kubernetes.
 
 ## 14. Roadmap Considerations
 
+- ~~Phase 2: SCIM 2.0 provisioning endpoints~~ — ✅ Implemented (Milestone 2).
 - Phase 2: Native mobile SDKs (React Native, Swift, Kotlin).
-- Phase 2: SCIM 2.0 provisioning endpoints for enterprise identity.
 - Phase 3: Policy engine (Rego) integration for ABAC.
 - Phase 3: Marketplace for extensions (custom OTP providers, analytics).
 

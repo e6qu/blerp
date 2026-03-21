@@ -332,3 +332,81 @@ The Monite SDK parity example uses Tailwind CSS utility classes throughout all p
 Two issues: (a) `currentUser()` sent `BLERP_SECRET_KEY` as Bearer token, but the API only accepts JWTs. (b) The `/v1/jwks` endpoint required `X-Tenant-Id` header, but `jose.createRemoteJWKSet` sends plain GET requests.
 
 **Fix applied:** (a) `currentUser()` now prefers the session JWT from `__blerp_session` cookie for Bearer auth, falling back to `BLERP_SECRET_KEY`. (b) Mounted JWKS and OIDC discovery endpoints before `tenantMiddleware` in `app.ts` so they're publicly accessible without tenant context.
+
+### BUG-23: Emotion `:first-child` crashes Next.js dev overlay (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — dev experience blocker
+**Files:** `examples/monite-sdk-parity/src/components/MoniteApp.tsx`, `examples/monite-sdk-parity/package.json`
+
+Emotion CSS-in-JS (used by Monite SDK's MUI dependency) emits `:first-child` pseudo-selectors that trigger a React hydration warning in Next.js dev mode. The dev overlay treated these as errors and crashed the page.
+
+**Fix applied:** Added `@emotion/cache` and `@emotion/react` deps. Created a custom Emotion cache with `prepend: true` and `CacheProvider` wrapper to suppress the `:first-child` warning.
+
+### BUG-24: Middleware only checked cookie existence, not JWT validity (FIXED)
+
+**Status:** Fixed
+**Severity:** High — security: expired/invalid JWTs were treated as authenticated
+**Files:** `packages/nextjs/src/server/middleware.ts`
+
+The Next.js middleware (`blerpMiddleware`) checked `request.cookies.has("__blerp_session")` to determine authentication, but never validated the JWT inside the cookie. Expired tokens, malformed tokens, or arbitrary cookie values all passed authentication.
+
+**Fix applied:** Middleware now decodes and verifies the JWT using `jose.jwtVerify()` with remote JWKS. Invalid/expired tokens are treated as unauthenticated and redirected to sign-in.
+
+### BUG-25: BlerpProvider missing CSRF middleware (FIXED)
+
+**Status:** Fixed
+**Severity:** High — all mutations from Next.js SDK failed with 403
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+The `BlerpProvider` component creates an `openapi-fetch` client for API calls but didn't include CSRF token handling. All POST/PATCH/PUT/DELETE requests failed because the API requires `x-csrf-token` header + `__blerp_csrf` cookie.
+
+**Fix applied:** Added CSRF middleware to BlerpProvider's openapi-fetch client that fetches a CSRF token on first mutation request and includes it as header on all subsequent requests.
+
+### BUG-26: OrganizationSwitcher didn't reload page for server components (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — server components showed stale org data after switching
+**Files:** `packages/nextjs/src/client/components/OrganizationSwitcher.tsx`, `packages/nextjs/src/client/BlerpProvider.tsx`
+
+When a user switched organizations via the `<OrganizationSwitcher>` component, the active org was updated in client state but server components (which read org from the cookie/session) still showed the previous org's data until a manual page refresh.
+
+**Fix applied:** OrganizationSwitcher now calls `window.location.reload()` after switching orgs so server components re-render with the new org context.
+
+### BUG-27: Dashboard org switcher was non-functional (FIXED — removed)
+
+**Status:** Fixed
+**Severity:** Medium — broken UI element
+**Files:** `apps/dashboard/src/components/Layout.tsx`, `apps/dashboard/src/App.tsx`
+
+The dashboard sidebar had an organization switcher dropdown that didn't work correctly — it was a leftover from an earlier implementation that wasn't wired to the current auth flow.
+
+**Fix applied:** Removed the non-functional org switcher from the dashboard layout. Organization management is handled via the dedicated Organizations page instead.
+
+### BUG-28: Dashboard sign-in/sign-up shown side-by-side (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — UX confusion
+**Files:** `apps/dashboard/src/App.tsx`
+
+The dashboard home page displayed both SignIn and SignUp forms side-by-side, which was confusing for users and caused locator collisions in E2E tests (duplicate email fields, duplicate OAuth buttons).
+
+**Fix applied:** Replaced side-by-side layout with a single auth form on the home page. Users can toggle between sign-in and sign-up modes.
+
+### BUG-29: Dashboard sign-in redirected back to home with auth forms (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — broken post-login UX
+**Files:** `apps/dashboard/src/App.tsx`
+
+After successful sign-in, the dashboard redirected to `/` which showed auth forms again instead of the authenticated dashboard content. Users had to manually navigate to see their data.
+
+**Fix applied:** Post-login redirect now goes to the dashboard view. The home route detects authenticated state and shows dashboard content instead of auth forms.
+
+**Status:** Fixed
+**Severity:** Medium
+**Files:** `packages/nextjs/src/server/auth.ts`, `apps/api/src/app.ts`
+
+Two issues: (a) `currentUser()` sent `BLERP_SECRET_KEY` as Bearer token, but the API only accepts JWTs. (b) The `/v1/jwks` endpoint required `X-Tenant-Id` header, but `jose.createRemoteJWKSet` sends plain GET requests.
+
+**Fix applied:** (a) `currentUser()` now prefers the session JWT from `__blerp_session` cookie for Bearer auth, falling back to `BLERP_SECRET_KEY`. (b) Mounted JWKS and OIDC discovery endpoints before `tenantMiddleware` in `app.ts` so they're publicly accessible without tenant context.
