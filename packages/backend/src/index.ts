@@ -30,12 +30,16 @@ export {
 export class BlerpClient {
   private client: ReturnType<typeof createClient<paths>>;
 
-  constructor(options: { baseUrl: string; secretKey: string }) {
+  constructor(options: { baseUrl: string; secretKey: string; tenantId?: string }) {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${options.secretKey}`,
+    };
+    if (options.tenantId) {
+      headers["X-Tenant-Id"] = options.tenantId;
+    }
     this.client = createClient<paths>({
       baseUrl: options.baseUrl,
-      headers: {
-        Authorization: `Bearer ${options.secretKey}`,
-      },
+      headers,
     });
   }
 
@@ -64,7 +68,11 @@ export class BlerpClient {
   }
 }
 
-export function createBlerpClient(options: { baseUrl: string; secretKey: string }) {
+export function createBlerpClient(options: {
+  baseUrl: string;
+  secretKey: string;
+  tenantId?: string;
+}) {
   return new BlerpClient(options);
 }
 

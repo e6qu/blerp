@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as jose from "jose";
 
 export type BlerpMiddlewareOptions = {
   publicRoutes?: string[] | ((req: NextRequest) => boolean);
@@ -41,11 +42,24 @@ export function blerpMiddleware(
     return async (req: NextRequest) => {
       const token = req.cookies.get("__blerp_session")?.value;
 
+      // Verify the token is actually valid (not just present)
+      let tokenValid = false;
+      if (token) {
+        try {
+          const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
+          const jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
+          await jose.jwtVerify(token, jwks, { issuer: "blerp", audience: "blerp-api" });
+          tokenValid = true;
+        } catch {
+          // Token is invalid/expired — treat as unauthenticated
+        }
+      }
+
       const auth = (): AuthObject => ({
         protect() {
-          if (!token) {
+          if (!tokenValid) {
             const signInUrl = new URL("/sign-in", req.url);
-            signInUrl.searchParams.set("redirect_url", req.url);
+            signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
             throw signInUrl;
           }
         },
@@ -55,7 +69,12 @@ export function blerpMiddleware(
         await callback(auth, req);
       } catch (thrown: unknown) {
         if (thrown instanceof URL) {
-          return NextResponse.redirect(thrown);
+          const response = NextResponse.redirect(thrown);
+          // Clear invalid session cookie so user doesn't get stuck in a loop
+          if (!tokenValid && token) {
+            response.cookies.delete("__blerp_session");
+          }
+          return response;
         }
         throw thrown;
       }
@@ -74,15 +93,30 @@ export function blerpMiddleware(
 
     const token = req.cookies.get("__blerp_session")?.value;
 
+    // Verify token is valid, not just present
+    let tokenValid = false;
+    if (token) {
+      try {
+        const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
+        const jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
+        await jose.jwtVerify(token, jwks, { issuer: "blerp", audience: "blerp-api" });
+        tokenValid = true;
+      } catch {
+        // Invalid token
+      }
+    }
+
     if (
-      !token &&
+      !tokenValid &&
       !isPublic &&
       !req.nextUrl.pathname.startsWith("/sign-in") &&
       !req.nextUrl.pathname.startsWith("/sign-up")
     ) {
       const signInUrl = new URL("/sign-in", req.url);
-      signInUrl.searchParams.set("redirect_url", req.url);
-      return NextResponse.redirect(signInUrl);
+      signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
+      const response = NextResponse.redirect(signInUrl);
+      if (token) response.cookies.delete("__blerp_session");
+      return response;
     }
 
     return NextResponse.next();

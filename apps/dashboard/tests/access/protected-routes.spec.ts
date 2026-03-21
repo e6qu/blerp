@@ -4,7 +4,7 @@ test.describe("Protected Routes", () => {
   test("home page loads with main content", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("main")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Dashboard Home" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Organizations" })).toBeVisible();
   });
 
   test("users page loads organization list", async ({ page }) => {

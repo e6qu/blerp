@@ -1,9 +1,18 @@
-import { test, expect } from "../fixtures";
+import { test as base, expect } from "@playwright/test";
+
+// Sign-up tests need unauthenticated state — don't use session fixtures
+const test = base;
 
 test.describe("Sign Up Flow", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Dashboard Home" })).toBeVisible();
+    await page.waitForTimeout(500);
+    // Click "Sign up" toggle to switch from sign-in to sign-up form
+    const signUpToggle = page.getByRole("button", { name: "Sign up" });
+    if (await signUpToggle.isVisible().catch(() => false)) {
+      await signUpToggle.click();
+      await page.waitForTimeout(300);
+    }
   });
 
   test("displays sign up form with all elements", async ({ page }) => {

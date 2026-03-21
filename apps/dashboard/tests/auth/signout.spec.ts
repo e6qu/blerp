@@ -3,7 +3,7 @@ import { test, expect } from "../fixtures";
 test.describe("Sign Out Flow", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Dashboard Home" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Organizations" })).toBeVisible();
   });
 
   test("sign out button is visible in sidebar", async ({ page }) => {
@@ -44,6 +44,6 @@ test.describe("Sign Out Flow", () => {
 
   test("can access dashboard after sign out", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Dashboard Home" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Organizations" })).toBeVisible();
   });
 });

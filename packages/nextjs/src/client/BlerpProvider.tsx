@@ -1,13 +1,53 @@
 "use client";
 
 import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from "react";
-import createClient from "openapi-fetch";
+import createClient, { type Middleware } from "openapi-fetch";
 import type { paths } from "@blerp/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { getPublishableKeyOrBuildPlaceholder } from "./env.js";
 
 const queryClient = new QueryClient();
+
+let csrfToken: string | undefined;
+
+async function fetchCsrfToken(tenantId?: string): Promise<string | undefined> {
+  try {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-Id"] = tenantId;
+    const sessionToken = Cookies.get("__blerp_session");
+    if (sessionToken) headers["Authorization"] = `Bearer ${sessionToken}`;
+    const res = await fetch("/v1/csrf-token", { credentials: "include", headers });
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    return data.csrfToken;
+  } catch {
+    return undefined;
+  }
+}
+
+function createCsrfMiddleware(tenantId: string | null): Middleware {
+  return {
+    async onRequest({ request }) {
+      const method = request.method.toUpperCase();
+      if (["POST", "PATCH", "PUT", "DELETE"].includes(method)) {
+        if (!csrfToken) {
+          csrfToken = await fetchCsrfToken(tenantId || "default");
+        }
+        if (csrfToken) {
+          request.headers.set("x-csrf-token", csrfToken);
+        }
+      }
+      return request;
+    },
+    async onResponse({ response }) {
+      if (response.status === 403) {
+        csrfToken = undefined;
+      }
+      return response;
+    },
+  };
+}
 
 type BlerpClient = ReturnType<typeof createClient<paths>>;
 
@@ -33,11 +73,14 @@ const BlerpContext = createContext<BlerpContextType | undefined>(undefined);
 export function BlerpProvider({
   children,
   publishableKey,
+  tenantId,
 }: {
   children: React.ReactNode;
   publishableKey?: string;
+  tenantId?: string;
 }) {
   const key = publishableKey ?? getPublishableKeyOrBuildPlaceholder();
+  const resolvedTenantId = tenantId ?? "demo-tenant";
 
   const [activeOrgId, setActiveOrgId] = useState<string | null>(
     () => Cookies.get("__blerp_org") || null,
@@ -50,14 +93,17 @@ export function BlerpProvider({
   const apiClient = useMemo(() => {
     const sessionToken = Cookies.get("__blerp_session");
     const authHeader = sessionToken ? `Bearer ${sessionToken}` : `Bearer ${key}`;
-    return createClient<paths>({
+    const c = createClient<paths>({
       baseUrl: "/",
+      credentials: "include",
       headers: {
         Authorization: authHeader,
-        "X-Tenant-Id": activeOrgId || "default",
+        "X-Tenant-Id": resolvedTenantId,
       },
     });
-  }, [key, activeOrgId]);
+    c.use(createCsrfMiddleware(resolvedTenantId));
+    return c;
+  }, [key, activeOrgId, resolvedTenantId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +117,7 @@ export function BlerpProvider({
           credentials: "include",
           headers: {
             Authorization: authHeader,
+            "X-Tenant-Id": resolvedTenantId,
           },
         });
 
@@ -78,9 +125,40 @@ export function BlerpProvider({
 
         if (response.ok) {
           const data = await response.json();
-          setUserId(data.sub ?? null);
+          const uid = data.sub ?? null;
+          setUserId(uid);
           setOrgRole(data.org_role ?? null);
           setOrgPermissions(data.org_permissions ?? []);
+
+          // If an org is selected and userinfo didn't include role, fetch membership
+          if (uid && activeOrgId && !data.org_role) {
+            try {
+              const memRes = await fetch(`/v1/organizations/${activeOrgId}/memberships`, {
+                credentials: "include",
+                headers: {
+                  Authorization: authHeader,
+                  "X-Tenant-Id": resolvedTenantId,
+                },
+              });
+              if (memRes.ok) {
+                const memData = await memRes.json();
+                const membership = (memData.data ?? []).find(
+                  (m: { user_id?: string }) => m.user_id === uid,
+                );
+                if (membership) {
+                  const role = membership.role ?? null;
+                  setOrgRole(role);
+                  if (role === "owner" || role === "admin") {
+                    setOrgPermissions(["org:read", "org:write", "org:manage_members"]);
+                  } else {
+                    setOrgPermissions(["org:read"]);
+                  }
+                }
+              }
+            } catch {
+              // Membership lookup failed — continue without role
+            }
+          }
         } else {
           setUserId(null);
           setOrgRole(null);

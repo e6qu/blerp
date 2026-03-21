@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Cookies from "js-cookie";
 import { useBlerpClient } from "../BlerpProvider";
 
 type SignInStep = "email" | "password";
@@ -59,8 +60,20 @@ export function SignIn({ afterSignInUrl = "/", signUpUrl = "/sign-up" }: SignInP
       if (apiError) {
         const errorData = apiError as { error?: { message?: string } };
         setError(errorData.error?.message ?? "Invalid credentials");
-      } else if ((data as { session?: unknown }).session) {
-        window.location.assign(afterSignInUrl);
+      } else {
+        const response = data as {
+          session?: { id: string };
+          tokens?: { access_token: string };
+        };
+        if (response.tokens?.access_token) {
+          Cookies.set("__blerp_session", response.tokens.access_token, {
+            expires: 7,
+            sameSite: "lax",
+          });
+        }
+        if (response.session) {
+          window.location.assign(afterSignInUrl);
+        }
       }
     } finally {
       setIsSubmitting(false);

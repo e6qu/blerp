@@ -1,20 +1,52 @@
 import { useState } from "react";
-import { Search, Users } from "lucide-react";
+import { Search, Users, Building2, Pencil } from "lucide-react";
 import { useUsers, useBulkUpdateUsers } from "../../hooks/useUsers";
+import { EditUserModal } from "./EditUserModal";
+import { useOrganizations } from "../../hooks/useOrganizations";
+import { useQuery } from "@tanstack/react-query";
+import { client } from "../../lib/api";
 import { Pagination } from "../ui/Pagination";
 import { usePagination } from "../../hooks/usePagination";
 import { TableSkeleton } from "../ui/Skeleton";
 import type { components } from "@blerp/shared";
 
 type User = components["schemas"]["User"];
+type Organization = components["schemas"]["Organization"];
+type Membership = components["schemas"]["Membership"];
+
+function useUserOrgMap() {
+  const { data: orgs } = useOrganizations();
+  return useQuery({
+    queryKey: ["user-org-map", orgs?.map((o: Organization) => o.id)],
+    enabled: !!orgs && orgs.length > 0,
+    queryFn: async () => {
+      const map: Record<string, { orgId: string; orgName: string; role: string }[]> = {};
+      for (const org of orgs ?? []) {
+        const { data } = await client.GET("/v1/organizations/{organization_id}/memberships", {
+          params: { path: { organization_id: org.id } },
+        });
+        const memberships = (data as { data?: Membership[] })?.data ?? [];
+        for (const mem of memberships) {
+          const userId = mem.user_id ?? (mem as Record<string, unknown>).userId;
+          if (typeof userId !== "string") continue;
+          if (!map[userId]) map[userId] = [];
+          map[userId].push({ orgId: org.id, orgName: org.name, role: mem.role });
+        }
+      }
+      return map;
+    },
+  });
+}
 
 export function UsersListPage() {
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "banned" | "">("");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const pagination = usePagination(20);
   const bulkUpdate = useBulkUpdateUsers();
 
+  const { data: userOrgMap } = useUserOrgMap();
   const { data: users, isLoading } = useUsers({
     status: statusFilter || undefined,
     limit: pagination.pageSize,
@@ -173,10 +205,13 @@ export function UsersListPage() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Username
+                  Organizations
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   Created
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -217,11 +252,36 @@ export function UsersListPage() {
                       {user.email_addresses?.[0]?.email ?? "\u2014"}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">{getStatusBadge(user.status)}</td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                      {user.username ?? "\u2014"}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {(userOrgMap?.[user.id] ?? []).map((entry) => (
+                          <span
+                            key={entry.orgId}
+                            className="inline-flex items-center gap-1 rounded-full bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300"
+                          >
+                            <Building2 className="h-3 w-3" />
+                            {entry.orgName}
+                            <span className="text-blue-400 dark:text-blue-500">({entry.role})</span>
+                          </span>
+                        ))}
+                        {(!userOrgMap?.[user.id] || userOrgMap[user.id].length === 0) && (
+                          <span className="text-sm text-gray-400 dark:text-gray-500">
+                            {"\u2014"}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                       {user.created_at ? new Date(user.created_at).toLocaleDateString() : "\u2014"}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-right">
+                      <button
+                        onClick={() => setEditingUser(user)}
+                        className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </button>
                     </td>
                   </tr>
                 );
@@ -229,7 +289,7 @@ export function UsersListPage() {
               {filteredUsers.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400"
                   >
                     No users found.
@@ -252,6 +312,12 @@ export function UsersListPage() {
           )}
         </div>
       )}
+
+      <EditUserModal
+        user={editingUser}
+        isOpen={!!editingUser}
+        onClose={() => setEditingUser(null)}
+      />
     </div>
   );
 }

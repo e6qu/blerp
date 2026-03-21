@@ -4,6 +4,8 @@ import { GitBranch, Mail, ArrowLeft, Wand2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMagicLink } from "../../hooks/useMagicLink";
 
+const AFTER_SIGN_IN_URL = "/users";
+
 type Step = "email" | "password" | "totp" | "magic-link-sent" | "magic-link-verify";
 
 export function SignIn() {
@@ -69,7 +71,7 @@ export function SignIn() {
           if (response.tokens?.access_token && response.session?.user_id) {
             setSession(response.tokens.access_token, response.session.user_id);
           }
-          window.location.assign("/");
+          window.location.assign(AFTER_SIGN_IN_URL);
         }
       }
     } finally {
@@ -125,7 +127,7 @@ export function SignIn() {
           if (response.tokens?.access_token && response.session.user_id) {
             setSession(response.tokens.access_token, response.session.user_id);
           }
-          window.location.assign("/");
+          window.location.assign(AFTER_SIGN_IN_URL);
         }
       }
     } finally {
@@ -156,7 +158,7 @@ export function SignIn() {
       if (result.tokens?.access_token && result.session.user_id) {
         setSession(result.tokens.access_token, result.session.user_id);
       }
-      window.location.assign("/");
+      window.location.assign(AFTER_SIGN_IN_URL);
     } else {
       setError(magicLink.error);
     }
