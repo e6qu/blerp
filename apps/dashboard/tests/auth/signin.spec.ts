@@ -1,8 +1,13 @@
-import { test, expect } from "../fixtures";
+import { test as base, expect } from "@playwright/test";
+
+// Sign-in tests need unauthenticated state — don't use session fixtures
+const test = base;
 
 test.describe("Sign In Flow", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
+    // Ensure we see the auth form (not redirected to /users)
+    await page.waitForTimeout(500);
   });
 
   test("sign in form is accessible from home page", async ({ page }) => {
