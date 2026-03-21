@@ -1,5 +1,7 @@
 # Blerp Identity Service — Execution Plan
 
+> **Related docs**: Feature list → `FEATURES.md` | Architecture → `DESIGN_DOCUMENT.md` | Clerk/Monite parity → `GAP_ANALYSIS.md` | Next actions → `DO_NEXT.md` | Bug tracker → `BUGS.md`
+>
 > **Tooling note**: All package management and script commands MUST run via Bun in npm-compatible mode—use `bun install` for deps, `bun run <script>` for package scripts, and `bunx <binary>` (e.g., Turbo, Spectral) for direct CLI execution. Never use `npm`, `pnpm`, or `yarn` in this project.
 
 > **Engineering standards**: Commit to absolute type safety. NEVER use `any`, `object`, or type ignores (`@ts-ignore`, `eslint-disable`). Type casts (`as`) should be avoided and used only as a documented last resort. Prefer optional properties (`?`) and unions over `null`, prefer shallow indentation via early exits and inverted conditionals, isolate only exception-throwing statements inside try blocks, and build an imperative shell around functional/pure cores when practical.

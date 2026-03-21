@@ -1,6 +1,8 @@
 # Comprehensive Gap Analysis: Blerp vs Clerk + Monite SDK Parity
 
 > Updated 2026-03-21 after auth overhaul (PR #48). All P0 security, S1-S5 quality gaps, production stubs (BUG-18-20), and quality issues (Q1-Q7) resolved.
+>
+> **Related docs**: Feature list → `FEATURES.md` | Architecture → `DESIGN_DOCUMENT.md` | Bug details → `BUGS.md` | Execution status → `PLAN.md`
 
 ## Goal
 
