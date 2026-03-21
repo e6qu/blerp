@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import { useUpdateUser } from "../../hooks/useUsers";
 import type { components } from "@blerp/shared";
@@ -11,23 +11,14 @@ interface EditUserModalProps {
   onClose: () => void;
 }
 
-export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
+function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
   const updateUser = useUpdateUser();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [username, setUsername] = useState("");
-  const [status, setStatus] = useState<"active" | "inactive" | "banned">("active");
-
-  useEffect(() => {
-    if (user) {
-      setFirstName(user.first_name ?? "");
-      setLastName(user.last_name ?? "");
-      setUsername(user.username ?? "");
-      setStatus(user.status as "active" | "inactive" | "banned");
-    }
-  }, [user]);
-
-  if (!isOpen || !user) return null;
+  const [firstName, setFirstName] = useState(user.first_name ?? "");
+  const [lastName, setLastName] = useState(user.last_name ?? "");
+  const [username, setUsername] = useState(user.username ?? "");
+  const [status, setStatus] = useState<"active" | "inactive" | "banned">(
+    user.status as "active" | "inactive" | "banned",
+  );
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -135,4 +126,10 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
       </div>
     </>
   );
+}
+
+export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
+  if (!isOpen || !user) return null;
+  // Key on user.id forces remount when switching between users, resetting form state
+  return <EditUserForm key={user.id} user={user} onClose={onClose} />;
 }
