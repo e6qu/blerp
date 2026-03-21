@@ -1,5 +1,7 @@
 # Blerp Identity Service — Design Document
 
+> **Related docs**: Feature list → `FEATURES.md` | Clerk/Monite parity → `GAP_ANALYSIS.md` | OpenAPI spec → `openapi/blerp.v1.yaml` | Execution status → `PLAN.md`
+
 ## 1. Context
 
 Clerk is a widely used identity and authentication SaaS that exposes public APIs and React components. We are building **Blerp Identity Service (BIS)** as a clean-room reimplementation inspired only by publicly documented features and behaviors, not by internal code or assets. BIS must deliver drop-in functionality for modern SaaS and product teams via:
@@ -42,7 +44,7 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
         └──────────────────────┘
 ```
 
-- **Frontend stack**: Vite + React 18 + TypeScript, Tailwind CSS, Radix UI, and TanStack Router/Query. The dashboard, docs, and starter templates follow ENT Stack conventions but run purely as SPAs that talk directly to the REST API (no SSR, no hydration tricks). Storybook + MSW cover component development, and OpenAPI-generated type-safe clients power all HTTP calls.
+- **Frontend stack**: Vite + React 18 + TypeScript, Tailwind CSS, React Router, and TanStack Query. The dashboard, docs, and starter templates run purely as SPAs that talk directly to the REST API. Storybook + MSW cover component development, and OpenAPI-generated type-safe clients (`openapi-fetch`) power all HTTP calls.
 - **Backend stack**: A single Express 5 app (compiled with TSX/ESM) handles all HTTP traffic—no API gateway. Drizzle ORM targets SQLite 3 (one file per customer). Zod/Valibot validate payloads; Redis Streams/Lists provide native queue primitives; Redis 7 also powers caching and rate limiting; OpenTelemetry instrumentation is embedded directly.
 - **Deployment**: One container image is produced via Docker. Locally we run docker-compose with the Express app, Redis, Mailpit, and mounted SQLite volumes. Cloud environments run the same image on AWS ECS Fargate (single service). Per-customer SQLite files live on EFS/EBS (or local disk) managed alongside the ECS service, keeping the stack simple and self-hostable.
 
@@ -54,7 +56,7 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
 
 ### 4.2 Frontend Stack Details
 
-- **Admin/Dashboard**: Vite + React SPA with Tailwind + Radix UI. Production bundles are emitted as static assets and served by Express. TanStack Query consumes the JSON REST API directly with clients generated from OpenAPI; MSW + Storybook provide rapid UI iteration.
+- **Admin/Dashboard**: Vite + React SPA with Tailwind CSS and React Router. Production bundles are emitted as static assets and served by Express. TanStack Query consumes the JSON REST API directly with clients generated from OpenAPI (`openapi-fetch`); MSW + Storybook provide rapid UI iteration.
 - **SDK Packages**: `@blerp/nextjs` provides server-side auth (`auth()`, `currentUser()`), middleware (`blerpMiddleware`), and pre-built UI components for Next.js apps. `@blerp/backend` provides a server-side `blerpClient()` with `clerkClient()` parity. `@blerp/testing` provides Playwright helpers. The API also targets Clerk schema compatibility so official Clerk SDKs can be pointed at Blerp for validation.
 - **Docs+Templates**: VitePress (or plain Vite SPA) for docs plus simple Vite templates that showcase raw REST consumption. Tooling focuses on onboarding but defers to official Clerk SDKs/flows for compatibility checks.
 
@@ -79,10 +81,10 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
 ### 5.2 Authentication Flows
 
 1. **Email/password** with Argon2id hashing.
-2. **Magic links** and **OTP codes** (email/SMS).
-3. **Social providers** via OAuth 2.0/OIDC (Google, GitHub, Microsoft, Apple).
+2. **Magic links** and **OTP codes** (email).
+3. **Social providers** via OAuth 2.0/OIDC (Google, GitHub). Additional providers (Microsoft, Apple) planned.
 4. **Passwordless Passkeys/WebAuthn**.
-5. **MFA**: TOTP, backup codes, SMS.
+5. **MFA**: TOTP, backup codes. SMS MFA planned (see `DO_NEXT.md`).
 
 ### 5.3 User Management
 
@@ -107,18 +109,25 @@ Clerk is a widely used identity and authentication SaaS that exposes public APIs
 - User search with advanced filters.
 - Audit log viewer with streaming to external sinks (Datadog, Splunk) via event bus.
 
+### 5.7 Monite SDK Parity (Milestone 6)
+
+- **Deep Metadata Merging**: Support for nested objects (e.g., `entities`) in user/org metadata.
+- **Organization Domains**: Enterprise routing based on email domains, auto-enrollment, and domain discovery.
+- **Multi-entity Mapping**: Ability to associate a single Clerk user with multiple Monite `entity_user_id`s across organizations.
+- For full Monite parity status, see `GAP_ANALYSIS.md`.
+
 ## 6. API Surface (REST + JSON)
 
 ### 6.1 Authentication
 
-| Method | Path                            | Description                                   | Request Body                              | Response                                   |
-| ------ | ------------------------------- | --------------------------------------------- | ----------------------------------------- | ------------------------------------------ |
-| POST   | `/v1/auth/signups`              | Create pending signup (email, phone, passkey) | `{ email?, phone?, password?, strategy }` | Signup object `{id,status,verification}`   |
-| POST   | `/v1/auth/signups/{id}/attempt` | Submit verification code/magic link token     | `{ code?, token? }`                       | `{ user, session? }`                       |
-| POST   | `/v1/auth/signins`              | Begin sign-in flow                            | `{ identifier, strategy }`                | `{ id, status, next_step }`                |
-| POST   | `/v1/auth/signins/{id}/attempt` | Complete sign-in                              | `{ password?, code?, webauthnResponse? }` | `{ session, tokens }`                      |
-| POST   | `/v1/sessions/{id}/revoke`      | Revoke session                                | `{ reason }`                              | 204                                        |
-| POST   | `/v1/tokens/refresh`            | Exchange refresh token                        | `{ refresh_token }`                       | `{ access_token, expires_in, session_id }` |
+| Method | Path                            | Description                                   | Request Body                              | Response                                 |
+| ------ | ------------------------------- | --------------------------------------------- | ----------------------------------------- | ---------------------------------------- |
+| POST   | `/v1/auth/signups`              | Create pending signup (email, phone, passkey) | `{ email?, phone?, password?, strategy }` | Signup object `{id,status,verification}` |
+| POST   | `/v1/auth/signups/{id}/attempt` | Submit verification code/magic link token     | `{ code?, token? }`                       | `{ user, session? }`                     |
+| POST   | `/v1/auth/signins`              | Begin sign-in flow                            | `{ identifier, strategy }`                | `{ id, status, next_step }`              |
+| POST   | `/v1/auth/signins/{id}/attempt` | Complete sign-in                              | `{ password?, code?, webauthnResponse? }` | `{ session, tokens }`                    |
+| DELETE | `/v1/sessions/{session_id}`     | Revoke session                                | —                                         | 204                                      |
+| POST   | `/v1/sessions/revoke-all`       | Revoke all sessions for current user          | —                                         | 204                                      |
 
 ### 6.2 Users
 
@@ -328,9 +337,3 @@ All references are used solely for high-level feature parity; no proprietary ass
 - Coverage: includes every endpoint described above (auth flows, users, organizations, MFA, webhooks, projects, client helpers) with schemas, examples, and RFC 7807-compliant errors.
 - Distribution: served via the documentation site, bundled with the repo, and used for SDK generation (React, Node, Go). Stored artifacts are versioned and tagged alongside application releases.
 - Tooling: CI validates spec with `@redocly/cli` + Spectral; Make targets emit TypeScript types, server stubs, and Markdown reference tables consumed by docs.
-
-### 5.7 Monite SDK Parity (Milestone 6)
-
-- **Deep Metadata Merging**: Support for nested objects (e.g., `entities`) in user/org metadata.
-- **Organization Domains**: Enterprise routing based on email domains, auto-enrollment, and domain discovery.
-- **Multi-entity Mapping**: Ability to associate a single Clerk user with multiple Monite `entity_user_id`s across organizations.

@@ -1,9 +1,12 @@
 # Blerp Identity Service — Feature Specification
 
+> **Related docs**: Architecture & API surface → `DESIGN_DOCUMENT.md` | Clerk/Monite parity → `GAP_ANALYSIS.md` | Execution status → `PLAN.md` | Bug tracker → `BUGS.md`
+
 ## 1. Core Principles
 
 - **Clean-room parity with Clerk**: replicate behavior only from publicly documented APIs and flows.
-- **Single TypeScript stack**: Express 5 + Vite + React + SQLite per tenant + Redis; no SSR, no API gateway.
+- **Single TypeScript stack**: Express 5 + Vite + React + SQLite per tenant + Redis; no API gateway.
+- **SDK packages**: `@blerp/nextjs`, `@blerp/backend`, `@blerp/testing` (see §3.2 and `DESIGN_DOCUMENT.md` §4.2).
 - **Strict typing**: OpenAPI-driven JSON schemas, TypeScript strict mode, Zod/Valibot validation.
 - **Self-hostable**: docker-compose locally, AWS ECS Fargate in production, no CDN dependencies.
 
@@ -21,8 +24,8 @@
 
 - Email/password using Argon2id, password strength policies.
 - Sign-in flow: two-step email→password verification with session creation.
-- OTP/magic link (email + SMS) pipelines with throttling.
-- Social OAuth (Google, GitHub, Microsoft, Apple) via OAuth 2.0/OpenID Connect.
+- OTP/magic link (email) pipelines with throttling.
+- Social OAuth (Google, GitHub) via OAuth 2.0/OpenID Connect. Additional providers (Microsoft, Apple) planned.
 - Passkeys/WebAuthn registration, assertion, and deletion.
 - MFA: TOTP enrollment with QR code, backup code generation/regeneration, enforcement policies per project/organization.
 
@@ -33,8 +36,8 @@
 - `/v1/auth/webauthn/passkeys/{id}` DELETE for passkey removal.
 - `/v1/uploads/avatar` for base64 image upload and storage.
 - `/v1/users`, `/v1/organizations`, `/v1/memberships`, `/v1/projects`, `/v1/webhooks`, `/v1/events`.
-- Client helper endpoints (`/v1/client`, `/v1/client/sessions`, `/v1/client/user`) for publishable-key integrations.
 - RFC 7807 error payloads, Request-Id headers, redis-backed rate limiting.
+- Full endpoint list: see `openapi/blerp.v1.yaml` and `DESIGN_DOCUMENT.md` §6.
 - Security schemes: Bearer secret keys (`sk_*`), publishable keys (`pk_*`), session tokens (`sess_*`).
 
 ### 2.4 Data Storage & Processing
@@ -48,8 +51,8 @@
 
 ### 3.1 Admin Dashboard SPA
 
-- Vite + React + Tailwind + Radix UI, TanStack Router/Query for client-side navigation/data fetching.
-- Direct JSON API consumption (OpenAPI-generated clients), no SSR/hydration tricks.
+- Vite + React + Tailwind CSS, React Router for navigation, TanStack Query for data fetching.
+- Direct JSON API consumption (OpenAPI-generated clients via `openapi-fetch`).
 - Sign-in and sign-up pages with OAuth support (GitHub, Google).
 - User profile management: edit name/username, email management, connected accounts (OAuth), password change, 2FA enrollment, backup codes, passkey management, avatar upload.
 - Organization management: CRUD, member roles, invitations, domains, webhooks, org deletion with type-to-confirm.

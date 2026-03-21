@@ -33,12 +33,12 @@ Documentation lives in `apps/docs/` and can be browsed locally via `bun run dev`
 - **Core Platform**: Milestones 1-3 complete. Multi-tenancy, auth, and dashboard foundations are solid.
 - **Frameworks**: Milestones 4-5 complete. `@blerp/nextjs` and `@blerp/backend` packages are operational.
 - **SDK Parity**: Milestones 6-7 complete. Full Monite SDK and Clerk SDK compatibility achieved.
-- **Testing**: Milestone 8 complete. **155/155 E2E tests + 46/46 API unit tests** all passing.
-- **Dashboard**: Milestone 12 + Dashboard UI Gap Analysis complete. Sign In, org/account deletion, connected accounts, pagination, toasts, loading skeletons, session management, admin user management, and avatar uploads all implemented.
+- **Testing**: Milestone 8 complete. **155/155 E2E tests + 49/49 API unit tests** all passing.
+- **Dashboard**: Milestone 12 + Dashboard UI Gap Analysis complete (all P0/P1/P2 items). Dark mode, global search, keyboard shortcuts, responsive layout, error boundaries, and 30+ other features implemented.
 
 **Blocked**: M9 (Production Infrastructure) pending AWS credentials.
 
-**Next**: P2/P3 UI gaps (dark mode, search, responsive layout, error boundaries), M10 (Multi-Language SDK), or M11 (Security & Compliance).
+**Next**: SAML SSO (C7, only remaining P2), P3 items (theming, i18n, SMS MFA), or M10 (Multi-Language SDK). See `DO_NEXT.md` for details.
 
 ## Workspace Structure
 
