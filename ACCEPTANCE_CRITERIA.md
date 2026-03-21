@@ -4,7 +4,7 @@ Use the following criteria to decide whether a task/phase is acceptable. All ite
 
 1. **Spec Compliance**
    - Implementation matches the behavior described in `DESIGN_DOCUMENT.md`, `FEATURES.md`, and `openapi/blerp.v1.yaml`.
-   - Official Clerk SDKs (ClerkJS, `@clerk/clerk-react`, server SDKs) run against the backend without modification for the relevant feature.
+   - `@blerp/nextjs` SDK and `@blerp/testing` package validate Clerk-compatible behavior. Official Clerk SDKs can also be pointed at Blerp for additional validation.
 
 2. **Tests & Validation**
    - Unit/integration tests exist (or are updated) for new logic, passing locally.

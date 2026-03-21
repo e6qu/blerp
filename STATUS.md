@@ -46,6 +46,7 @@
 | 2026-03-20 | Backend SDK Expansion                | completed | 26 methods across 6 namespaces, BlerpAPIError, full clerkClient() parity             |
 | 2026-03-20 | Monite Demo Setup + E2E Tests        | completed | One-command setup, Playwright screenshot tests (13/13 pass), BUG-21/22 logged        |
 | 2026-03-21 | Next.js Auth Overhaul + Dashboard UX | completed | JWT middleware, CSRF, org context, membership roles, single auth form, edit users    |
+| 2026-03-21 | Doc Cleanup & Cross-linking          | completed | Removed 248 lines of duplicate/stale content, fixed inaccurate claims, cross-linked  |
 
 ## Summary
 

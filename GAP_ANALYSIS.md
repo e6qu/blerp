@@ -1,6 +1,6 @@
 # Comprehensive Gap Analysis: Blerp vs Clerk + Monite SDK Parity
 
-> Updated 2026-03-20 after PR #44 merge. All P0 security, S1-S5 quality gaps, production stubs (BUG-18-20), and quality issues (Q1-Q7) resolved.
+> Updated 2026-03-21 after auth overhaul (PR #48). All P0 security, S1-S5 quality gaps, production stubs (BUG-18-20), and quality issues (Q1-Q7) resolved.
 
 ## Goal
 
@@ -18,7 +18,7 @@ The Monite demo (`team-monite/monite-sdk/examples/with-nextjs-and-clerk-auth`) d
 | ----------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
 | App-wide auth provider        | `<ClerkProvider publishableKey={...}>`                      | ✅ `<BlerpProvider>` with auth hydration                        |
 | Route protection middleware   | `clerkMiddleware()` + `createRouteMatcher()`                | ✅ `blerpMiddleware()` + `createRouteMatcher()`                 |
-| Server-side auth              | `auth()` returning `{ userId, orgId }`                      | ✅ Implemented (JWT decode)                                     |
+| Server-side auth              | `auth()` returning `{ userId, orgId }`                      | ✅ Implemented (JWT verification via JWKS)                      |
 | Current user data             | `currentUser()` returning User with `privateMetadata`       | ✅ Real API fetch (fixed 2026-03-20)                            |
 | Client-side auth state        | `useAuth()` returning `{ userId, isSignedIn }`              | ✅ Hydrated via `/v1/userinfo` (fixed 2026-03-20)               |
 | Permission checking           | `has({ permission, role })`                                 | ✅ Real check against orgRole/orgPermissions (fixed 2026-03-20) |
@@ -119,23 +119,9 @@ Critical stubs that would break any real Next.js app were fixed:
 | `<SignUp />` component     | Email-only stub, no password step               | Two-step email→password flow with OAuth                 |
 | `<Protect>` component      | Gave access to everyone (via `has()`)           | Correctly restricts by permission/role                  |
 
-### Remaining SDK Gaps (discovered 2026-03-20 audit)
+### ✅ All SDK Quality Gaps & Production Stubs Resolved (2026-03-20)
 
-| #   | Issue                               | Impact                                                               | Priority |
-| --- | ----------------------------------- | -------------------------------------------------------------------- | -------- |
-| S1  | **`useSignIn()` hook wired to API** | ✅ Fixed 2026-03-20 — calls POST /v1/auth/signins + attempt          | Done     |
-| S2  | **`useSignUp()` hook wired to API** | ✅ Fixed 2026-03-20 — calls POST /v1/auth/signups + attempt          | Done     |
-| S3  | **M2M JWT signature verified**      | ✅ Fixed 2026-03-20 — `jwtVerify()` with issuer/audience check       | Done     |
-| S4  | **JWKS key pair persisted to disk** | ✅ Fixed 2026-03-20 — PEM files in `keys/` dir, survive restarts     | Done     |
-| S5  | **OAuth real token exchange**       | ✅ Fixed 2026-03-20 — GitHub/Google when env vars set, mock fallback | Done     |
-
-### Remaining Production Stubs (discovered 2026-03-20 fresh audit)
-
-| #          | Issue                                      | Impact                                                                     | Priority |
-| ---------- | ------------------------------------------ | -------------------------------------------------------------------------- | -------- |
-| ~~BUG-18~~ | ~~**WebAuthn service fully mocked**~~      | ✅ Fixed — real @simplewebauthn/server integration with configurable RP ID | ~~P1~~   |
-| ~~BUG-19~~ | ~~**Signup verification code hardcoded**~~ | ✅ Fixed — random 6-digit OTP with TransientStore                          | ~~P1~~   |
-| ~~BUG-20~~ | ~~**useSignIn() 2FA step stubbed**~~       | ✅ Fixed — real TOTP/backup code verification in signin flow               | ~~P1~~   |
+All SDK quality gaps (S1-S5) and production stubs (BUG-18-20) resolved. See `BUGS.md` for details.
 
 ---
 
@@ -143,34 +129,7 @@ Critical stubs that would break any real Next.js app were fixed:
 
 ### Already Production-Ready (Demo Path)
 
-The `with-nextjs-and-clerk-auth` Monite demo can run against Blerp today with **zero code changes** (only env var differences). All required features are implemented:
-
-- Auth provider, middleware, route protection
-- Organization CRUD, switching, metadata
-- User management, metadata, search
-- Webhook events for entity sync
-- Token endpoint for Monite API auth
-- All UI components the demo uses
-- Custom roles for fine-grained RBAC
-- M2M tokens for service-to-service auth
-
-### ✅ Prior Production Blockers — All Resolved (2026-03-20)
-
-| #   | Feature                        | Status                                         |
-| --- | ------------------------------ | ---------------------------------------------- |
-| S3  | M2M JWT signature verification | ✅ Fixed — `jwtVerify()` with unified key pair |
-| S4  | Persistent JWKS key pair       | ✅ Fixed — PEM files survive restarts          |
-| S1  | Real `useSignIn()` hook        | ✅ Fixed — calls real API endpoints            |
-| S2  | Real `useSignUp()` hook        | ✅ Fixed — calls real API endpoints            |
-| S5  | Real OAuth token exchange      | ✅ Fixed — GitHub/Google with mock fallback    |
-
-### Current Production Stubs (discovered 2026-03-20 fresh audit)
-
-| #          | Feature                           | Impact on Monite    | Effort | Priority |
-| ---------- | --------------------------------- | ------------------- | ------ | -------- |
-| ~~BUG-18~~ | ~~WebAuthn mock implementation~~  | ✅ Fixed 2026-03-20 | —      | ~~P1~~   |
-| ~~BUG-19~~ | ~~Hardcoded signup verification~~ | ✅ Fixed 2026-03-20 | —      | ~~P1~~   |
-| ~~BUG-20~~ | ~~Sign-in 2FA step stubbed~~      | ✅ Fixed 2026-03-20 | —      | ~~P1~~   |
+The `with-nextjs-and-clerk-auth` Monite demo can run against Blerp today with **env var changes only** (pointing at the Blerp API). All prior production blockers (S1-S5, BUG-18-20) resolved — see `BUGS.md`.
 
 ### Gaps That Could Affect Enterprise Monite Deployments
 
@@ -190,17 +149,9 @@ The `with-nextjs-and-clerk-auth` Monite demo can run against Blerp today with **
 
 ---
 
-## Part 7: Production Quality Issues — All Resolved (PR #44, 2026-03-20)
+## Part 7: Production Quality Issues
 
-| #   | Issue                                | File                     | Severity | Status                                                |
-| --- | ------------------------------------ | ------------------------ | -------- | ----------------------------------------------------- |
-| Q1  | **Userinfo uses X-User-Id header**   | `userinfo.controller.ts` | Medium   | ✅ Fixed — JWT auth, X-User-Id blocked in production  |
-| Q2  | **Quota service returns mock data**  | `quota.service.ts`       | Medium   | ✅ Fixed — queries real DB counts via drizzle count() |
-| Q3  | **OAuth mock fallback**              | `oauth.service.ts`       | Low      | ✅ Fixed — throws clear error when not configured     |
-| Q4  | **useSignUp().update() stub**        | `hooks.ts`               | Low      | ✅ Fixed — throws unsupported error                   |
-| Q5  | **deletePasskey no ownership check** | `webauthn.service.ts`    | Medium   | ✅ Fixed — ownership check before delete              |
-| Q6  | **console.warn in key loading**      | `keys.ts`                | Low      | ✅ Fixed — uses pino logger                           |
-| Q7  | **Hardcoded test API keys**          | `auth-guard.ts`          | Low      | ✅ Fixed — removed, all keys must be DB-backed        |
+All Q1-Q7 resolved in PR #44 (2026-03-20). See `BUGS.md` for details.
 
 ---
 
@@ -216,20 +167,9 @@ The `with-nextjs-and-clerk-auth` Monite demo can run against Blerp today with **
 | **P3 Future**               | 9     | 2    | 6         |
 | **SDK Stubs**               | 6     | 6    | 0         |
 
-### Recommended Next Steps
+### Next
 
-```
-1. ✅ Fix M2M JWT verification (S3)       <- Done 2026-03-20
-2. ✅ Persistent JWKS key pair (S4)       <- Done 2026-03-20
-3. ✅ Real useSignIn/useSignUp (S1+S2)    <- Done 2026-03-20
-4. ✅ Real OAuth token exchange (S5)      <- Done 2026-03-20
-5. ✅ Real WebAuthn passkeys (BUG-18)     <- Done 2026-03-20
-6. ✅ Real signup verification (BUG-19)   <- Done 2026-03-20
-7. ✅ Sign-in 2FA endpoint (BUG-20)       <- Done 2026-03-20
-8. ✅ Fix Q1-Q7 production quality        <- Done 2026-03-20 (PR #44)
-9. ✅ Systemic auth redesign (X-User-Id)  <- Done 2026-03-20
-10. SAML SSO (C7)                         <- only remaining P2 item
-```
+SAML SSO (C7) — only remaining P2 item.
 
 ---
 

@@ -103,172 +103,6 @@
 
 ---
 
-## Milestone 8 — UI Flow E2E Testing ✅
-
-_Objective_: Implement comprehensive Playwright E2E tests for all UI flows to ensure production readiness.
-
-### Phase A — Authentication Flow Tests
-
-1. [x] **Sign Up Flow**
-   - Test: User can create account with email
-   - Test: User sees validation errors for invalid inputs
-   - Test: User can verify email (if enabled)
-   - File: `tests/auth/signup.spec.ts`
-
-2. [x] **Sign In Flow**
-   - Test: User can sign in with valid credentials
-   - Test: User sees error for invalid credentials
-   - Test: Redirect after successful sign in
-   - File: `tests/auth/signin.spec.ts`
-
-3. [x] **Sign Out Flow**
-   - Test: User can sign out
-   - Test: Session is cleared after sign out
-   - Test: Protected routes redirect after sign out
-   - File: `tests/auth/signout.spec.ts`
-
-4. [x] **Password Reset Flow**
-   - Test: User can request password reset
-   - Test: User receives reset email (mocked)
-   - Test: User can set new password
-   - File: `tests/auth/password-reset.spec.ts`
-
-### Phase B — User Profile Tests
-
-5. [x] **Profile Management**
-   - Test: User can view their profile
-   - Test: User can update name and username
-   - Test: User can upload avatar
-   - File: `tests/user/profile.spec.ts`
-
-6. [x] **Session Management**
-   - Test: User can view active sessions
-   - Test: User can revoke a session
-   - Test: Revoked session is invalidated
-   - File: `tests/user/sessions.spec.ts`
-
-7. [x] **Security Settings**
-   - Test: User can view security settings
-   - Test: User can enable TOTP MFA
-   - Test: User can generate backup codes
-   - File: `tests/user/security.spec.ts`
-
-### Phase C — Organization Flow Tests
-
-8. [x] **Organization CRUD**
-   - Test: User can create organization
-   - Test: Organization appears in switcher after creation
-   - Test: User can update organization name
-   - Test: User can delete organization
-   - File: `tests/organizations/crud.spec.ts`
-
-9. [x] **Organization Switching**
-   - Test: User can switch between organizations
-   - Test: Active org is persisted across page reloads
-   - Test: Data is isolated per organization
-   - File: `tests/organizations/switching.spec.ts`
-
-10. [x] **Member Management**
-    - Test: Owner can invite members
-    - Test: Invitee receives invitation
-    - Test: Member can accept invitation
-    - Test: Owner can change member role
-    - Test: Owner can remove member
-    - File: `tests/organizations/members.spec.ts`
-
-11. [x] **Organization Domains**
-    - Test: Admin can add domain
-    - Test: Domain verification flow
-    - Test: Verified domain shows in org list
-    - File: `tests/organizations/domains.spec.ts`
-
-### Phase D — Access Control Tests
-
-12. [x] **Protected Routes**
-    - Test: Unauthenticated user redirected to sign in
-    - Test: Authenticated user can access protected routes
-    - Test: Role-based access control works
-    - File: `tests/access/protected-routes.spec.ts`
-
-13. [x] **Permission Checks**
-    - Test: `<SignedIn>` / `<SignedOut>` rendering
-    - Test: `has()` permission helper
-    - Test: Organization role permissions
-    - File: `tests/access/permissions.spec.ts`
-
-### Phase E — Test Infrastructure
-
-14. [x] **Shared Fixtures**
-
-- Create reusable test fixtures for users, orgs, sessions
-- File: `tests/fixtures/index.ts`
-
-15. [ ] **Test Data Seeding**
-
-- Implement seed script for consistent test data
-- File: `tests/seed.ts`
-
-16. [ ] **Visual Regression Setup**
-
-- Configure Playwright snapshots for key pages
-- File: `tests/visual/*.spec.ts`
-
-### Phase F — CI Integration
-
-17. [x] **E2E in CI Pipeline**
-
-- Run E2E tests in GitHub Actions
-- Upload Playwright reports as artifacts
-- Fail CI on E2E test failures
-
-### Phase G — Critical Path E2E Tests ✅
-
-18. [x] **Authentication Tests** (Enhanced)
-    - Sign up form validation and submission
-    - OAuth button redirects (GitHub, Google)
-    - Sign out flow (button, API call, redirect)
-    - Loading/error states
-    - File: `tests/auth/signup.spec.ts`, `tests/auth/signout.spec.ts`
-
-19. [x] **Organization CRUD Tests**
-    - Create org modal (from page and switcher)
-    - Form validation (name required, slug auto-gen)
-    - Submit creates org, appears in list
-    - Cancel/close modal behavior
-    - Loading/error states
-    - File: `tests/organizations/crud.spec.ts`
-
-20. [x] **Organization Switching Tests**
-    - Dropdown open/close behavior
-    - Org selection updates UI
-    - Create org from dropdown
-    - File: `tests/organizations/switching.spec.ts`
-
-21. [x] **Member Management Tests**
-    - Members list loads for selected org
-    - Edit role dropdown (owner/admin/member)
-    - Save updates role via API
-    - Delete member with confirmation
-    - Loading/disabled states
-    - File: `tests/organizations/members.spec.ts`
-
-22. [x] **Navigation & Access Tests**
-    - Sidebar navigation to all pages
-    - Active state highlighting
-    - Tab navigation within pages
-    - File: `tests/access/navigation.spec.ts`
-
-### Phase H — Future E2E Tests (Lower Priority)
-
-23. [ ] **Invitations Tests** (requires invitation creation UI)
-24. [ ] **Webhooks Tests** (requires webhook creation UI)
-25. [ ] **Domains Tests** (requires domain creation UI)
-26. [ ] **Sessions Tests** (enhanced with revoke)
-27. [ ] **Settings Tests** (enhanced with actual settings)
-28. [ ] **Visual Regression Tests** (snapshots)
-
----
-
 ## Milestone 9 — Production Infrastructure ⏸️
 
 > **Blocked**: Requires AWS credentials and infrastructure access. Resume when available.
@@ -447,32 +281,9 @@ _Objective_: Close critical UI gaps identified in `GAP_ANALYSIS.md` to reach Cle
 | C4   | Testing tokens (dev-only POST /auth/testing-tokens)              | ✅ Complete |
 | D10  | Bulk operations (POST /users/bulk + multi-select UI)             | ✅ Complete |
 
-### ✅ Resolved — P0 Security
+### ✅ Resolved — All P0/P1 Security & Quality Issues (2026-03-20)
 
-- ~~S3~~: M2M JWT signature verification — fixed 2026-03-20 (`jwtVerify` with unified key pair)
-
-### ✅ Resolved — Prior P1 Quality (S1-S5)
-
-- ~~S4~~: JWKS key pair persistence — fixed 2026-03-20 (PEM files in `keys/`)
-- ~~S1~~: `useSignIn()` hook — fixed 2026-03-20 (wired to real API)
-- ~~S2~~: `useSignUp()` hook — fixed 2026-03-20 (wired to real API)
-- ~~S5~~: OAuth token exchange — fixed 2026-03-20 (real GitHub/Google)
-
-### ✅ Resolved — P1 Production Stubs (BUG-18, BUG-19, BUG-20)
-
-- ~~BUG-18~~: WebAuthn — fixed 2026-03-20 (real @simplewebauthn/server)
-- ~~BUG-19~~: Signup verification — fixed 2026-03-20 (random OTP codes)
-- ~~BUG-20~~: Sign-in 2FA — fixed 2026-03-20 (real TOTP/backup code verification)
-
-### ✅ Resolved — Production Quality Issues Q1-Q7 (PR #44, 2026-03-20)
-
-- ~~Q1~~: userinfo auth — fixed (authMiddleware + req.user?.id)
-- ~~Q2~~: quota mock data — fixed (real DB counts)
-- ~~Q3~~: OAuth mock fallback — fixed (clear error when not configured)
-- ~~Q4~~: useSignUp().update() stub — fixed (throws unsupported error)
-- ~~Q5~~: deletePasskey authz bypass — fixed (ownership check)
-- ~~Q6~~: console.warn — fixed (pino logger)
-- ~~Q7~~: hardcoded test API keys — fixed (removed)
+All SDK quality gaps (S1-S5), production stubs (BUG-18-20), and quality issues (Q1-Q7) resolved. See `BUGS.md` for details.
 
 ### Remaining — P2 (1 item)
 
@@ -482,7 +293,7 @@ _Objective_: Close critical UI gaps identified in `GAP_ANALYSIS.md` to reach Cle
 
 - Theming (D13), i18n (D14), email/SMS templates (C8), notification center (D15), appearance customization (U3), SMS MFA (U6)
 
-**Test Results**: 46/46 API unit tests, 155/155 E2E tests, 16/16 Storybook tests — all passing. CI green.
+**Test Results**: 49/49 API unit tests, 155/155 E2E tests, 16/16 Storybook tests — all passing. CI green.
 
 ---
 
