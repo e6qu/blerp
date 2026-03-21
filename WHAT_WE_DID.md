@@ -909,3 +909,44 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Summary: Created one-command setup script (`bun run setup`) for the Monite SDK parity example. Added Playwright screenshot-based E2E tests covering all pages and flows: sign-in page, sign-up page, unauthenticated redirect, email entry, cookie-based auth, authenticated dashboard (all sections: branding, Monite context, permission guard, raw user object), and home-to-dashboard navigation. 13/13 tests pass. Discovered and logged BUG-21 (missing Tailwind CSS config — cosmetic) and BUG-22 (server-side currentUser() fails with placeholder secret key — medium).
 - Tests run: `bunx playwright test` in examples/monite-sdk-parity (13/13 pass)
 - Files touched: `examples/monite-sdk-parity/scripts/dev-setup.ts` (new), `examples/monite-sdk-parity/playwright.config.ts` (new), `examples/monite-sdk-parity/tests/global.setup.ts` (new), `examples/monite-sdk-parity/tests/fixtures.ts` (new), `examples/monite-sdk-parity/tests/monite-demo.spec.ts` (new), `examples/monite-sdk-parity/.gitignore` (new), `examples/monite-sdk-parity/package.json` (updated), `BUGS.md` (BUG-21, BUG-22)
+
+## 2026-03-21 — Next.js Auth Overhaul + Dashboard UX Improvements
+
+- Summary: Complete overhaul of Next.js SDK authentication and dashboard UX. Fixed 7 bugs (BUG-23 through BUG-29). 11 commits across auth middleware, CSRF, org context, dashboard layout, edit users, and E2E test updates.
+
+### Next.js SDK Auth Fixes
+
+- **BUG-24**: Middleware now validates JWTs via `jose.jwtVerify()` + remote JWKS instead of just checking cookie existence
+- **BUG-25**: Added CSRF token middleware to BlerpProvider's openapi-fetch client — all mutations now send `x-csrf-token` header
+- **BUG-26**: OrganizationSwitcher reloads page after switch so server components re-render with new org context
+- Server-side `auth()` resolves org membership role via backend SDK `listOrganizationMemberships()`
+- Added Next.js API proxy (`/v1` → API server) and excluded `/v1` from auth middleware
+- Fixed sign-in flow: tenant ID handling, middleware public routes
+
+### Monite SDK Demo Fixes
+
+- **BUG-23**: Fixed Emotion `:first-child` crash in Next.js dev overlay — added custom Emotion cache with `prepend: true`
+- Rewrote E2E tests for real browser sign-in (no cookie injection)
+- Added full-flow Playwright test covering org switching and authenticated dashboard
+- Server-side entity resolution uses real org context from JWT
+
+### Dashboard UX
+
+- **BUG-27**: Removed non-functional org switcher from sidebar layout
+- **BUG-28**: Replaced side-by-side SignIn/SignUp with single auth form
+- **BUG-29**: Fixed post-login redirect to show dashboard instead of auth forms
+- Added `EditUserModal` component for editing users from User Management page
+- Organization Members page now shows member names (not just IDs) with edit capability
+- New `useUsers` hook for user CRUD operations
+
+### E2E Test Updates (5 commits)
+
+- Updated dashboard E2E tests for new nav structure, auth flow, member names
+- Scoped member test locators to table to avoid header name collision
+- Replaced org switcher tests with org page tests (switcher removed)
+- Added full lint to pre-commit hook (`bun run lint` matches CI)
+
+### Verification
+
+- Tests run: `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), `bun run test` (49/49 pass), `bun run test:e2e` (155/155 pass), `bunx playwright test` in monite-sdk-parity
+- Files touched: `packages/nextjs/src/server/middleware.ts`, `packages/nextjs/src/server/auth.ts`, `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/nextjs/src/client/components/OrganizationSwitcher.tsx`, `packages/nextjs/src/client/components/Auth.tsx`, `packages/backend/src/index.ts`, `examples/monite-sdk-parity/src/components/MoniteApp.tsx`, `examples/monite-sdk-parity/src/middleware.ts`, `examples/monite-sdk-parity/next.config.js`, `examples/monite-sdk-parity/tests/monite-demo.spec.ts`, `examples/monite-sdk-parity/tests/full-flow.spec.ts`, `apps/dashboard/src/App.tsx`, `apps/dashboard/src/components/Layout.tsx`, `apps/dashboard/src/components/auth/EditUserModal.tsx` (new), `apps/dashboard/src/components/auth/OrganizationMembers.tsx`, `apps/dashboard/src/components/auth/SignIn.tsx`, `apps/dashboard/src/components/auth/UsersListPage.tsx`, `apps/dashboard/src/hooks/useUsers.ts` (new), `apps/dashboard/tests/` (6 test files updated), `.husky/pre-commit`, `BUGS.md` (BUG-23 through BUG-29)
