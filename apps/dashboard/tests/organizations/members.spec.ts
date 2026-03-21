@@ -5,11 +5,13 @@ test.describe("Member Management", () => {
     await page.goto("/users");
     await page.getByRole("button", { name: "Demo Organization", exact: true }).click();
     // Wait for members to load
-    await expect(page.getByText("Admin User")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("table").getByText("Admin User").first()).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("members list loads for seeded organization", async ({ page }) => {
-    await expect(page.getByText("Admin User")).toBeVisible();
+    await expect(page.locator("table").getByText("Admin User").first()).toBeVisible();
   });
 
   test("member role badge is displayed", async ({ page }) => {
@@ -84,12 +86,14 @@ test.describe("Member Management — Monite Org (multi-member)", () => {
     await page.goto("/users");
     await page.getByRole("button", { name: "Demo Monite Organization" }).click();
     // Wait for members to load
-    await expect(page.getByText("Admin User")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("table").getByText("Admin User").first()).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("multiple members are listed", async ({ page }) => {
-    await expect(page.getByText("Admin User")).toBeVisible();
-    await expect(page.getByText("Monite Demo")).toBeVisible();
+    await expect(page.locator("table").getByText("Admin User").first()).toBeVisible();
+    await expect(page.locator("table").getByText("Monite Demo")).toBeVisible();
   });
 
   test("different roles are displayed", async ({ page }) => {
