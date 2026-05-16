@@ -2,7 +2,7 @@
 
 ### Current Status
 
-49/49 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing pre-audit. New webauthn integration test (4/4) added in this PR. Skills audit (PR-in-progress, branch `chore/run-skills-audit-2026-05-17`) ran the full new `.claude/skills/` suite against the post-PR-51 baseline and turned up 10 findings logged as BUG-30..BUG-39. Per the user, no findings are being deferred — all fixes are landing in this same PR. See `WHAT_WE_DID.md` for fix-batches.
+88/88 API tests (was 49; +39 new in audit PR), 152/152 E2E tests, 15/15 Storybook tests (was 16; -1 for deleted orphan `SecurityPage.stories.tsx`), all passing. Skills audit PR (branch `chore/run-skills-audit-2026-05-17`) ran the full `.claude/skills/` suite against the post-PR-51 baseline and turned up 10 findings (BUG-30..BUG-39). All 10 fixed in the same PR per user direction — none deferred. Highlights: `WebAuthn passkey response no longer leaks credential material`, `2FA disable now reachable from the UI`, `23 icon-only buttons gained aria-label`, `OpenAPI now documents DELETE /v1/organizations/{id}`, `13 controllers gained their first integration tests`.
 
 ### Skills audit follow-ups (after this PR lands)
 

@@ -984,3 +984,32 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
 - Other: bumped `better-sqlite3` to `^12.10.0` in `apps/api` for Node 26 native-module compat.
 - Tests run: `bun run openapi:lint` (clean), `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), webauthn integration (4/4 pass).
 - Files touched: `BUGS.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`, `apps/api/package.json`, `apps/api/src/__tests__/webauthn.integration.test.ts` (new), `apps/api/src/v1/controllers/webauthn.controller.ts`, `apps/api/src/v1/services/webauthn.service.ts`, `apps/dashboard/src/components/auth/UserProfile.tsx`, `openapi/blerp.v1.yaml`, `packages/shared/src/schema.ts` (regenerated), `bun.lock`.
+
+### Commit 3 — chunk 3 (BUG-33 aria-label sweep)
+
+- Added `aria-label` to 22 icon-only buttons across `Layout`, `Toast`, `GlobalSearch`, and 17 modal close buttons + 4 inline edit/cancel buttons. Each icon also got `aria-hidden="true"` so screen readers announce the action once, not twice.
+- Initial bulk sweep via a small bun regex script (over-greedy on multi-button files); reverted 3 mis-labelled files (`UserProfile`, `OrganizationMembers`, `ProjectSettingsForm`) and re-did them with targeted Edit calls.
+- Follow-up commit fixed `CreateApiKeyModal.tsx`'s Copy button which the over-greedy regex had wrongly labelled "Close" (now reads "Copy API key to clipboard" / "Copied").
+- Files touched: `Layout.tsx`, `Toast.tsx`, `GlobalSearch.tsx`, 17 modals under `auth/`, plus `UserProfile.tsx`, `OrganizationMembers.tsx`, `ProjectSettingsForm.tsx`.
+
+### Commit 4 — chunk 4 (BUG-35 + BUG-36 + BUG-37)
+
+- BUG-35: removed 6 of 8 `as unknown as ...` casts that masked Drizzle's inferred relational types. The casts in `user.controller.ts` had also hidden a real null bug (post-mutate refetch returns `T | undefined` but the controller assumed `T`) — added explicit 404 responses. Two casts remain at wire boundaries (`webauthn.service.ts`, `usePasskeys.ts`) and now carry inline justifications.
+- BUG-36: seeded `@theme inline` design tokens in `apps/dashboard/src/index.css` — font stacks (sans, mono), brand accent (mirrors `blue-*`), and semantic status colours. Additive only; no rendered changes.
+- BUG-37: replaced 6 raw "Loading X..." text states with `<SkeletonLine>` / `<CardSkeleton>` regions carrying `aria-busy` + `aria-live` + sr-only label. Files: `OrganizationDomains`, `ProjectSettingsForm`, `RedirectUrlsList`, `UsageDashboard`, `PhoneNumberList`, `EmailList`.
+
+### Commit 5 — chunk 5 (BUG-38)
+
+- Added `apps/api/src/__tests__/controllers-audit.integration.test.ts` covering all 13 previously-untested controllers: audit, identity, m2m (incl. `/v1/oauth/token` client_credentials grant), magic-link, oauth, organization-metadata, phone, quota, redirect, restriction, totp, upload, user-metadata.
+- Pattern: highest-signal happy path + one validation / auth failure mode per controller. External-dependency paths (OAuth IdP, otplib crypto, SMS) are exercised at the input-validation boundary so contract drift is still caught without standing up the dep.
+- Specifically asserts the wire-shape invariant BUG-3 / BUG-34 keep teaching us: snake_case fields, no camelCase leakage, no credential material in list responses (e.g. m2m `client_secret`).
+- 35/35 new tests pass. Full API suite now 88/88 (was 49 pre-audit, +35 controllers-audit, +4 webauthn).
+
+### Verification
+
+- `bun run openapi:lint` — clean.
+- `bun run typecheck` — 6/6 pass.
+- `bun run lint` — 9/9 pass.
+- `bun run test` (API) — 88/88 pass.
+- `bunx playwright test` (apps/dashboard) — 152/152 pass.
+- Storybook tests — 15/15 (was 16; the -1 is the deleted orphan `SecurityPage.stories.tsx`).
