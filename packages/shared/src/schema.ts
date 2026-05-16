@@ -176,15 +176,15 @@ export interface paths {
      */
     get: operations["getOrganization"];
     /**
+     * Delete an organization
+     * @description Permanently deletes the organization. Requires `org:write` on the target organization.
+     */
+    delete: operations["deleteOrganization"];
+    /**
      * Update organization settings
      * @description Updates organization metadata, membership requirements, or billing settings.
      */
     patch: operations["updateOrganization"];
-    /**
-     * Delete organization
-     * @description Permanently deletes an organization and all associated memberships, invitations, and domains.
-     */
-    delete: operations["deleteOrganization"];
   };
   "/v1/organizations/{organization_id}/metadata": {
     /**
@@ -465,6 +465,23 @@ export interface paths {
      */
     get: operations["listPasskeys"];
   };
+  "/v1/auth/webauthn/passkeys/{passkey_id}": {
+    /**
+     * Delete a passkey
+     * @description Permanently remove a passkey owned by the authenticated user.
+     */
+    delete: operations["deletePasskey"];
+    /**
+     * Rename a passkey
+     * @description Update the friendly name for an existing passkey owned by the authenticated user.
+     */
+    patch: operations["renamePasskey"];
+    parameters: {
+      path: {
+        passkey_id: string;
+      };
+    };
+  };
   "/v1/auth/webauthn/registration/options": {
     /**
      * Get WebAuthn registration options
@@ -537,7 +554,12 @@ export interface components {
     PasskeyCredential: {
       id: string;
       friendly_name: string;
-      transports: string[];
+      /** @description WebAuthn transports captured at registration. Always present, may be empty until the registration verifier surfaces them. */
+      transports?: string[];
+      /** Format: date-time */
+      created_at?: string | null;
+      /** Format: date-time */
+      last_used_at?: string | null;
     };
     PublicMetadata: {
       [key: string]: unknown;
@@ -1527,6 +1549,27 @@ export interface operations {
     };
   };
   /**
+   * Delete an organization
+   * @description Permanently deletes the organization. Requires `org:write` on the target organization.
+   */
+  deleteOrganization: {
+    parameters: {
+      path: {
+        organization_id: string;
+      };
+    };
+    responses: {
+      /** @description Organization deleted */
+      204: {
+        content: never;
+      };
+      /** @description Organization not found */
+      404: {
+        content: never;
+      };
+    };
+  };
+  /**
    * Update organization settings
    * @description Updates organization metadata, membership requirements, or billing settings.
    */
@@ -1555,23 +1598,6 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Organization"];
         };
-      };
-    };
-  };
-  /**
-   * Delete organization
-   * @description Permanently deletes an organization and all associated data.
-   */
-  deleteOrganization: {
-    parameters: {
-      path: {
-        organization_id: string;
-      };
-    };
-    responses: {
-      /** @description Organization deleted */
-      204: {
-        content: never;
       };
     };
   };
@@ -2543,6 +2569,58 @@ export interface operations {
             data?: components["schemas"]["PasskeyCredential"][];
           };
         };
+      };
+    };
+  };
+  /**
+   * Delete a passkey
+   * @description Permanently remove a passkey owned by the authenticated user.
+   */
+  deletePasskey: {
+    parameters: {
+      path: {
+        passkey_id: string;
+      };
+    };
+    responses: {
+      /** @description Passkey deleted */
+      204: {
+        content: never;
+      };
+      /** @description Passkey not found or not owned by the authenticated user */
+      400: {
+        content: never;
+      };
+    };
+  };
+  /**
+   * Rename a passkey
+   * @description Update the friendly name for an existing passkey owned by the authenticated user.
+   */
+  renamePasskey: {
+    parameters: {
+      path: {
+        passkey_id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description New friendly name for the passkey. */
+          name: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Updated passkey */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PasskeyCredential"];
+        };
+      };
+      /** @description Passkey not found or not owned by the authenticated user */
+      404: {
+        content: never;
       };
     };
   };

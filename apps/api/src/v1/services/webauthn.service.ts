@@ -72,13 +72,20 @@ export class WebAuthnService {
     return options;
   }
 
-  async verifyRegistration(userId: string, credential: Record<string, unknown>) {
+  async verifyRegistration(
+    userId: string,
+    credential: Record<string, unknown>,
+    friendlyName?: string,
+  ) {
     const expectedChallenge = challengeStore.get(userId);
     if (!expectedChallenge) {
       throw new Error("Registration challenge expired or not found");
     }
 
     type RegResponse = Parameters<typeof verifyRegistrationResponse>[0]["response"];
+    // Bridge the wire JSON shape to @simplewebauthn's typed input.
+    // The library performs full structural validation on this argument, so the
+    // cast is a load-bearing boundary marker, not a type-checking shortcut.
     const verification = await verifyRegistrationResponse({
       response: credential as unknown as RegResponse,
       expectedChallenge,
@@ -100,7 +107,7 @@ export class WebAuthnService {
     await this.db.insert(schema.passkeys).values({
       id,
       userId,
-      name: "My Passkey",
+      name: friendlyName?.trim() || "My Passkey",
       publicKey: Buffer.from(cred.publicKey).toString("base64url"),
       credentialId: cred.id,
       counter: cred.counter,

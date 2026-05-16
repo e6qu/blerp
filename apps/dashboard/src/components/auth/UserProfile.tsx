@@ -5,6 +5,7 @@ import {
   useDeletePasskey,
   useRenamePasskey,
 } from "../../hooks/usePasskeys";
+import { useDisableTotp } from "../../hooks/useTotp";
 import { useCurrentUser } from "../../hooks/useUser";
 import { SessionsViewer } from "./SessionsViewer";
 import { ProfileEditForm } from "./ProfileEditForm";
@@ -134,6 +135,7 @@ function SecurityTab() {
   const registerPasskey = useRegisterPasskey();
   const deletePasskey = useDeletePasskey();
   const renamePasskey = useRenamePasskey();
+  const disableTotp = useDisableTotp();
   const { toast } = useToast();
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
@@ -305,8 +307,26 @@ function SecurityTab() {
               <span className="text-xs px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
                 Enabled
               </span>
-              <button className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                Manage 2FA
+              <button
+                onClick={async () => {
+                  if (!window.confirm("Disable two-factor authentication?")) return;
+                  try {
+                    await disableTotp.mutateAsync();
+                    toast("Two-factor authentication disabled", "success");
+                  } catch (err) {
+                    toast(err instanceof Error ? err.message : "Failed to disable 2FA", "error");
+                  }
+                }}
+                disabled={disableTotp.isPending}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+              >
+                {disableTotp.isPending ? "Disabling..." : "Disable 2FA"}
+              </button>
+              <button
+                onClick={() => setIsBackupCodesOpen(true)}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                View backup codes
               </button>
             </>
           ) : (
