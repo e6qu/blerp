@@ -84,15 +84,16 @@ export function CreateApiKeyModal({ isOpen, onClose }: CreateApiKeyModalProps) {
                   {createdKey}
                 </code>
                 <button
-                  aria-label="Close"
+                  type="button"
+                  aria-label={copied ? "Copied" : "Copy API key to clipboard"}
                   onClick={handleCopyKey}
                   className="rounded p-2 hover:bg-gray-200"
                   title="Copy to clipboard"
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
                   ) : (
-                    <Copy className="h-4 w-4 text-gray-500" />
+                    <Copy className="h-4 w-4 text-gray-500" aria-hidden="true" />
                   )}
                 </button>
               </div>
