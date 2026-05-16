@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Globe, Trash2, CheckCircle, XCircle, RefreshCw, Plus, Copy, Check } from "lucide-react";
 import { useDomains, useVerifyDomain, useDeleteDomain } from "../../hooks/useDomains";
 import { AddDomainModal } from "./AddDomainModal";
+import { SkeletonLine } from "../ui/Skeleton";
 import type { components } from "@blerp/shared";
 
 type OrganizationDomain = components["schemas"]["OrganizationDomain"];
@@ -30,7 +31,14 @@ export function OrganizationDomains({ organizationId }: { organizationId: string
   };
 
   if (isLoading)
-    return <div className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading domains...</div>;
+    return (
+      <div className="space-y-2 p-4" aria-busy="true" aria-live="polite">
+        <span className="sr-only">Loading domains</span>
+        <SkeletonLine width="w-2/3" />
+        <SkeletonLine width="w-1/2" />
+        <SkeletonLine width="w-3/4" />
+      </div>
+    );
 
   return (
     <div className="space-y-4">

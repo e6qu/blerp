@@ -3,6 +3,7 @@ import { Plus, Star, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { useEmails, useDeleteEmail, useSetPrimaryEmail } from "../../hooks/useEmails";
 import { useCurrentUser } from "../../hooks/useUser";
 import { AddEmailModal } from "./AddEmailModal";
+import { SkeletonLine } from "../ui/Skeleton";
 import type { components } from "@blerp/shared";
 
 type EmailAddress = components["schemas"]["EmailAddress"];
@@ -40,7 +41,13 @@ export function EmailList() {
   };
 
   if (isLoading)
-    return <div className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading emails...</div>;
+    return (
+      <div className="space-y-2 p-4" aria-busy="true" aria-live="polite">
+        <span className="sr-only">Loading email addresses</span>
+        <SkeletonLine width="w-2/3" />
+        <SkeletonLine width="w-1/2" />
+      </div>
+    );
 
   return (
     <div className="space-y-4">

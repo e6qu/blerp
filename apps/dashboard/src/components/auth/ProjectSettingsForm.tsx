@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Save, Loader2, Pencil, Plus, X } from "lucide-react";
 import { useProject, useUpdateProject } from "../../hooks/useProject";
+import { SkeletonLine } from "../ui/Skeleton";
 
 export function ProjectSettingsForm() {
   const { data: project, isLoading } = useProject();
@@ -50,7 +51,12 @@ export function ProjectSettingsForm() {
 
   if (isLoading) {
     return (
-      <div className="text-sm text-gray-500 dark:text-gray-400">Loading project settings...</div>
+      <div className="space-y-2" aria-busy="true" aria-live="polite">
+        <span className="sr-only">Loading project settings</span>
+        <SkeletonLine width="w-1/3" className="h-5" />
+        <SkeletonLine width="w-2/3" />
+        <SkeletonLine width="w-1/2" />
+      </div>
     );
   }
 

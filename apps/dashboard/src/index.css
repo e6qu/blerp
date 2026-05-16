@@ -1,3 +1,34 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Blerp dashboard design tokens (Tailwind v4 @theme).
+ *
+ * Seed set only — describes colours / fonts already in use across the
+ * dashboard so future components can opt into named tokens instead of
+ * inlining Tailwind defaults. Adding a new token here is preferred over
+ * sprinkling raw hex or magic px values in components (see
+ * .claude/skills/design-system-check).
+ */
+@theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+
+  /* Brand accent — used by primary CTAs, active nav, focus rings. */
+  --color-brand-50: var(--color-blue-50);
+  --color-brand-500: var(--color-blue-500);
+  --color-brand-600: var(--color-blue-600);
+  --color-brand-700: var(--color-blue-700);
+  --color-brand-900: var(--color-blue-900);
+
+  /* Semantic status — colour AND meaning. Always pair with text or icon. */
+  --color-status-success: var(--color-emerald-600);
+  --color-status-warning: var(--color-amber-600);
+  --color-status-destructive: var(--color-red-600);
+  --color-status-info: var(--color-sky-600);
+}

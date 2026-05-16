@@ -470,15 +470,24 @@ Effects:
 2. Update OpenAPI `PasskeyCredential` to drop `transports` (no DB column) OR add `transports` to the Drizzle schema and surface it. Recommended: drop from OpenAPI for now; add as a follow-up if/when we capture transports during registration.
 3. Verify dashboard `SecurityTab` and `SecurityPage` (the latter being deleted in BUG-30) render the friendly name correctly.
 
-### BUG-35: Undocumented `as unknown as ...` casts in API controllers
+### BUG-35: Undocumented `as unknown as ...` casts in API controllers (FIXED)
 
-**Status:** Open
+**Status:** Fixed
 **Severity:** Low (type discipline)
-**Files:** `apps/api/src/v1/controllers/user.controller.ts` (lines 59, 76, 95, 140), `apps/api/src/v1/controllers/user-metadata.controller.ts` (line 57), `apps/api/src/v1/controllers/discovery.controller.ts` (line 17), `apps/api/src/v1/services/webauthn.service.ts` (line 83)
+**Files:** `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/controllers/user-metadata.controller.ts`, `apps/api/src/v1/controllers/discovery.controller.ts`, `apps/api/src/v1/services/webauthn.service.ts`, `apps/dashboard/src/hooks/usePasskeys.ts`
 
-Per `CLAUDE.md` Engineering Standards, type casts (`as`) should be avoided and used only as a documented last resort. Each of these sites is undocumented. Most are bridging Drizzle row shapes to `UserWithRelations` for the `mapUser()` helper — the right fix is to type the Drizzle query result via `db.query.users.findFirst({ with: { ... } })` so the inferred type already includes the relations.
+Per `CLAUDE.md` Engineering Standards, type casts (`as`) should be avoided and used only as a documented last resort. Six undocumented `as unknown as ...` sites in user/user-metadata/discovery controllers — most were bridging Drizzle row shapes to a hand-rolled `UserWithRelations` interface, which `db.query.users.findFirst({ with: { emailAddresses: true } })` already infers.
 
-**Fix plan:** Replace `as unknown as UserWithRelations` with proper Drizzle relational query types so casts disappear. For the WebAuthn `RegResponse` cast, type the credential payload via `@simplewebauthn/types`.
+**Fix applied:**
+
+1. Removed all four `mapUser(... as unknown as UserWithRelations)` casts in `user.controller.ts` — `AuthService.getUser` / `listUsers` / `updateUser` already return the relational shape; the cast was masking a missing null-check that the compiler then correctly flagged. Added explicit 404 responses for the (previously silent) `updateUser` and `restoreUser` post-mutate refetch returning `undefined`.
+2. Removed `user as unknown as UserWithRelations` in `user-metadata.controller.ts`.
+3. Removed `jwk as unknown as Record<string, unknown>` in `discovery.controller.ts`: spread the JWK into a `Record<string, unknown>` directly (no cast needed; JWK is string-keyed by spec).
+4. The two remaining sites are real wire-boundary casts:
+   - `webauthn.service.ts` `credential as unknown as RegResponse` (documented in commit-2 — @simplewebauthn validates structurally at runtime).
+   - `usePasskeys.ts` `options.user.id as unknown as string` (documented — JSON-encoded base64url string masquerading as `BufferSource` in the DOM type).
+
+   Both now carry inline comments explaining why the cast is load-bearing at the boundary. Per `CLAUDE.md`, casts "should be avoided and used only as a documented last resort" — these qualify.
 
 ### BUG-36: Dashboard `index.css` declares no design tokens — Tailwind defaults only
 

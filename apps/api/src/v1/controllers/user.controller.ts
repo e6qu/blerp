@@ -56,7 +56,7 @@ export async function listUsers(req: Request, res: Response) {
       cursor: cursor as string,
       includeDeleted: include_deleted === "true",
     });
-    const mappedUsers = (users as unknown as UserWithRelations[]).map((u) => mapUser(u));
+    const mappedUsers = users.map((u) => mapUser(u));
     res.status(200).json({ data: mappedUsers });
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
@@ -73,7 +73,7 @@ export async function getUser(req: Request, res: Response) {
       res.status(404).json({ error: { message: "User not found" } });
       return;
     }
-    res.status(200).json(mapUser(user as unknown as UserWithRelations));
+    res.status(200).json(mapUser(user));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
@@ -92,7 +92,11 @@ export async function updateUser(req: Request, res: Response) {
       password,
       status,
     });
-    res.status(200).json(mapUser(user as unknown as UserWithRelations));
+    if (!user) {
+      res.status(404).json({ error: { message: "User not found after update" } });
+      return;
+    }
+    res.status(200).json(mapUser(user));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
@@ -137,7 +141,11 @@ export async function restoreUser(req: Request, res: Response) {
       .set({ deletedAt: null, status: "active", updatedAt: new Date() })
       .where(eq(schema.users.id, id));
     const restored = await service.getUser(id);
-    res.status(200).json(mapUser(restored as unknown as UserWithRelations));
+    if (!restored) {
+      res.status(404).json({ error: { message: "User not found after restore" } });
+      return;
+    }
+    res.status(200).json(mapUser(restored));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }

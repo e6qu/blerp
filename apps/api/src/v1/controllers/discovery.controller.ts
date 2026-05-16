@@ -13,9 +13,10 @@ export async function getJWKS(_req: Request, res: Response) {
 
   const { publicKey } = await getKeyPair();
   const jwk = await jwt.exportJWK(publicKey, "default-kid");
-  const response = {
-    keys: [jwk as unknown as Record<string, unknown>],
-  };
+  // JWK is a string-keyed bag of standard claims; spread into a plain record
+  // so it matches the cache's serializable shape without a type cast.
+  const jwkRecord: Record<string, unknown> = { ...jwk };
+  const response = { keys: [jwkRecord] };
 
   await cache.set(cacheKey, response, 3600); // Cache for 1 hour
   res.json(response);

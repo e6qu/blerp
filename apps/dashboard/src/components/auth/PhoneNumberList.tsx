@@ -6,6 +6,7 @@ import {
   useDeletePhoneNumber,
 } from "../../hooks/usePhoneNumbers";
 import { useToast } from "../ui/Toast";
+import { SkeletonLine } from "../ui/Skeleton";
 
 export function PhoneNumberList() {
   const { data: phones, isLoading } = usePhoneNumbers();
@@ -41,7 +42,11 @@ export function PhoneNumberList() {
 
   if (isLoading)
     return (
-      <div className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading phone numbers...</div>
+      <div className="space-y-2 p-4" aria-busy="true" aria-live="polite">
+        <span className="sr-only">Loading phone numbers</span>
+        <SkeletonLine width="w-2/3" />
+        <SkeletonLine width="w-1/2" />
+      </div>
     );
 
   return (

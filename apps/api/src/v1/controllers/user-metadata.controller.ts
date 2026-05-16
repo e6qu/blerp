@@ -54,7 +54,7 @@ export async function updateMetadata(req: Request, res: Response) {
     });
     if (!user) throw new Error("User not found");
 
-    res.status(200).json(mapUser(user as unknown as UserWithRelations));
+    res.status(200).json(mapUser(user));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
