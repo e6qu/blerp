@@ -402,3 +402,110 @@ The dashboard home page displayed both SignIn and SignUp forms side-by-side, whi
 After successful sign-in, the dashboard redirected to `/` which showed auth forms again instead of the authenticated dashboard content. Users had to manually navigate to see their data.
 
 **Fix applied:** Post-login redirect now goes to the dashboard view. The home route detects authenticated state and shows dashboard content instead of auth forms.
+
+---
+
+## Open — Skills audit findings (2026-05-17)
+
+Discovered while running the new `.claude/skills/hidden-rot-audit`, `frontend-slop-check`, `design-system-check`, `clerk-monite-fidelity`, and `ui-verification` skills against the post-PR-51 baseline. Per `CLAUDE.md` § 7 (Zero Tolerance), every finding logged here is being fixed in the same PR unless explicitly deferred with a tracked next-action.
+
+### BUG-30: Orphan `SecurityPage.tsx` duplicates `UserProfile`'s `SecurityTab`
+
+**Status:** Open
+**Severity:** Low (dead code)
+**Files:** `apps/dashboard/src/components/auth/SecurityPage.tsx`, `apps/dashboard/src/components/auth/SecurityPage.stories.tsx`
+
+`SecurityPage.tsx` is imported only by its own Storybook story — it is not registered in `App.tsx` and not linked from `Layout.tsx`. The same Security UI is implemented (more fully — password + 2FA + backup codes + passkey rename/delete) inside `UserProfile.tsx::SecurityTab`. `SecurityPage.tsx` is a strict subset, an abandoned earlier attempt.
+
+**Fix plan:** Delete `SecurityPage.tsx` and `SecurityPage.stories.tsx`. The active Security surface remains the SecurityTab under `/auth` → "Security".
+
+### BUG-31: Orphan Playwright spec `apps/dashboard/e2e/clerk.spec.ts` never runs
+
+**Status:** Open
+**Severity:** Low (dead test)
+**Files:** `apps/dashboard/e2e/clerk.spec.ts`
+
+`playwright.config.ts` declares `testDir: "./tests"`. The `e2e/` directory is outside that scope, so `clerk.spec.ts` (a 6-line title check) is never executed. Looks like a CI-passing illusion of coverage.
+
+**Fix plan:** Delete `apps/dashboard/e2e/clerk.spec.ts` and remove the empty `e2e/` directory.
+
+### BUG-32: "Manage 2FA" button has no `onClick` — once TOTP is enabled, users cannot manage it from the UI
+
+**Status:** Open
+**Severity:** Medium (functional gap: 2FA is one-way through the UI)
+**Files:** `apps/dashboard/src/components/auth/UserProfile.tsx` (line 308)
+
+When `user.totp_enabled === true`, the SecurityTab renders an "Enabled" badge next to a `<button>Manage 2FA</button>` that has no `onClick` handler. Clicking does nothing. The matching "Enable 2FA" button (line 317, shown when `!totp_enabled`) does work — it opens `TwoFactorEnrollmentModal`. There is no UI path to disable or rotate TOTP once enrolled.
+
+**Fix plan:** Either (a) wire "Manage 2FA" to open `TwoFactorEnrollmentModal` in a "manage" mode that exposes disable + view backup codes, or (b) replace with a "Disable 2FA" + "View backup codes" pair. Minimum viable fix for this PR: hide the button when there is no manage action yet, OR add a disable handler via the existing `useDisableTotp` mutation if it exists.
+
+### BUG-33: Icon-only buttons missing `aria-label` across ~23 components
+
+**Status:** Open
+**Severity:** Medium (WCAG 2.1 4.1.2 violation — screen readers announce "button" with no name)
+**Files:** `apps/dashboard/src/components/Layout.tsx`, `apps/dashboard/src/components/ui/Toast.tsx`, `apps/dashboard/src/components/ui/GlobalSearch.tsx`, plus modal close (`<X>`) buttons in `AddDomainModal`, `InviteMemberModal`, `TwoFactorEnrollmentModal`, `CreateOrganizationModal`, `BackupCodesModal`, `CreateWebhookModal` (×2), `ProjectSettingsForm`, `DeleteProjectModal`, `OrganizationMembers`, `DeleteAccountModal`, `EditOrganizationModal`, `DeleteOrganizationModal`, `LeaveOrganizationModal`, `ChangePasswordModal`, `AddEmailModal`, `EditUserModal`, `CreateApiKeyModal` (×2), `UserProfile.tsx` (passkey rename actions).
+
+Every `<button>` whose only child is a `lucide-react` icon needs `aria-label` (or `aria-labelledby`). The grep `awk` sweep counted 23 sites; sweep is mechanical.
+
+**Fix plan:** Add `aria-label` to each. Most close-modal buttons get `aria-label="Close"`; sidebar collapse gets `"Close menu"`; theme toggle (if surfaced) gets dynamic label.
+
+### BUG-34: WebAuthn passkey response leaks credential material AND violates OpenAPI contract
+
+**Status:** Open
+**Severity:** **High** (security + contract drift — same class as BUG-3)
+**Files:** `apps/api/src/v1/services/webauthn.service.ts`, `apps/api/src/v1/controllers/webauthn.controller.ts`, OpenAPI `openapi/blerp.v1.yaml` `PasskeyCredential` schema
+
+`WebAuthnService.listPasskeys()` and `renamePasskey()` return raw Drizzle rows from `schema.passkeys` directly. That row shape exposes `userId`, `publicKey`, `counter`, `credentialId`, `createdAt`, `lastUsedAt`, and uses camelCase. The OpenAPI `PasskeyCredential` schema declares `{ id, friendly_name, transports }`. The dashboard reads `pk.friendly_name` and renders an empty string today because the actual field is `name`.
+
+Effects:
+
+- Crypto material (`publicKey`, `counter`, `credentialId`) is sent to the client on every passkey list — unnecessary and a hardening miss.
+- Dashboard passkey rows render with blank friendly names.
+- `transports` declared in OpenAPI is not in the DB schema at all; need to either drop from spec or add to schema.
+- The same pattern likely affects all controllers in the "0 tests" list (audit, identity, m2m, magic-link, oauth, etc.) — see BUG-39.
+
+**Fix plan:**
+
+1. Add `mapPasskey()` projection in `apps/api/src/v1/controllers/webauthn.controller.ts` returning `{ id, friendly_name: row.name, created_at, last_used_at }`. Use it in `listPasskeys`, `renamePasskey`.
+2. Update OpenAPI `PasskeyCredential` to drop `transports` (no DB column) OR add `transports` to the Drizzle schema and surface it. Recommended: drop from OpenAPI for now; add as a follow-up if/when we capture transports during registration.
+3. Verify dashboard `SecurityTab` and `SecurityPage` (the latter being deleted in BUG-30) render the friendly name correctly.
+
+### BUG-35: Undocumented `as unknown as ...` casts in API controllers
+
+**Status:** Open
+**Severity:** Low (type discipline)
+**Files:** `apps/api/src/v1/controllers/user.controller.ts` (lines 59, 76, 95, 140), `apps/api/src/v1/controllers/user-metadata.controller.ts` (line 57), `apps/api/src/v1/controllers/discovery.controller.ts` (line 17), `apps/api/src/v1/services/webauthn.service.ts` (line 83)
+
+Per `CLAUDE.md` Engineering Standards, type casts (`as`) should be avoided and used only as a documented last resort. Each of these sites is undocumented. Most are bridging Drizzle row shapes to `UserWithRelations` for the `mapUser()` helper — the right fix is to type the Drizzle query result via `db.query.users.findFirst({ with: { ... } })` so the inferred type already includes the relations.
+
+**Fix plan:** Replace `as unknown as UserWithRelations` with proper Drizzle relational query types so casts disappear. For the WebAuthn `RegResponse` cast, type the credential payload via `@simplewebauthn/types`.
+
+### BUG-36: Dashboard `index.css` declares no design tokens — Tailwind defaults only
+
+**Status:** Open
+**Severity:** Low (style baseline)
+**Files:** `apps/dashboard/src/index.css`
+
+The dashboard's CSS is currently just `@import "tailwindcss"` + the dark variant. There is no `@theme` block — no project brand color, no typography ladder pinning, no semantic surface tokens. The dashboard rides Tailwind defaults entirely. Per `.claude/skills/design-system-check`, tokens should be declared once when a value will be reused 3+ times.
+
+**Fix plan:** Add a minimal `@theme inline` block declaring (a) the brand accent already in use (`blue-600`), (b) semantic status colors aligned with current usage (success=emerald, warning=amber, destructive=red, info=sky), and (c) the existing Inter-or-system font stack so future components can opt into named tokens. This is additive — does not change rendered output of any existing component.
+
+### BUG-37: Raw "Loading X..." text instead of `<Skeleton>` in 6 components
+
+**Status:** Open
+**Severity:** Low (UX consistency)
+**Files:** `apps/dashboard/src/components/auth/OrganizationDomains.tsx` (line 33), `ProjectSettingsForm.tsx` (line 53), `RedirectUrlsList.tsx` (line 38), `UsageDashboard.tsx` (line 8), `PhoneNumberList.tsx` (line 44), `EmailList.tsx` (line 43). (`SecurityPage.tsx` is being deleted in BUG-30.)
+
+The dashboard provides `apps/dashboard/src/components/ui/Skeleton.tsx`; `UserProfile.tsx::SecurityTab` uses an inline skeleton pattern. Other components use raw text.
+
+**Fix plan:** Replace each `Loading X...` div with `<Skeleton>` matching the row/card shape that will follow once data loads.
+
+### BUG-38: Test coverage gap — 14 controllers have no sibling integration test
+
+**Status:** Open
+**Severity:** Medium (silent risk class — BUG-3/BUG-34 went undetected because passkey response shape is untested)
+**Files:** `apps/api/src/v1/controllers/{audit,identity,m2m,magic-link,oauth,organization-metadata,phone,quota,redirect,restriction,totp,upload,user-metadata,webauthn}.controller.ts`
+
+The controllers above have zero references from any file under `apps/api/src/__tests__`. They are real production controllers (some security-critical: m2m, oauth, totp, webauthn, magic-link). The absence of round-trip tests is how response-shape drift like BUG-3 and BUG-34 hides until users see blanks.
+
+**Fix plan:** Add at minimum one integration test per controller asserting (a) the happy-path response shape matches the OpenAPI schema field-by-field, (b) the auth/error envelope for one failure mode. Start with `webauthn` (driven by BUG-34), then sweep the rest. If scope outgrows the session, track remaining controllers as a numbered phase in `PLAN.md`.
