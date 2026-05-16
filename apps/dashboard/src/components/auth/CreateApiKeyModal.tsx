@@ -63,8 +63,12 @@ export function CreateApiKeyModal({ isOpen, onClose }: CreateApiKeyModalProps) {
         <div className="relative z-10 w-full max-w-md rounded-xl border bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">API Key Created</h2>
-            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
-              <X className="h-5 w-5" />
+            <button
+              aria-label="Close"
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
@@ -80,6 +84,7 @@ export function CreateApiKeyModal({ isOpen, onClose }: CreateApiKeyModalProps) {
                   {createdKey}
                 </code>
                 <button
+                  aria-label="Close"
                   onClick={handleCopyKey}
                   className="rounded p-2 hover:bg-gray-200"
                   title="Copy to clipboard"
@@ -111,8 +116,13 @@ export function CreateApiKeyModal({ isOpen, onClose }: CreateApiKeyModalProps) {
       <div className="relative z-10 w-full max-w-md rounded-xl border bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Create API Key</h2>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 

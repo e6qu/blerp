@@ -42,10 +42,11 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
           <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
             <h2 className="text-lg font-semibold dark:text-gray-50">Edit User</h2>
             <button
+              aria-label="Close"
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
           <form onSubmit={handleSubmit} className="p-6 space-y-4">

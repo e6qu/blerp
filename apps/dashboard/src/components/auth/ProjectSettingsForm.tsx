@@ -170,10 +170,11 @@ export function ProjectSettingsForm() {
                 <span className="text-sm text-gray-700 dark:text-gray-200">{origin}</span>
                 <button
                   type="button"
+                  aria-label={`Remove allowed origin ${origin}`}
                   onClick={() => handleRemoveOrigin(idx)}
                   className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             ))}

@@ -48,10 +48,11 @@ export function DeleteAccountModal({ isOpen, onClose }: DeleteAccountModalProps)
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Delete Account</h2>
           </div>
           <button
+            aria-label="Close"
             onClick={handleClose}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 

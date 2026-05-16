@@ -40,10 +40,12 @@ export function Layout() {
       <div className="flex h-16 items-center border-b border-gray-200 dark:border-gray-700 px-6">
         <span className="text-xl font-bold tracking-tight text-blue-600">Blerp</span>
         <button
+          type="button"
+          aria-label="Close menu"
           onClick={() => setIsSidebarOpen(false)}
           className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 md:hidden"
         >
-          <X className="h-5 w-5" />
+          <X className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 

@@ -962,3 +962,25 @@ Please append new entries chronologically (latest at bottom) and keep descriptio
   - **ACCEPTANCE_CRITERIA.md**: Updated SDK testing reference to mention @blerp/nextjs and @blerp/testing
 - Tests run: `bun run typecheck --force` (6/6 pass), `bun run lint` (9/9 pass)
 - Files touched: `PLAN.md`, `GAP_ANALYSIS.md`, `FEATURES.md`, `DESIGN_DOCUMENT.md`, `ACCEPTANCE_CRITERIA.md`, `STATUS.md`, `WHAT_WE_DID.md`
+
+## 2026-05-17 — Skills audit + fixes (PR-in-progress, branch `chore/run-skills-audit-2026-05-17`)
+
+### Audit
+
+- Summary: First end-to-end run of the new `.claude/skills/` suite (PR #51) against the post-merge `main`. Ran `context-recovery`, then the 7 `hidden-rot-audit` passes, then `frontend-slop-check` + `design-system-check`, then `clerk-monite-fidelity`. Ten findings logged as BUG-30..BUG-39 in `BUGS.md`. Per user direction, no findings deferred — all fixed in-PR. Branch cut from fresh `origin/main` after syncing.
+- Result: BUG-30..BUG-32, BUG-34, BUG-39 fixed in commits below. BUG-33, BUG-35..BUG-38 in flight.
+
+### Commit 1 — chunk 1 (BUG-30 + BUG-31 + 10 BUGS.md entries)
+
+- Deleted `apps/dashboard/src/components/auth/SecurityPage.tsx` and `SecurityPage.stories.tsx` (orphan; same UI fully implemented in `UserProfile.tsx::SecurityTab`).
+- Deleted `apps/dashboard/e2e/clerk.spec.ts` and the empty `e2e/` directory (Playwright `testDir: "./tests"` — the spec was never run; CI-passing illusion of coverage).
+- Logged BUG-30..BUG-38 in `BUGS.md` (one section under "Skills audit findings (2026-05-17)").
+
+### Commit 2 — chunk 2 (BUG-32 + BUG-34 + BUG-39)
+
+- BUG-32: Wired "Manage 2FA" button. Was a dead `<button>` with no `onClick` once `totp_enabled` was true. Replaced with "Disable 2FA" (via existing `useDisableTotp`) + "View backup codes" (via existing `BackupCodesModal`).
+- BUG-34: WebAuthn passkey list/rename responses leaked credential material (publicKey, counter, credentialId, userId) AND mismatched OpenAPI shape (`name` vs `friendly_name`). Added `mapPasskey()` projection in the controller, wired user-supplied name in `verifyRegistration` (was always inserting "My Passkey"), updated OpenAPI `PasskeyCredential` (dropped `transports` from required, added created_at / last_used_at, declared PATCH + DELETE routes). New `apps/api/src/__tests__/webauthn.integration.test.ts` (4 tests) asserts mapping + no-leak invariant + ownership check + DELETE round-trip.
+- BUG-39: Pre-existing OpenAPI drift surfaced during BUG-34's schema regen — `DELETE /v1/organizations/{organization_id}` was missing from the spec despite the route shipping. Added the path entry; spec matches the surface.
+- Other: bumped `better-sqlite3` to `^12.10.0` in `apps/api` for Node 26 native-module compat.
+- Tests run: `bun run openapi:lint` (clean), `bun run typecheck` (6/6 pass), `bun run lint` (9/9 pass), webauthn integration (4/4 pass).
+- Files touched: `BUGS.md`, `STATUS.md`, `DO_NEXT.md`, `WHAT_WE_DID.md`, `apps/api/package.json`, `apps/api/src/__tests__/webauthn.integration.test.ts` (new), `apps/api/src/v1/controllers/webauthn.controller.ts`, `apps/api/src/v1/services/webauthn.service.ts`, `apps/dashboard/src/components/auth/UserProfile.tsx`, `openapi/blerp.v1.yaml`, `packages/shared/src/schema.ts` (regenerated), `bun.lock`.

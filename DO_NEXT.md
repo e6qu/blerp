@@ -2,7 +2,13 @@
 
 ### Current Status
 
-49/49 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing, CI green. Monite SDK demo fully functional end-to-end with org switching and Payables SDK. Next.js SDK auth overhaul complete — JWT middleware verification, CSRF tokens, server-side org context + membership roles. Dashboard UX improved — single auth form, post-login redirect, edit users. Pre-commit hook runs full `bun run lint` matching CI.
+49/49 API tests, 155/155 E2E tests, 16/16 Storybook tests — all passing pre-audit. New webauthn integration test (4/4) added in this PR. Skills audit (PR-in-progress, branch `chore/run-skills-audit-2026-05-17`) ran the full new `.claude/skills/` suite against the post-PR-51 baseline and turned up 10 findings logged as BUG-30..BUG-39. Per the user, no findings are being deferred — all fixes are landing in this same PR. See `WHAT_WE_DID.md` for fix-batches.
+
+### Skills audit follow-ups (after this PR lands)
+
+- **Full OpenAPI ↔ routes diff sweep.** Regenerating `packages/shared/src/schema.ts` during the BUG-34 fix produced 87+/33- lines of change vs the previously-committed file. BUG-39 closed the first concrete drift (org DELETE); the magnitude implies more endpoints in `apps/api/src/v1/routes/*.routes.ts` are missing from the spec. Sweep each route file against the spec, add the missing path entries, ensure SDK callers (`packages/backend`, `packages/nextjs`) still typecheck.
+- **Capture WebAuthn transports during registration.** `mapPasskey()` currently returns `transports: []`. `@simplewebauthn/server` already provides them — add a `transports` JSON column to `passkeys` schema, populate in `verifyRegistration`, surface in the mapper.
+- **Adopt design tokens beyond the initial seed.** BUG-36's fix adds the minimum (`@theme inline`); future PRs should migrate Tailwind utility usage to the named tokens where they reuse 3+ times (status pills, surface colors, focus ring color).
 
 ### Priority 1: Enterprise — 1 item
 

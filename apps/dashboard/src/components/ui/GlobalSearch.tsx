@@ -72,10 +72,12 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             className="flex-1 border-0 bg-transparent px-3 py-4 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none"
           />
           <button
+            type="button"
+            aria-label="Close search"
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
