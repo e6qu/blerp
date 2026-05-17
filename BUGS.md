@@ -2270,3 +2270,11 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `packages/nextjs/src/server/middleware.ts`
 
 **Fix applied:** Added a module-scope `FRAMEWORK_PUBLIC_PATHS` set (`/v1/public-config`, `/v1/jwks`, `/.well-known/openid-configuration`, `/.well-known/jwks.json`, `/v1/oauth/token`, `/v1/csrf-token`). Both middleware forms (options + callback) short-circuit these paths through to `NextResponse.next()` regardless of session state. Documented why each is in the list — runtime config, JWKS / OIDC discovery, OAuth token exchange, CSRF token fetch — all intentionally unauthenticated or self-authenticating by their own contract.
+
+### BUG-217 (codex r66): BUG-215's CSRF skip for `/v1/oauth/token` never fired in production (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — masked-by-test-env regression. The CSRF middleware is mounted via `app.use("/v1", doubleCsrfProtection)`, which means Express strips the mount prefix before invoking the middleware — `req.path` is `/oauth/token`, NOT `/v1/oauth/token`. My BUG-215 predicate compared `req.path === "/v1/oauth/token"`, which never matched in production. The `NODE_ENV === "test"` short-circuit at the top of `skipCsrfProtection` always returned true first, masking the bug from the test suite, so the regression slipped through.
+**Files:** `apps/api/src/middleware/csrf.ts`
+
+**Fix applied:** Compare against the mounted-relative path `req.path === "/oauth/token"`, with a defense-in-depth `req.originalUrl?.startsWith("/v1/oauth/token")` in case the mount changes in the future.

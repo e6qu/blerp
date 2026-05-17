@@ -48,7 +48,16 @@ export const { invalidCsrfTokenError, generateCsrfToken, validateRequest, double
       // `__blerp_csrf`. The endpoint authenticates via the
       // client_credentials themselves (BUG-187 chain-of-trust still
       // validates the minted token's scopes downstream).
-      if (req.path === "/v1/oauth/token") return true;
+      //
+      // BUG-217 (codex r66): the middleware is mounted via
+      // `app.use("/v1", doubleCsrfProtection)`, so Express strips
+      // the mount and `req.path` here is `/oauth/token`, NOT
+      // `/v1/oauth/token`. Match the mounted-relative form (and
+      // keep `originalUrl` as a defense-in-depth check in case the
+      // mount changes).
+      if (req.path === "/oauth/token" || req.originalUrl?.startsWith("/v1/oauth/token")) {
+        return true;
+      }
       return false;
     },
   });
