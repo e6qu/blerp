@@ -1160,7 +1160,7 @@ New unit-test file `apps/api/src/workers/__tests__/webhook-signatures.test.ts` (
 **Severity:** High — without `VITE_BLERP_*` / `VITE_CLERK_*` reads, the dashboard's client-side code couldn't see env values at all (Vite only inlines `VITE_*` and `import.meta.env.*` references). Per Clerk's own docs: "Vite-based frameworks require the `VITE_` prefix instead of `NEXT_PUBLIC_` for client-side variables."
 **Files:** `packages/shared/src/env.ts`
 
-**Fix applied:** Every client-facing helper (`getApiUrl`, `getTenantId`, `getPublishableKey`, `getSignInUrl`, `getSignUpUrl`, redirect-URL helpers, `getJwtKey`, `getProxyUrl`, `getTelemetryDisabled`, `getSatelliteDomain`, `isSatellite`) now reads the `VITE_BLERP_*` and `VITE_CLERK_*` aliases alongside the `NEXT_PUBLIC_*` ones. Precedence: server-side bare names > NEXT*PUBLIC*_ > VITE\__ (server reads win for parity with backend env). Server-only keys (`getSecretKey`, `getEncryptionKey`, `getWebhookSecret`) deliberately do not honor `VITE_*` / `NEXT_PUBLIC_*` — exposing secrets to client bundles would be the bug.
+**Fix applied:** Every client-facing helper (`getApiUrl`, `getTenantId`, `getPublishableKey`, `getSignInUrl`, `getSignUpUrl`, redirect-URL helpers, `getJwtKey`, `getProxyUrl`, `getTelemetryDisabled`, `getSatelliteDomain`, `isSatellite`) now reads the `VITE_BLERP_*` and `VITE_CLERK_*` aliases alongside the `NEXT_PUBLIC_*` ones. Precedence: server-side bare names > NEXT*PUBLIC*\_ > VITE\__ (server reads win for parity with backend env). Server-only keys (`getSecretKey`, `getEncryptionKey`, `getWebhookSecret`) deliberately do not honor `VITE__`/`NEXT*PUBLIC*_` — exposing secrets to client bundles would be the bug.
 
 ### BUG-96 (round-2 Clerk parity sweep): `NEXT_PUBLIC_*` / `VITE_*` are build-time inlined — no runtime override for single-image multi-env Docker deploys (FIXED)
 
@@ -1177,3 +1177,83 @@ New unit-test file `apps/api/src/workers/__tests__/webhook-signatures.test.ts` (
 **Files:** `packages/shared/src/env.ts`
 
 **Fix applied:** Fallback-redirect helpers fall through to the deprecated names at the end of the precedence chain, after `*_FALLBACK_REDIRECT_URL` / `VITE_*`. New name wins when both are set.
+
+### BUG-98 (codex r18): BlerpProvider userinfo hydration raced runtime-config fetch; tenant-only updates didn't re-hydrate (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — two race issues. (a) The runtime-config effect (`/v1/public-config`) and the userinfo effect both ran on mount, but userinfo fired immediately with the build-time placeholder publishable key + `"demo-tenant"`. Once runtime config arrived and updated `runtimeKey`, the userinfo effect re-ran (its dep was `[key]`), but the first request had already gone out with the wrong credentials. (b) The userinfo effect only depended on `[key]`, so a runtime tenant change (with the same publishable key) silently kept the stale userinfo.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** Added `runtimeConfigReady` gate that defaults to `true` when no runtime fetch is needed (build-time key isn't the placeholder AND caller passed an explicit `tenantId`). When a fetch IS needed, the gate flips only after `/v1/public-config` returns (or fails — fall through to build-time defaults so the SDK still works). Userinfo effect now `return`s early when `!runtimeConfigReady` and includes `resolvedTenantId` + `runtimeConfigReady` in its dependency array, so tenant-only runtime overrides re-trigger hydration.
+
+### BUG-99 (codex r18): `/v1/public-config` returned full URL set but BlerpProvider only stored `publishable_key` + `tenant_id` — `openSignIn`/`openSignUp` ignored runtime URL overrides (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — defeats the BUG-96 runtime escape hatch for everything except the publishable key + tenant. A customer setting `CLERK_SIGN_IN_URL=/auth/login` in production but with a stale build-time `CLERK_SIGN_IN_URL=/sign-in` baked into NEXT_PUBLIC still saw the imperative `openSignIn()` go to `/sign-in`.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** Single `config` state object now holds the entire `PublicConfig` shape (publishable_key, tenant_id, sign_in_url, sign_up_url, force/fallback redirect URLs, proxy_url, telemetry_disabled). Initial state derives from build-time helpers; `/v1/public-config` response merges in over the top (caller props always win — that's the documented escape hatch precedence). `openSignIn`/`openSignUp` callbacks consume `config.sign_in_url` etc. with proper `useCallback` deps so React's stale-closure trap doesn't fire after a runtime config update.
+
+### BUG-100 (codex r18): Middleware `startsWith(SIGN_IN_PATH)` broke when `CLERK_SIGN_IN_URL` was a full URL — redirect loop (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — Clerk documents both path-only (`/sign-in`) and full-URL (`https://auth.example.com/sign-in`) values for `CLERK_SIGN_IN_URL`. With a full URL, the bypass check `req.nextUrl.pathname.startsWith("https://...")` never matched because pathname is a path, not a URL, so the middleware kept redirecting back to the sign-in URL on every request to it.
+**Files:** `packages/nextjs/src/server/middleware.ts`
+
+**Fix applied:** Parse the configured URL at module load via a new `parseAuthUrl()` helper that distinguishes path-only from full-URL forms (using `new URL()`). New `isOnAuthPage()` helper handles two cases: (a) path-only or same-origin URLs — compare `pathname` only; (b) external-origin URLs — return false (the inbound request to a Next.js handler is never on an external host, so the middleware should never bypass). The redirect still uses the raw env value, so external sign-in hosts are honored.
+
+### BUG-101 (codex r18): Embedded `<SignIn>` / `<SignUp>` ignored `*_FORCE_REDIRECT_URL` on successful submit (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — `BlerpProvider.openSignIn/openSignUp` applied force > prop > fallback, but the rendered form components only used the prop. A customer setting `CLERK_SIGN_IN_FORCE_REDIRECT_URL=/dashboard` got correct behavior from the imperative path and wrong behavior from the embedded form. Same divergence on the sign-up side.
+**Files:** `packages/shared/src/env.ts`, `packages/nextjs/src/client/components/Auth.tsx`, `SignUp.tsx`, `Control.tsx`
+
+**Fix applied:** New shared helpers `resolveSignInRedirect(callerSupplied?, fallback?)` and `resolveSignUpRedirect(callerSupplied?, fallback?)` enforce the precedence in one place. Auth.tsx + SignUp.tsx submit handlers + Control.tsx's `AuthenticateWithRedirectCallback` all route through them, so every code path agrees with the imperative `openSignIn()`.
+
+### BUG-102 (codex r18): `<RedirectToSignUp>` / `<AuthenticateWithRedirectCallback>` still hard-coded `/sign-up` / `/sign-in` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — BUG-86 fixed `<RedirectToSignIn>` but missed the parallel components.
+**Files:** `packages/nextjs/src/client/components/Control.tsx`
+
+**Fix applied:** Defaults derived from `getSignInUrl()` / `getSignUpUrl()` (module-load constants). `AuthenticateWithRedirectCallback`'s "verified" branch routes the redirect through `resolveSignInRedirect()` (BUG-101) so a force-redirect env beats whatever was in the `redirect_url` query.
+
+### BUG-103 (codex r18): Deprecated `VITE_BLERP_AFTER_SIGN_IN_URL` / `VITE_CLERK_AFTER_SIGN_IN_URL` (and sign-up equivalents) not honored (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — completeness gap on BUG-97. Vite-bundled apps using the deprecated alias silently got the default `"/"` instead of the configured value.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** Fallback-redirect chain extended to cover `VITE_BLERP_AFTER_SIGN_IN_URL`, `VITE_CLERK_AFTER_SIGN_IN_URL`, and the sign-up equivalents. Regression test pins the behavior.
+
+### BUG-104 (codex r18): `getPublishableKey()` namespace grouping made NEXT*PUBLIC_BLERP*_ beat bare CLERK\__ (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — contradicted the documented precedence (BLERP > CLERK > NEXT_PUBLIC > VITE). Prior code did `blerpKey ?? clerkKey` where each group `firstSet`'d its own three forms, so `NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY` won over `CLERK_PUBLISHABLE_KEY` — opposite of what the rest of the file does.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** Single ordered `firstSet(...)` chain matching every other helper. Warn-on-conflict still fires when the two bare names (BLERP + CLERK server-side) differ. Regression tests pin both the "bare CLERK beats NEXT_PUBLIC_BLERP" and "bare BLERP beats everything" cases.
+
+### BUG-105 (codex r18): Webhook precedence said current-Clerk-name wins, but invented `BLERP_WEBHOOK_SIGNING_SECRET` outranked `BLERP_WEBHOOK_SECRET` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — comment / behavior mismatch. Worse: the BLERP*WEBHOOK_SIGNING_SECRET alias was invented (Clerk only ever shipped `CLERK_WEBHOOK_SIGNING_SECRET`); a customer copying that name to a `BLERP*\*`form would have silently used the wrong env.
+**Files:**`packages/shared/src/env.ts`
+
+**Fix applied:** Chain trimmed to `BLERP_WEBHOOK_SECRET > CLERK_WEBHOOK_SIGNING_SECRET > CLERK_WEBHOOK_SECRET`. Updated docstring. Regression test confirms: (a) current Clerk name wins over legacy when both Clerk forms are set, (b) the invented BLERP signing alias is NOT recognized — only the bare BLERP form is.
+
+### BUG-106 (codex r18): Documented `CLERK_JS_URL`, `CLERK_JS_VERSION`, `CLERK_API_VERSION` had no helpers (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — completeness gap. Customers setting these in `.env` had no signal of whether they were honored.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** `getClerkJsUrl()`, `getClerkJsVersion()`, `getApiVersion(defaultValue = "v1")` exposed with the standard alias chain (BLERP > CLERK > NEXT_PUBLIC > VITE). Currently accepted-but-no-op: blerp doesn't serve a remote JS bundle and only ships API v1. Helpers exist so customer validation passes and future wiring doesn't relitigate the alias list. Regression tests cover all three.
+
+### BUG-107 (codex r18): Production `as` type cast on `/v1/public-config` JSON parse violated repo type-safety rules (FIXED)
+
+**Status:** Fixed
+**Severity:** P3 — CLAUDE.md is explicit: "Type casts (`as`) should be avoided and used only as a documented last resort." A malformed `/v1/public-config` response would have polluted state.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** Added `PublicConfig` interface + `isPublicConfig(value: unknown): value is PublicConfig` type guard. Response parsed as `unknown`, fed through the guard, and only adopted into state when it validates. Malformed responses keep the build-time defaults.

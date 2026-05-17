@@ -8,6 +8,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   assertSatelliteNotConfigured,
   getApiUrl,
+  getApiVersion,
+  getClerkJsUrl,
+  getClerkJsVersion,
   getEncryptionKey,
   getJwtKey,
   getProxyUrl,
@@ -23,6 +26,8 @@ import {
   getTenantId,
   getWebhookSecret,
   isSatellite,
+  resolveSignInRedirect,
+  resolveSignUpRedirect,
 } from "@blerp/shared";
 
 const PROTECTED = [
@@ -78,6 +83,12 @@ const PROTECTED = [
   "CLERK_IS_SATELLITE",
   "BLERP_DOMAIN",
   "CLERK_DOMAIN",
+  "VITE_CLERK_AFTER_SIGN_IN_URL",
+  "VITE_CLERK_AFTER_SIGN_UP_URL",
+  "CLERK_JS_URL",
+  "CLERK_JS_VERSION",
+  "CLERK_API_VERSION",
+  "BLERP_WEBHOOK_SIGNING_SECRET",
 ] as const;
 
 function snapshot() {
@@ -300,6 +311,93 @@ describe("Clerk-compat env helpers (BUG-46)", () => {
     expect(getTelemetryDisabled()).toBe(true);
     process.env.CLERK_TELEMETRY_DISABLED = "no";
     expect(getTelemetryDisabled()).toBe(false);
+  });
+
+  // --- Codex r18 follow-ups (BUG-98..BUG-107) -----------------------
+
+  it("BUG-103: deprecated VITE_CLERK_AFTER_SIGN_IN_URL is honored as fallback alias", () => {
+    clear();
+    process.env.VITE_CLERK_AFTER_SIGN_IN_URL = "/vite-old";
+    expect(getSignInFallbackRedirectUrl()).toBe("/vite-old");
+  });
+
+  it("BUG-103: deprecated VITE_CLERK_AFTER_SIGN_UP_URL is honored as fallback alias", () => {
+    clear();
+    process.env.VITE_CLERK_AFTER_SIGN_UP_URL = "/vite-old-up";
+    expect(getSignUpFallbackRedirectUrl()).toBe("/vite-old-up");
+  });
+
+  it("BUG-104: getPublishableKey uses single ordered chain — bare CLERK beats NEXT_PUBLIC_BLERP", () => {
+    clear();
+    process.env.CLERK_PUBLISHABLE_KEY = "pk_clerk_bare";
+    process.env.NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY = "pk_blerp_next_public";
+    // Documented chain: BLERP_* > CLERK_* > NEXT_PUBLIC_BLERP_* > ...
+    // Bare CLERK wins over NEXT_PUBLIC_BLERP — namespaces NOT grouped.
+    expect(getPublishableKey()).toBe("pk_clerk_bare");
+  });
+
+  it("BUG-104: BLERP still beats CLERK and both beat NEXT_PUBLIC_*", () => {
+    clear();
+    process.env.BLERP_PUBLISHABLE_KEY = "pk_blerp_bare";
+    process.env.CLERK_PUBLISHABLE_KEY = "pk_clerk_bare";
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_next_public";
+    expect(getPublishableKey()).toBe("pk_blerp_bare");
+  });
+
+  it("BUG-105: webhook current Clerk name beats legacy when both Clerk forms are set", () => {
+    clear();
+    process.env.CLERK_WEBHOOK_SECRET = "whsec_legacy";
+    process.env.CLERK_WEBHOOK_SIGNING_SECRET = "whsec_current";
+    expect(getWebhookSecret()).toBe("whsec_current");
+  });
+
+  it("BUG-105: invented BLERP_WEBHOOK_SIGNING_SECRET is NOT a recognized alias — BLERP_WEBHOOK_SECRET is the only BLERP form", () => {
+    clear();
+    process.env.BLERP_WEBHOOK_SIGNING_SECRET = "should_be_ignored";
+    process.env.CLERK_WEBHOOK_SIGNING_SECRET = "whsec_current";
+    // BLERP signing name was never documented — only the bare BLERP form.
+    // The current CLERK name wins because the invented BLERP signing alias
+    // doesn't exist in the chain.
+    expect(getWebhookSecret()).toBe("whsec_current");
+  });
+
+  it("BUG-106: getClerkJsUrl honors CLERK_JS_URL + NEXT_PUBLIC_ alias", () => {
+    clear();
+    expect(getClerkJsUrl()).toBeUndefined();
+    process.env.CLERK_JS_URL = "https://cdn.example/blerp.js";
+    expect(getClerkJsUrl()).toBe("https://cdn.example/blerp.js");
+  });
+
+  it("BUG-106: getClerkJsVersion honors CLERK_JS_VERSION", () => {
+    clear();
+    expect(getClerkJsVersion()).toBeUndefined();
+    process.env.CLERK_JS_VERSION = "1.2.3";
+    expect(getClerkJsVersion()).toBe("1.2.3");
+  });
+
+  it("BUG-106: getApiVersion defaults to v1 and honors CLERK_API_VERSION", () => {
+    clear();
+    expect(getApiVersion()).toBe("v1");
+    process.env.CLERK_API_VERSION = "v2";
+    expect(getApiVersion()).toBe("v2");
+  });
+
+  it("BUG-101: resolveSignInRedirect enforces force > caller > fallback", () => {
+    clear();
+    // No env: caller wins over default fallback "/"
+    expect(resolveSignInRedirect("/from-caller")).toBe("/from-caller");
+    expect(resolveSignInRedirect(undefined, "/from-fallback")).toBe("/from-fallback");
+    expect(resolveSignInRedirect()).toBe("/");
+    // Force overrides everything below
+    process.env.CLERK_SIGN_IN_FORCE_REDIRECT_URL = "/forced";
+    expect(resolveSignInRedirect("/from-caller", "/from-fallback")).toBe("/forced");
+  });
+
+  it("BUG-101: resolveSignUpRedirect enforces force > caller > fallback", () => {
+    clear();
+    expect(resolveSignUpRedirect("/from-caller")).toBe("/from-caller");
+    process.env.CLERK_SIGN_UP_FORCE_REDIRECT_URL = "/forced-up";
+    expect(resolveSignUpRedirect("/from-caller")).toBe("/forced-up");
   });
 
   it("BUG-91: assertSatelliteNotConfigured throws when CLERK_IS_SATELLITE=true", () => {

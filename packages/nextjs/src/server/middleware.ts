@@ -3,16 +3,40 @@ import * as jose from "jose";
 import { assertSatelliteNotConfigured, getApiUrl, getSignInUrl, getSignUpUrl } from "@blerp/shared";
 
 // BUG-91 (round-2 sweep): satellite-domain SSO isn't implemented; refuse
-// to start instead of silently routing users to the wrong domain. The
-// assertion runs at module load so misconfiguration shows up at the same
-// time as the rest of the middleware bootstrap.
+// to start instead of silently routing users to the wrong domain.
 assertSatelliteNotConfigured();
 
-// BUG-84 (round-2 sweep): honor CLERK_SIGN_IN_URL / CLERK_SIGN_UP_URL and
-// their BLERP_*/NEXT_PUBLIC_*/VITE_* aliases. Memoise so the helper isn't
-// re-run on every request — env doesn't change at runtime in Next.js.
-const SIGN_IN_PATH = getSignInUrl();
-const SIGN_UP_PATH = getSignUpUrl();
+// BUG-84 (round-2 sweep) / BUG-100 (codex r18): honor CLERK_SIGN_IN_URL
+// / CLERK_SIGN_UP_URL. The env values may be a path (e.g. `/sign-in`)
+// OR a full URL (e.g. `https://auth.example.com/sign-in`) per Clerk's
+// docs. Parse with a placeholder base so both forms produce a usable
+// pathname for the bypass check; the redirect itself uses the raw
+// string so external origins are honored.
+//
+// The bypass check ONLY skips when the inbound request is to the same
+// origin as the configured URL (or the configured URL is a path-only
+// value). Otherwise an external-host sign-in URL would always look
+// "not yet on the sign-in page" and we'd redirect-loop.
+const SIGN_IN_RAW = getSignInUrl();
+const SIGN_UP_RAW = getSignUpUrl();
+function parseAuthUrl(raw: string): { pathname: string; isAbsolute: boolean; origin?: string } {
+  if (raw.startsWith("/")) return { pathname: raw, isAbsolute: false };
+  const parsed = new URL(raw);
+  return { pathname: parsed.pathname, isAbsolute: true, origin: parsed.origin };
+}
+const SIGN_IN = parseAuthUrl(SIGN_IN_RAW);
+const SIGN_UP = parseAuthUrl(SIGN_UP_RAW);
+function isOnAuthPage(
+  reqOrigin: string,
+  reqPath: string,
+  cfg: { pathname: string; isAbsolute: boolean; origin?: string },
+): boolean {
+  if (cfg.isAbsolute && cfg.origin !== reqOrigin) {
+    // External sign-in host — the inbound request is never "on" it.
+    return false;
+  }
+  return reqPath.startsWith(cfg.pathname);
+}
 
 export type BlerpMiddlewareOptions = {
   publicRoutes?: string[] | ((req: NextRequest) => boolean);
@@ -72,7 +96,7 @@ export function blerpMiddleware(
       const auth = (): AuthObject => ({
         protect() {
           if (!tokenValid) {
-            const signInUrl = new URL(SIGN_IN_PATH, req.url);
+            const signInUrl = new URL(SIGN_IN_RAW, req.url);
             signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
             throw signInUrl;
           }
@@ -121,13 +145,15 @@ export function blerpMiddleware(
       }
     }
 
+    const reqOrigin = req.nextUrl.origin;
+    const reqPath = req.nextUrl.pathname;
     if (
       !tokenValid &&
       !isPublic &&
-      !req.nextUrl.pathname.startsWith(SIGN_IN_PATH) &&
-      !req.nextUrl.pathname.startsWith(SIGN_UP_PATH)
+      !isOnAuthPage(reqOrigin, reqPath, SIGN_IN) &&
+      !isOnAuthPage(reqOrigin, reqPath, SIGN_UP)
     ) {
-      const signInUrl = new URL(SIGN_IN_PATH, req.url);
+      const signInUrl = new URL(SIGN_IN_RAW, req.url);
       signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
       const response = NextResponse.redirect(signInUrl);
       if (token) {

@@ -3,7 +3,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { setSessionCookies } from "../session-cookies";
 import { useBlerpClient } from "../BlerpProvider";
-import { getSignInFallbackRedirectUrl, getSignUpUrl } from "@blerp/shared";
+import { getSignInFallbackRedirectUrl, getSignUpUrl, resolveSignInRedirect } from "@blerp/shared";
 
 type SignInStep = "email" | "password";
 
@@ -80,7 +80,9 @@ export function SignIn({
           setSessionCookies(response.tokens.access_token);
         }
         if (response.session) {
-          window.location.assign(afterSignInUrl);
+          // BUG-101 (codex r18): apply force > prop > fallback so the
+          // embedded <SignIn> agrees with the imperative openSignIn().
+          window.location.assign(resolveSignInRedirect(afterSignInUrl));
         }
       }
     } finally {

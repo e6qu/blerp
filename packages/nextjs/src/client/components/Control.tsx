@@ -3,7 +3,12 @@
 import React from "react";
 import { useAuth } from "../BlerpProvider";
 import { useUser } from "../hooks";
-import { getSignInUrl } from "@blerp/shared";
+import {
+  getSignInFallbackRedirectUrl,
+  getSignInUrl,
+  getSignUpUrl,
+  resolveSignInRedirect,
+} from "@blerp/shared";
 
 export interface SignedInProps {
   children: React.ReactNode;
@@ -50,8 +55,9 @@ export interface RedirectToSignInProps {
   afterSignInUrl?: string;
 }
 
-// BUG-86 (round-2 sweep): default to CLERK_SIGN_IN_URL when prop omitted.
+// BUG-86 / BUG-102 (codex r18): defaults derived from env helpers.
 const SIGN_IN_URL_DEFAULT = getSignInUrl();
+const SIGN_UP_URL_DEFAULT = getSignUpUrl();
 
 export function RedirectToSignIn({
   signInUrl = SIGN_IN_URL_DEFAULT,
@@ -77,7 +83,7 @@ export interface RedirectToSignUpProps {
 }
 
 export function RedirectToSignUp({
-  signUpUrl = "/sign-up",
+  signUpUrl = SIGN_UP_URL_DEFAULT,
   afterSignUpUrl,
 }: RedirectToSignUpProps) {
   const { isSignedIn } = useAuth();
@@ -162,8 +168,8 @@ export interface AuthenticateWithRedirectCallbackProps {
 }
 
 export function AuthenticateWithRedirectCallback({
-  signInUrl = "/sign-in",
-  signUpUrl = "/sign-up",
+  signInUrl = SIGN_IN_URL_DEFAULT,
+  signUpUrl = SIGN_UP_URL_DEFAULT,
 }: AuthenticateWithRedirectCallbackProps) {
   const { isSignedIn } = useAuth();
 
@@ -175,7 +181,12 @@ export function AuthenticateWithRedirectCallback({
     const redirectUrl = urlParams.get("redirect_url");
 
     if (status === "verified") {
-      window.location.href = redirectUrl || "/";
+      // BUG-102 (codex r18): apply Clerk's force > query > fallback
+      // precedence (matches resolveSignInRedirect).
+      window.location.href = resolveSignInRedirect(
+        redirectUrl ?? undefined,
+        getSignInFallbackRedirectUrl(),
+      );
       return;
     }
 

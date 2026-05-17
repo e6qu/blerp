@@ -15,6 +15,35 @@ import {
   getSignUpUrl,
   getTenantId,
 } from "@blerp/shared";
+
+// BUG-99 / BUG-107 (codex r18): full runtime-config shape served by
+// /v1/public-config. Validates an unknown JSON payload via a type
+// guard (no `as` cast — CLAUDE.md bans them) so a malformed response
+// from a stale API doesn't pollute state.
+interface PublicConfig {
+  publishable_key: string | null;
+  tenant_id: string;
+  sign_in_url: string;
+  sign_up_url: string;
+  sign_in_force_redirect_url: string | null;
+  sign_in_fallback_redirect_url: string;
+  sign_up_force_redirect_url: string | null;
+  sign_up_fallback_redirect_url: string;
+  proxy_url: string | null;
+  telemetry_disabled: boolean;
+}
+function isPublicConfig(value: unknown): value is PublicConfig {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.tenant_id === "string" &&
+    typeof v.sign_in_url === "string" &&
+    typeof v.sign_up_url === "string" &&
+    typeof v.sign_in_fallback_redirect_url === "string" &&
+    typeof v.sign_up_fallback_redirect_url === "string" &&
+    typeof v.telemetry_disabled === "boolean"
+  );
+}
 import { clearSessionCookies, readSessionCookie } from "./session-cookies";
 
 const queryClient = new QueryClient();
@@ -95,16 +124,31 @@ export function BlerpProvider({
   // BUG-81 (codex r17): use the shared getTenantId() helper so the
   // client tenant tracks the same env the server uses.
   //
-  // BUG-96 (round-2 sweep): NEXT_PUBLIC_* envs are frozen at `next
-  // build`. Single-image multi-env Docker deploys override them at
-  // runtime by reading `/v1/public-config` (served by the API from
-  // process.env evaluated per-request). When the build-time key is the
-  // documented placeholder (pk_build_placeholder), we *must* refresh
-  // before the first API call or the Authorization header is wrong.
-  const [runtimeKey, setRuntimeKey] = useState(buildTimeKey);
-  const [runtimeTenant, setRuntimeTenant] = useState(buildTimeTenant);
-  const key = runtimeKey;
-  const resolvedTenantId = runtimeTenant;
+  // BUG-96 / BUG-98 / BUG-99 (codex r18): NEXT_PUBLIC_* envs are frozen
+  // at `next build`. Single-image multi-env Docker deploys override
+  // them at runtime by reading `/v1/public-config`. The full config
+  // (publishable key, tenant, sign-in/up URLs, force/fallback redirect
+  // URLs, proxy URL) is held in one state object so all consumers
+  // (apiClient auth header, openSignIn callbacks, embedded forms) see
+  // a consistent runtime view. `runtimeConfigReady` gates the userinfo
+  // hydration so we don't fire it with the build-time placeholder
+  // before the override lands.
+  const needsRuntimeFetch = buildTimeKey === "pk_build_placeholder" || !tenantId;
+  const [config, setConfig] = useState<PublicConfig>(() => ({
+    publishable_key: buildTimeKey === "pk_build_placeholder" ? null : buildTimeKey,
+    tenant_id: buildTimeTenant,
+    sign_in_url: getSignInUrl(),
+    sign_up_url: getSignUpUrl(),
+    sign_in_force_redirect_url: getSignInForceRedirectUrl() ?? null,
+    sign_in_fallback_redirect_url: getSignInFallbackRedirectUrl(),
+    sign_up_force_redirect_url: getSignUpForceRedirectUrl() ?? null,
+    sign_up_fallback_redirect_url: getSignUpFallbackRedirectUrl(),
+    proxy_url: null,
+    telemetry_disabled: false,
+  }));
+  const [runtimeConfigReady, setRuntimeConfigReady] = useState(!needsRuntimeFetch);
+  const key = config.publishable_key ?? buildTimeKey;
+  const resolvedTenantId = config.tenant_id;
 
   const [activeOrgId, setActiveOrgId] = useState<string | null>(
     () => Cookies.get("__blerp_org") || null,
@@ -129,37 +173,49 @@ export function BlerpProvider({
     return c;
   }, [key, activeOrgId, resolvedTenantId]);
 
-  // BUG-96 (round-2 sweep): when the build-time key is the placeholder
-  // OR the caller didn't pass an explicit tenant, fetch the runtime
-  // config endpoint. Runs once on mount; the userinfo hydration below
-  // is keyed off `key` so it re-runs after this completes.
+  // BUG-96 / BUG-98 / BUG-99 / BUG-107 (codex r18): runtime-config
+  // fetch + typed-guard parse. When needsRuntimeFetch is false, the
+  // ready-gate flips immediately so we don't pay a network hop. When
+  // true, hydrate from /v1/public-config; on failure, fall back to the
+  // build-time values (already loaded) so the SDK still functions.
   useEffect(() => {
-    if (buildTimeKey !== "pk_build_placeholder" && tenantId) return;
+    if (!needsRuntimeFetch) return;
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/v1/public-config", { credentials: "include" });
-        if (!res.ok || cancelled) return;
-        const cfg = (await res.json()) as {
-          publishable_key?: string | null;
-          tenant_id?: string;
-        };
-        if (cfg.publishable_key && buildTimeKey === "pk_build_placeholder") {
-          setRuntimeKey(cfg.publishable_key);
+        if (!res.ok || cancelled) {
+          if (!cancelled) setRuntimeConfigReady(true);
+          return;
         }
-        if (cfg.tenant_id && !tenantId) {
-          setRuntimeTenant(cfg.tenant_id);
+        const raw: unknown = await res.json();
+        if (cancelled) return;
+        if (isPublicConfig(raw)) {
+          setConfig((prev) => ({
+            ...raw,
+            // Respect caller-supplied props as overrides.
+            publishable_key: publishableKey ?? raw.publishable_key,
+            tenant_id: tenantId ?? raw.tenant_id,
+            // Keep prev value if /v1/public-config doesn't change it.
+            proxy_url: raw.proxy_url ?? prev.proxy_url,
+          }));
         }
       } catch {
-        // /v1/public-config unavailable — keep the build-time defaults
+        // Network failure — fall through to ready with build-time defaults.
+      } finally {
+        if (!cancelled) setRuntimeConfigReady(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [buildTimeKey, tenantId]);
+  }, [needsRuntimeFetch, publishableKey, tenantId]);
 
   useEffect(() => {
+    // BUG-98 (codex r18): wait for runtime config to land — otherwise
+    // the first /v1/userinfo call fires with the placeholder publish-
+    // able key and the wrong tenant id.
+    if (!runtimeConfigReady) return;
     let cancelled = false;
 
     async function hydrate() {
@@ -238,7 +294,10 @@ export function BlerpProvider({
     return () => {
       cancelled = true;
     };
-  }, [key]);
+    // BUG-98 (codex r18): include resolvedTenantId so a runtime tenant
+    // change re-hydrates userinfo (previously only [key] was tracked,
+    // so a tenant-only update silently kept the old userinfo state).
+  }, [key, resolvedTenantId, runtimeConfigReady]);
 
   const setActive = useCallback(async (options: { organization?: string | null }) => {
     if (options.organization === undefined) return;
@@ -275,31 +334,32 @@ export function BlerpProvider({
     setOrgPermissions([]);
   }, []);
 
-  // BUG-85 / BUG-94 (round-2 sweep): honor CLERK_SIGN_IN_URL,
-  // CLERK_SIGN_UP_URL, and their FORCE/FALLBACK redirect-URL variants
-  // (and BLERP_/NEXT_PUBLIC_/VITE_ aliases). Precedence inside this
-  // callback:
-  //   1. Explicit `options.afterSignInUrl` from the caller.
-  //   2. `*_SIGN_IN_FORCE_REDIRECT_URL` — overrides everything below.
-  //   3. `*_SIGN_IN_FALLBACK_REDIRECT_URL` — used when caller didn't
-  //      pass a redirect target.
-  // Clerk's `forceRedirectUrl` semantics: even when the caller passes a
-  // redirect, the force value wins. Implemented identically.
-  const openSignIn = useCallback((options?: { afterSignInUrl?: string }) => {
-    const base = getSignInUrl();
-    const force = getSignInForceRedirectUrl();
-    const target = force ?? options?.afterSignInUrl ?? getSignInFallbackRedirectUrl();
-    const url = target === "/" ? base : `${base}?redirect_url=${encodeURIComponent(target)}`;
-    window.location.href = url;
-  }, []);
+  // BUG-85 / BUG-94 (round-2 sweep) / BUG-99 (codex r18): redirect
+  // precedence is `force > caller-supplied > fallback`, and ALL three
+  // values are sourced from `config` (which incorporates runtime
+  // overrides from /v1/public-config) — not from build-time env reads
+  // — so single-image multi-env deploys see consistent values.
+  const openSignIn = useCallback(
+    (options?: { afterSignInUrl?: string }) => {
+      const base = config.sign_in_url;
+      const force = config.sign_in_force_redirect_url;
+      const target = force ?? options?.afterSignInUrl ?? config.sign_in_fallback_redirect_url;
+      const url = target === "/" ? base : `${base}?redirect_url=${encodeURIComponent(target)}`;
+      window.location.href = url;
+    },
+    [config.sign_in_url, config.sign_in_force_redirect_url, config.sign_in_fallback_redirect_url],
+  );
 
-  const openSignUp = useCallback((options?: { afterSignUpUrl?: string }) => {
-    const base = getSignUpUrl();
-    const force = getSignUpForceRedirectUrl();
-    const target = force ?? options?.afterSignUpUrl ?? getSignUpFallbackRedirectUrl();
-    const url = target === "/" ? base : `${base}?redirect_url=${encodeURIComponent(target)}`;
-    window.location.href = url;
-  }, []);
+  const openSignUp = useCallback(
+    (options?: { afterSignUpUrl?: string }) => {
+      const base = config.sign_up_url;
+      const force = config.sign_up_force_redirect_url;
+      const target = force ?? options?.afterSignUpUrl ?? config.sign_up_fallback_redirect_url;
+      const url = target === "/" ? base : `${base}?redirect_url=${encodeURIComponent(target)}`;
+      window.location.href = url;
+    },
+    [config.sign_up_url, config.sign_up_force_redirect_url, config.sign_up_fallback_redirect_url],
+  );
 
   const openUserProfile = useCallback(() => {
     window.location.href = "/user-profile";

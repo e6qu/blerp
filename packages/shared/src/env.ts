@@ -162,16 +162,14 @@ export function getApiUrl(defaultValue = "http://localhost:3000"): string {
 /**
  * BUG-87 (round-2 sweep): accept the renamed CLERK_WEBHOOK_SIGNING_SECRET.
  * Clerk renamed CLERK_WEBHOOK_SECRET → CLERK_WEBHOOK_SIGNING_SECRET; both
- * names live in the wild. Precedence: BLERP_* > current CLERK_* name >
- * legacy CLERK_* name.
+ * names live in the wild. Precedence: BLERP_WEBHOOK_SECRET (we never
+ * shipped a BLERP-namespaced "SIGNING" alias — BUG-105 codex r18 caught
+ * the invented alias that contradicted the documented current-wins-
+ * over-legacy rule) > current CLERK_WEBHOOK_SIGNING_SECRET > legacy
+ * CLERK_WEBHOOK_SECRET.
  */
 export function getWebhookSecret(): string | undefined {
-  return firstSet(
-    "BLERP_WEBHOOK_SECRET",
-    "BLERP_WEBHOOK_SIGNING_SECRET",
-    "CLERK_WEBHOOK_SIGNING_SECRET",
-    "CLERK_WEBHOOK_SECRET",
-  );
+  return firstSet("BLERP_WEBHOOK_SECRET", "CLERK_WEBHOOK_SIGNING_SECRET", "CLERK_WEBHOOK_SECRET");
 }
 
 export function getWebhookSecretOrThrow(): string {
@@ -212,26 +210,38 @@ export function getTenantId(defaultValue = "demo-tenant"): string {
 
 // --- Client-side (NEXT_PUBLIC_* / VITE_*) -----------------------------------
 
+/**
+ * BUG-104 (codex r18): single ordered chain, not BLERP-vs-CLERK
+ * namespace groups. Prior code grouped all BLERP_* aliases before all
+ * CLERK_* aliases, so `NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY` won over
+ * `CLERK_PUBLISHABLE_KEY` even though the file's documented chain is
+ * `BLERP_* > CLERK_* > NEXT_PUBLIC_BLERP_* > NEXT_PUBLIC_CLERK_* >
+ * VITE_BLERP_* > VITE_CLERK_*`. Now consistent with every other
+ * helper.
+ *
+ * The warn-on-conflict still fires when a server-side BLERP_ and
+ * server-side CLERK_ both have non-blank values, since that's the
+ * only ambiguity a customer might want to know about.
+ */
 export function getPublishableKey(): string | undefined {
-  const blerpKey = firstSet(
-    "BLERP_PUBLISHABLE_KEY",
-    "NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY",
-    "VITE_BLERP_PUBLISHABLE_KEY",
-  );
-  const clerkKey = firstSet(
-    "CLERK_PUBLISHABLE_KEY",
-    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-    "VITE_CLERK_PUBLISHABLE_KEY",
-  );
-
-  if (blerpKey && clerkKey && blerpKey !== clerkKey) {
+  if (
+    readNonBlank("BLERP_PUBLISHABLE_KEY") &&
+    readNonBlank("CLERK_PUBLISHABLE_KEY") &&
+    readNonBlank("BLERP_PUBLISHABLE_KEY") !== readNonBlank("CLERK_PUBLISHABLE_KEY")
+  ) {
     warnOnce(
-      "Both *_BLERP_PUBLISHABLE_KEY and *_CLERK_PUBLISHABLE_KEY are set with different values. " +
+      "Both BLERP_PUBLISHABLE_KEY and CLERK_PUBLISHABLE_KEY are set with different values. " +
         "Using BLERP_PUBLISHABLE_KEY.",
     );
   }
-
-  return blerpKey ?? clerkKey;
+  return firstSet(
+    "BLERP_PUBLISHABLE_KEY",
+    "CLERK_PUBLISHABLE_KEY",
+    "NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    "VITE_BLERP_PUBLISHABLE_KEY",
+    "VITE_CLERK_PUBLISHABLE_KEY",
+  );
 }
 
 export function getPublishableKeyOrThrow(): string {
@@ -338,11 +348,15 @@ export function getSignInFallbackRedirectUrl(defaultValue = "/"): string {
       "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
       "VITE_BLERP_SIGN_IN_FALLBACK_REDIRECT_URL",
       "VITE_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
-      // BUG-97 deprecated alias (Clerk still honors these for back-compat).
+      // BUG-97 / BUG-103 (codex r18): deprecated aliases on all four
+      // prefix families. Clerk still honors AFTER_SIGN_IN_URL across
+      // bare / NEXT_PUBLIC_ / VITE_ forms.
       "BLERP_AFTER_SIGN_IN_URL",
       "CLERK_AFTER_SIGN_IN_URL",
       "NEXT_PUBLIC_BLERP_AFTER_SIGN_IN_URL",
       "NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL",
+      "VITE_BLERP_AFTER_SIGN_IN_URL",
+      "VITE_CLERK_AFTER_SIGN_IN_URL",
     ) ?? defaultValue
   );
 }
@@ -355,6 +369,27 @@ export function getSignUpForceRedirectUrl(): string | undefined {
     "NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL",
     "VITE_BLERP_SIGN_UP_FORCE_REDIRECT_URL",
     "VITE_CLERK_SIGN_UP_FORCE_REDIRECT_URL",
+  );
+}
+
+/**
+ * BUG-101 (codex r18): Clerk's documented post-auth redirect precedence
+ * is `force > caller-supplied > fallback`. We had this in
+ * BlerpProvider.openSignIn/openSignUp but the embedded `<SignIn>` /
+ * `<SignUp>` forms only used the caller value, so a customer setting
+ * `CLERK_SIGN_IN_FORCE_REDIRECT_URL=/dashboard` had it honored by the
+ * imperative `openSignIn()` but silently ignored by the rendered form
+ * on a successful submit. Shared helper so both paths agree.
+ */
+export function resolveSignInRedirect(callerSupplied?: string, fallback?: string): string {
+  return (
+    getSignInForceRedirectUrl() ?? callerSupplied ?? fallback ?? getSignInFallbackRedirectUrl()
+  );
+}
+
+export function resolveSignUpRedirect(callerSupplied?: string, fallback?: string): string {
+  return (
+    getSignUpForceRedirectUrl() ?? callerSupplied ?? fallback ?? getSignUpFallbackRedirectUrl()
   );
 }
 
@@ -371,6 +406,8 @@ export function getSignUpFallbackRedirectUrl(defaultValue = "/"): string {
       "CLERK_AFTER_SIGN_UP_URL",
       "NEXT_PUBLIC_BLERP_AFTER_SIGN_UP_URL",
       "NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL",
+      "VITE_BLERP_AFTER_SIGN_UP_URL",
+      "VITE_CLERK_AFTER_SIGN_UP_URL",
     ) ?? defaultValue
   );
 }
@@ -386,6 +423,49 @@ export function getSignUpFallbackRedirectUrl(defaultValue = "/"): string {
 // Satellite vars (BUG-91) are the exception: if a customer opts into
 // satellite mode we throw a loud "not yet supported" error rather than
 // silently dropping them and breaking SSO routing.
+
+/**
+ * BUG-106 (codex r18): Clerk also documents NEXT_PUBLIC_CLERK_JS_URL,
+ * NEXT_PUBLIC_CLERK_JS_VERSION, and NEXT_PUBLIC_CLERK_API_VERSION.
+ * Blerp doesn't load a remote JS bundle and only serves API v1, so
+ * these are accepted-but-no-op for now. The helpers exist so customer
+ * `.env` validation passes and a future implementation can wire them
+ * without relitigating the alias list.
+ */
+export function getClerkJsUrl(): string | undefined {
+  return firstSet(
+    "BLERP_JS_URL",
+    "CLERK_JS_URL",
+    "NEXT_PUBLIC_BLERP_JS_URL",
+    "NEXT_PUBLIC_CLERK_JS_URL",
+    "VITE_BLERP_JS_URL",
+    "VITE_CLERK_JS_URL",
+  );
+}
+
+export function getClerkJsVersion(): string | undefined {
+  return firstSet(
+    "BLERP_JS_VERSION",
+    "CLERK_JS_VERSION",
+    "NEXT_PUBLIC_BLERP_JS_VERSION",
+    "NEXT_PUBLIC_CLERK_JS_VERSION",
+    "VITE_BLERP_JS_VERSION",
+    "VITE_CLERK_JS_VERSION",
+  );
+}
+
+export function getApiVersion(defaultValue = "v1"): string {
+  return (
+    firstSet(
+      "BLERP_API_VERSION",
+      "CLERK_API_VERSION",
+      "NEXT_PUBLIC_BLERP_API_VERSION",
+      "NEXT_PUBLIC_CLERK_API_VERSION",
+      "VITE_BLERP_API_VERSION",
+      "VITE_CLERK_API_VERSION",
+    ) ?? defaultValue
+  );
+}
 
 export function getJwtKey(): string | undefined {
   return firstSet(

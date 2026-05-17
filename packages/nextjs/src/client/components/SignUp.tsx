@@ -2,7 +2,7 @@
 
 import { useState, type SyntheticEvent } from "react";
 import { useBlerpClient } from "../BlerpProvider";
-import { getSignInUrl, getSignUpFallbackRedirectUrl } from "@blerp/shared";
+import { getSignInUrl, getSignUpFallbackRedirectUrl, resolveSignUpRedirect } from "@blerp/shared";
 
 type SignUpStep = "email" | "password";
 
@@ -68,7 +68,9 @@ export function SignUp({
         const errorData = apiError as { error?: { message?: string } };
         setError(errorData.error?.message ?? "Failed to complete signup");
       } else if ((data as { session?: unknown }).session) {
-        window.location.assign(afterSignUpUrl);
+        // BUG-101 (codex r18): apply force > prop > fallback so the
+        // embedded <SignUp> agrees with the imperative openSignUp().
+        window.location.assign(resolveSignUpRedirect(afterSignUpUrl));
       }
     } finally {
       setIsSubmitting(false);
