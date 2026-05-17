@@ -187,33 +187,43 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     // production. New scopes added by future hardening should be
     // appended here so the dev contract stays "X-User-Id = tenant
     // root."
-    req.m2m = {
-      clientId: `dev-shim:${userId}`,
-      scopes: [
-        "users:read",
-        "users:write",
-        "users:admin",
-        "webhooks:read",
-        "webhooks:write",
-        "audit_logs:read",
-        "usage:read",
-        "org:read",
-        "org:write",
-        "org:admin",
-        "members:read",
-        "members:write",
-        "invitations:read",
-        "invitations:write",
-        // BUG-169 (codex r43) / BUG-171 (codex r44): tenant-admin
-        // scopes. Write paths use `:admin` so the chain-of-trust gate
-        // in createM2MToken prevents a plain project owner minting.
-        "signup_restrictions:read",
-        "signup_restrictions:admin",
-        "redirect_urls:read",
-        "redirect_urls:admin",
-      ],
-      projectId: "dev-shim",
-    };
+    //
+    // BUG-186 (codex r51): honor `X-No-Dev-Shim: true` here too —
+    // the same opt-out the session-JWT path uses to simulate
+    // production semantics. Without it, integration tests that try
+    // to verify a project-owner CAN'T mint tenant-wide M2M scopes
+    // (the BUG-186 gate) would still receive the X-User-Id shim's
+    // wildcard scope set and falsely pass.
+    const xUserIdOptedOut = req.header("X-No-Dev-Shim") === "true";
+    if (!xUserIdOptedOut) {
+      req.m2m = {
+        clientId: `dev-shim:${userId}`,
+        scopes: [
+          "users:read",
+          "users:write",
+          "users:admin",
+          "webhooks:read",
+          "webhooks:write",
+          "audit_logs:read",
+          "usage:read",
+          "org:read",
+          "org:write",
+          "org:admin",
+          "members:read",
+          "members:write",
+          "invitations:read",
+          "invitations:write",
+          // BUG-169 (codex r43) / BUG-171 (codex r44): tenant-admin
+          // scopes. Write paths use `:admin` so the chain-of-trust gate
+          // in createM2MToken prevents a plain project owner minting.
+          "signup_restrictions:read",
+          "signup_restrictions:admin",
+          "redirect_urls:read",
+          "redirect_urls:admin",
+        ],
+        projectId: "dev-shim",
+      };
+    }
 
     next();
     return;

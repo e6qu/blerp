@@ -608,4 +608,40 @@ describe("m2m controller", () => {
     const res = await request(app).delete(`/v1/m2m-tokens/${tokenId}`).set(headers());
     expect(res.status).toBe(204);
   });
+
+  it("BUG-186 (codex r51): project-owner session cannot mint tenant-wide scopes (users:* / signup_restrictions:* / redirect_urls:* / usage:*)", async () => {
+    // X-No-Dev-Shim opts out of the dev-mode session→M2M elevation, so
+    // req.m2m is undefined for this request — same as a production
+    // project-owner session. The chain-of-trust gate must then refuse
+    // tenant-wide scopes (their routes have no project boundary).
+    const tenantWide = [
+      "users:read",
+      "users:write",
+      "signup_restrictions:read",
+      "redirect_urls:admin",
+      "usage:read",
+    ];
+    for (const scope of tenantWide) {
+      const res = await request(app)
+        .post("/v1/m2m-tokens")
+        .set(headers())
+        .set("X-No-Dev-Shim", "true")
+        .send({ name: `tw-${scope}`, project_id: "proj_ctrl_audit", scopes: [scope] });
+      expect(res.status).toBe(403);
+      expect(res.body.error?.message).toMatch(/privileged|admin|tenant-wide/i);
+    }
+
+    // Sanity: project-bound scopes (webhooks:*, members:*, org:*) remain
+    // mintable by a plain project-owner session — those controllers
+    // already scope by project at the row level (BUG-162 / BUG-160 / BUG-167).
+    const projectBound = ["webhooks:read", "members:read", "org:read", "audit_logs:read"];
+    for (const scope of projectBound) {
+      const res = await request(app)
+        .post("/v1/m2m-tokens")
+        .set(headers())
+        .set("X-No-Dev-Shim", "true")
+        .send({ name: `pb-${scope}`, project_id: "proj_ctrl_audit", scopes: [scope] });
+      expect(res.status).toBe(201);
+    }
+  });
 });

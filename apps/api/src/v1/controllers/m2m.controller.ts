@@ -87,24 +87,50 @@ export async function createM2MToken(req: Request, res: Response) {
   // `users:admin` token that would let them unlock other projects'
   // users in the same tenant. The first admin token bootstraps via
   // the install/seed path (direct DB).
+  //
+  // BUG-186 (codex r51): widen the gate to ALL tenant-wide scopes,
+  // not just `:admin`. Pre-r51 the filter only caught `*:admin`, so
+  // a project owner could mint `users:read` / `users:write` /
+  // `signup_restrictions:*` / `redirect_urls:*` / `usage:read`. The
+  // routes gated by those scopes (`/v1/users/*`, SCIM `/scim/v2/Users`,
+  // `/v1/signup-restrictions`, `/v1/redirect-urls`, `/v1/usage`) do
+  // NOT enforce a project boundary at the controller level — there is
+  // no `project_id` filter for users/SCIM, and the restrictions /
+  // redirect-urls / usage tables are tenant-wide allow-lists. So a
+  // project-A owner could mint a token and call SCIM to delete an
+  // arbitrary tenant user. Project-bound scopes (`org:*`, `members:*`,
+  // `invitations:*`, `webhooks:*`, `audit_logs:read`) stay mintable by
+  // the project owner — the controllers filter those by project
+  // already (BUG-161 audit, BUG-162 webhooks, etc.).
+  const TENANT_WIDE_PREFIXES = [
+    "users:",
+    "signup_restrictions:",
+    "redirect_urls:",
+    "usage:",
+  ] as const;
+  function isPrivilegedScope(scope: string): boolean {
+    if (scope.endsWith(":admin")) return true;
+    return TENANT_WIDE_PREFIXES.some((p) => scope.startsWith(p));
+  }
   const requestedScopes = scopes ?? [];
-  const adminScopes = requestedScopes.filter((s) => s.endsWith(":admin"));
-  if (adminScopes.length > 0) {
+  const privilegedScopes = requestedScopes.filter(isPrivilegedScope);
+  if (privilegedScopes.length > 0) {
     if (!req.m2m) {
       res.status(403).json({
         error: {
           message:
-            "Admin scopes can only be granted by an existing M2M token that already holds them. " +
-            `Requested admin scopes: ${adminScopes.join(", ")}.`,
+            "Privileged scopes (tenant-wide or `:admin`) can only be granted by an existing M2M " +
+            "token that already holds them. " +
+            `Requested: ${privilegedScopes.join(", ")}.`,
         },
       });
       return;
     }
-    const missing = adminScopes.filter((s) => !req.m2m!.scopes.includes(s));
+    const missing = privilegedScopes.filter((s) => !req.m2m!.scopes.includes(s));
     if (missing.length > 0) {
       res.status(403).json({
         error: {
-          message: `Cannot grant admin scopes the caller does not hold: ${missing.join(", ")}.`,
+          message: `Cannot grant privileged scopes the caller does not hold: ${missing.join(", ")}.`,
         },
       });
       return;
