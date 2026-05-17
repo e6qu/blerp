@@ -6,23 +6,37 @@ import { assertSatelliteNotConfigured, getApiUrl, getSignInUrl, getSignUpUrl } f
 // to start instead of silently routing users to the wrong domain.
 assertSatelliteNotConfigured();
 
-// BUG-84 (round-2 sweep) / BUG-100 (codex r18): honor CLERK_SIGN_IN_URL
-// / CLERK_SIGN_UP_URL. The env values may be a path (e.g. `/sign-in`)
-// OR a full URL (e.g. `https://auth.example.com/sign-in`) per Clerk's
-// docs. Parse with a placeholder base so both forms produce a usable
-// pathname for the bypass check; the redirect itself uses the raw
-// string so external origins are honored.
+// BUG-84 (round-2 sweep) / BUG-100, BUG-110, BUG-111 (codex r18, r19):
+// honor CLERK_SIGN_IN_URL / CLERK_SIGN_UP_URL. The env values may be:
+//   - A path with optional query (e.g. `/sign-in`, `/sign-in?next=x`).
+//   - A same-origin or external full URL (e.g.
+//     `https://auth.example.com/sign-in`).
+// parseAuthUrl always feeds the value through `new URL(..., placeholder)`
+// so query strings / fragments are stripped from the pathname (BUG-111).
+// Non-http(s) schemes (`javascript:`, `mailto:`, ...) are rejected at
+// boot so they can't sneak into a redirect target.
 //
-// The bypass check ONLY skips when the inbound request is to the same
-// origin as the configured URL (or the configured URL is a path-only
-// value). Otherwise an external-host sign-in URL would always look
-// "not yet on the sign-in page" and we'd redirect-loop.
+// isOnAuthPage applies boundary-aware matching so `/sign-infoo` is NOT
+// treated as the sign-in page and `/` matches only `/` exactly
+// (BUG-110). Cross-origin URLs return false because the inbound Next.js
+// request is never "on" the external host.
+const PLACEHOLDER_BASE = "https://blerp-middleware.invalid";
 const SIGN_IN_RAW = getSignInUrl();
 const SIGN_UP_RAW = getSignUpUrl();
 function parseAuthUrl(raw: string): { pathname: string; isAbsolute: boolean; origin?: string } {
-  if (raw.startsWith("/")) return { pathname: raw, isAbsolute: false };
-  const parsed = new URL(raw);
-  return { pathname: parsed.pathname, isAbsolute: true, origin: parsed.origin };
+  const parsed = new URL(raw, PLACEHOLDER_BASE);
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(
+      `Invalid auth URL: scheme "${parsed.protocol}" not allowed for CLERK_SIGN_IN_URL / ` +
+        `CLERK_SIGN_UP_URL (only http: and https: are supported). Got: ${raw}`,
+    );
+  }
+  const isAbsolute = !raw.startsWith("/");
+  return {
+    pathname: parsed.pathname,
+    isAbsolute,
+    origin: isAbsolute ? parsed.origin : undefined,
+  };
 }
 const SIGN_IN = parseAuthUrl(SIGN_IN_RAW);
 const SIGN_UP = parseAuthUrl(SIGN_UP_RAW);
@@ -35,7 +49,10 @@ function isOnAuthPage(
     // External sign-in host — the inbound request is never "on" it.
     return false;
   }
-  return reqPath.startsWith(cfg.pathname);
+  // Boundary-aware: exact match OR cfg.pathname followed by `/`. Special-
+  // case `/` to exact-match only, otherwise every request would bypass.
+  if (cfg.pathname === "/") return reqPath === "/";
+  return reqPath === cfg.pathname || reqPath.startsWith(cfg.pathname + "/");
 }
 
 export type BlerpMiddlewareOptions = {

@@ -2,7 +2,7 @@
 
 import { useState, type SyntheticEvent } from "react";
 import { useBlerpClient } from "../BlerpProvider";
-import { getSignInUrl, getSignUpFallbackRedirectUrl, resolveSignUpRedirect } from "@blerp/shared";
+import { getSignInUrl, resolveSignUpRedirect } from "@blerp/shared";
 
 type SignUpStep = "email" | "password";
 
@@ -15,14 +15,16 @@ interface SignUpProps {
   appearance?: Record<string, unknown>;
 }
 
-// BUG-86 (round-2 sweep): see Auth.tsx for the rationale.
-const SIGN_UP_DEFAULT_AFTER = getSignUpFallbackRedirectUrl();
 const SIGN_IN_URL = getSignInUrl();
 
-export function SignUp({
-  afterSignUpUrl = SIGN_UP_DEFAULT_AFTER,
-  signInUrl = SIGN_IN_URL,
-}: SignUpProps) {
+// BUG-109 (codex r19): honor `?redirect_url=...` — see Auth.tsx.
+function readRedirectQueryParam(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const v = new URLSearchParams(window.location.search).get("redirect_url");
+  return v && v.trim() !== "" ? v : undefined;
+}
+
+export function SignUp({ afterSignUpUrl, signInUrl = SIGN_IN_URL }: SignUpProps) {
   const client = useBlerpClient();
   const [step, setStep] = useState<SignUpStep>("email");
   const [email, setEmail] = useState("");
@@ -68,9 +70,10 @@ export function SignUp({
         const errorData = apiError as { error?: { message?: string } };
         setError(errorData.error?.message ?? "Failed to complete signup");
       } else if ((data as { session?: unknown }).session) {
-        // BUG-101 (codex r18): apply force > prop > fallback so the
-        // embedded <SignUp> agrees with the imperative openSignUp().
-        window.location.assign(resolveSignUpRedirect(afterSignUpUrl));
+        // BUG-101 (codex r18) / BUG-109 (codex r19):
+        // `force > prop > redirect_url query > env fallback`.
+        const target = afterSignUpUrl ?? readRedirectQueryParam();
+        window.location.assign(resolveSignUpRedirect(target));
       }
     } finally {
       setIsSubmitting(false);

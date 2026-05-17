@@ -1226,7 +1226,7 @@ New unit-test file `apps/api/src/workers/__tests__/webhook-signatures.test.ts` (
 
 **Fix applied:** Fallback-redirect chain extended to cover `VITE_BLERP_AFTER_SIGN_IN_URL`, `VITE_CLERK_AFTER_SIGN_IN_URL`, and the sign-up equivalents. Regression test pins the behavior.
 
-### BUG-104 (codex r18): `getPublishableKey()` namespace grouping made NEXT*PUBLIC_BLERP*_ beat bare CLERK\__ (FIXED)
+### BUG-104 (codex r18): `getPublishableKey()` namespace grouping made NEXT*PUBLIC_BLERP*\_ beat bare CLERK\_\_ (FIXED)
 
 **Status:** Fixed
 **Severity:** P2 — contradicted the documented precedence (BLERP > CLERK > NEXT_PUBLIC > VITE). Prior code did `blerpKey ?? clerkKey` where each group `firstSet`'d its own three forms, so `NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY` won over `CLERK_PUBLISHABLE_KEY` — opposite of what the rest of the file does.
@@ -1257,3 +1257,55 @@ New unit-test file `apps/api/src/workers/__tests__/webhook-signatures.test.ts` (
 **Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
 
 **Fix applied:** Added `PublicConfig` interface + `isPublicConfig(value: unknown): value is PublicConfig` type guard. Response parsed as `unknown`, fed through the guard, and only adopted into state when it validates. Malformed responses keep the build-time defaults.
+
+### BUG-108 (codex r19): `runtimeConfigReady` gated only the userinfo effect — `apiClient` requests and `openSignIn`/`openSignUp` could fire with placeholder config (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — the BUG-98 fix was incomplete. Children calling `useBlerpClient().GET("/v1/...")` from a mount effect, or wiring `<button onClick={openSignIn}>`, could land before `/v1/public-config` resolved — the request went out with the placeholder `pk_build_placeholder` in `Authorization` and the click redirected to the build-time placeholder URL.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** Ref-held `readyPromiseRef` resolves when runtime config lands (or immediately when `!needsRuntimeFetch`). New openapi-fetch middleware awaits the promise on every request. `openSignIn` and `openSignUp` are now async — they await the promise before navigating. Context type signature changed to `Promise<void>` (matches Clerk's own typed signature; callers can ignore the return). `markReady()` is the single point that flips `runtimeConfigReady` state AND resolves the promise, called from both success and failure branches of the runtime-config effect.
+
+### BUG-109 (codex r19): `<SignIn>` / `<SignUp>` ignored `?redirect_url=` query param injected by middleware / `openSignIn()` (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — the most common Clerk pattern: an unauthenticated user hits `/dashboard`, middleware redirects to `/sign-in?redirect_url=/dashboard`, embedded `<SignIn>` reads the query and sends them back to `/dashboard` on successful sign-in. Blerp's `<SignIn>` defaulted `afterSignInUrl` to the fallback redirect at module load, ignored the query, and the user landed on `/` instead of `/dashboard`. Same bug on `<SignUp>`.
+**Files:** `packages/nextjs/src/client/components/Auth.tsx`, `SignUp.tsx`
+
+**Fix applied:** `afterSignInUrl` / `afterSignUpUrl` props default to `undefined`, not the fallback. New `readRedirectQueryParam()` helper reads `?redirect_url=...` at submit-time (so SSR `next build` doesn't crash on missing `window`). Submit handlers compute `target = afterSignInUrl ?? readRedirectQueryParam()` and route it through `resolveSignInRedirect(target)`, so the precedence is `force > prop > query > env fallback` — matching Clerk's documented ordering.
+
+### BUG-110 (codex r19): Middleware `isOnAuthPage()` used `startsWith()` — `/sign-infoo` bypassed auth, `CLERK_SIGN_IN_URL="/"` bypassed everything (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — security boundary. `reqPath.startsWith("/sign-in")` returns true for `/sign-infoo` (or any prefix-matched path), giving anonymous users access to protected routes that happen to start with the auth path. With `CLERK_SIGN_IN_URL="/"` or a same-origin full URL whose pathname is `/`, every request bypassed auth — total auth bypass.
+**Files:** `packages/nextjs/src/server/middleware.ts`
+
+**Fix applied:** Boundary-aware matching: exact match (`reqPath === cfg.pathname`) OR `reqPath.startsWith(cfg.pathname + "/")`. Special-case `cfg.pathname === "/"` to exact-match only, so `CLERK_SIGN_IN_URL="/"` is a misconfiguration that fails closed (no bypass) rather than open (universal bypass).
+
+### BUG-111 (codex r19): `parseAuthUrl()` didn't strip query/fragment from path-only env values and accepted non-http schemes (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — `CLERK_SIGN_IN_URL="/sign-in?foo=bar"` produced pathname `/sign-in?foo=bar`, so the real `/sign-in` page wasn't recognized and we redirect-looped. Worse, `javascript:` / `mailto:` schemes parsed without complaint and would have been used as redirect targets, enabling open-redirect attacks.
+**Files:** `packages/nextjs/src/server/middleware.ts`
+
+**Fix applied:** `parseAuthUrl()` always feeds the value through `new URL(raw, PLACEHOLDER_BASE)`, then reads `.pathname` (which is query/fragment-stripped). Rejects any scheme that isn't `http:` or `https:` with a clear error at module load. The redirect target still uses the raw env value so external sign-in hosts are honored.
+
+### BUG-112 (codex r19): `isPublicConfig()` only validated 6 of 10 fields — malformed nullable values could poison state (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — a malformed `publishable_key: 42` (number) would pass the type guard and propagate into the `Authorization` header as `Bearer 42`, breaking the SDK silently. Same risk for `sign_in_force_redirect_url` / `sign_up_force_redirect_url` / `proxy_url`.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** Added `stringOrNull` helper. Every nullable field is now validated to be either `null` or `string`; every required field is validated as before. A malformed response is now rejected and the build-time defaults are kept.
+
+### BUG-113 (codex r19): Documented `CLERK_FAPI`, deprecated `CLERK_JS`, and non-Next public prefixes (`PUBLIC_`, `EXPO_PUBLIC_`, `NUXT_PUBLIC_`) not honored (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — completeness gap on the cross-framework promise. Clerk publishes envs for Astro/SvelteKit (`PUBLIC_*`), Expo (`EXPO_PUBLIC_*`), and Nuxt (`NUXT_PUBLIC_*`). Blerp only honored `NEXT_PUBLIC_*` and `VITE_*`, so customers on the other frameworks had to add custom wiring.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** Refactored to a single `publicAliases(blerpSuffix, clerkSuffix)` helper that produces the full ordered prefix list — bare > `NEXT_PUBLIC_` > `VITE_` > `PUBLIC_` > `EXPO_PUBLIC_` > `NUXT_PUBLIC_` — for both BLERP and CLERK halves of each pair. Every client-facing helper (`getApiUrl`, `getTenantId`, `getPublishableKey`, sign-in/up URLs, force/fallback redirects, `getJwtKey`, `getProxyUrl`, telemetry, satellite, `getClerkJsUrl` / `getClerkJsVersion` / `getApiVersion`) now reads the full surface in one call. Server-only `getEncryptionKey` deliberately still doesn't honor any public prefix — exposing the encryption key to client bundles would defeat its purpose.
+
+Also added back-compat for the deprecated bare `CLERK_JS` (was the original name before Clerk renamed it to `CLERK_JS_URL`). `getApiUrl()` additionally accepts `CLERK_FAPI` (the Frontend API URL) after the normal `*_API_URL` chain, so an explicit `CLERK_API_URL` still wins.
+
+Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable_key + full prefix-precedence ladder, `CLERK_FAPI` alias for API URL, and `CLERK_JS` deprecation-alias for JS URL.

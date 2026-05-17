@@ -81,6 +81,29 @@ function firstSet(...keys: readonly string[]): string | undefined {
   return undefined;
 }
 
+/**
+ * BUG-113 (codex r19): Clerk's docs list public env vars for several
+ * non-Next frameworks. Build a unified alias chain across the prefixes
+ * Clerk publishes today: bare > NEXT_PUBLIC_* (Next.js) > VITE_*
+ * (Vite/Remix) > PUBLIC_* (Astro/SvelteKit) > EXPO_PUBLIC_* (Expo) >
+ * NUXT_PUBLIC_* (Nuxt). Suffix is the part after the prefix, e.g.
+ * "CLERK_PUBLISHABLE_KEY" → expands to
+ * BLERP_CLERK_PUBLISHABLE_KEY first…
+ *
+ * Each call returns the keys in precedence order so a single
+ * firstSet(...publicAliases("CLERK_PUBLISHABLE_KEY")) reads the full
+ * documented surface.
+ */
+function publicAliases(blerpSuffix: string, clerkSuffix: string): readonly string[] {
+  const prefixes = ["", "NEXT_PUBLIC_", "VITE_", "PUBLIC_", "EXPO_PUBLIC_", "NUXT_PUBLIC_"];
+  const out: string[] = [];
+  for (const p of prefixes) {
+    out.push(`${p}BLERP_${blerpSuffix}`);
+    out.push(`${p}CLERK_${clerkSuffix}`);
+  }
+  return out;
+}
+
 function readEither(
   blerpKey: string,
   clerkKey: string,
@@ -147,15 +170,13 @@ export function normalizeApiUrl(rawUrl: string): string {
  * value baked into a prior build.
  */
 export function getApiUrl(defaultValue = "http://localhost:3000"): string {
+  // BUG-113 (codex r19): also honor CLERK_FAPI / NEXT_PUBLIC_CLERK_FAPI
+  // / VITE_CLERK_FAPI which Clerk documents as the Frontend API URL
+  // (for our purposes the same value as the API URL). Falls AFTER the
+  // normal API_URL chain so an explicit CLERK_API_URL still wins.
   const raw =
-    firstSet(
-      "BLERP_API_URL",
-      "CLERK_API_URL",
-      "NEXT_PUBLIC_BLERP_API_URL",
-      "NEXT_PUBLIC_CLERK_API_URL",
-      "VITE_BLERP_API_URL",
-      "VITE_CLERK_API_URL",
-    ) ?? defaultValue;
+    firstSet(...publicAliases("API_URL", "API_URL"), ...publicAliases("FAPI", "FAPI")) ??
+    defaultValue;
   return normalizeApiUrl(raw);
 }
 
@@ -196,16 +217,8 @@ export function getWebhookSecretOrThrow(): string {
 // requests go to the right tenant while client requests still used
 // "demo-tenant" — silent divergence.
 export function getTenantId(defaultValue = "demo-tenant"): string {
-  return (
-    firstSet(
-      "BLERP_TENANT_ID",
-      "CLERK_TENANT_ID",
-      "NEXT_PUBLIC_BLERP_TENANT_ID",
-      "NEXT_PUBLIC_CLERK_TENANT_ID",
-      "VITE_BLERP_TENANT_ID",
-      "VITE_CLERK_TENANT_ID",
-    ) ?? defaultValue
-  );
+  // BUG-113 (codex r19): full cross-framework alias chain.
+  return firstSet(...publicAliases("TENANT_ID", "TENANT_ID")) ?? defaultValue;
 }
 
 // --- Client-side (NEXT_PUBLIC_* / VITE_*) -----------------------------------
@@ -234,14 +247,8 @@ export function getPublishableKey(): string | undefined {
         "Using BLERP_PUBLISHABLE_KEY.",
     );
   }
-  return firstSet(
-    "BLERP_PUBLISHABLE_KEY",
-    "CLERK_PUBLISHABLE_KEY",
-    "NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY",
-    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-    "VITE_BLERP_PUBLISHABLE_KEY",
-    "VITE_CLERK_PUBLISHABLE_KEY",
-  );
+  // BUG-113 (codex r19): full cross-framework alias chain.
+  return firstSet(...publicAliases("PUBLISHABLE_KEY", "PUBLISHABLE_KEY"));
 }
 
 export function getPublishableKeyOrThrow(): string {
@@ -308,16 +315,8 @@ export function getDashboardPort(defaultValue = "3001"): string {
 //             > VITE_BLERP_* > VITE_CLERK_* > deprecated AFTER_* aliases.
 
 function readUrlEnv(suffix: string, defaultValue: string): string {
-  return (
-    firstSet(
-      `BLERP_${suffix}`,
-      `CLERK_${suffix}`,
-      `NEXT_PUBLIC_BLERP_${suffix}`,
-      `NEXT_PUBLIC_CLERK_${suffix}`,
-      `VITE_BLERP_${suffix}`,
-      `VITE_CLERK_${suffix}`,
-    ) ?? defaultValue
-  );
+  // BUG-113 (codex r19): full cross-framework alias chain.
+  return firstSet(...publicAliases(suffix, suffix)) ?? defaultValue;
 }
 
 export function getSignInUrl(defaultValue = "/sign-in"): string {
@@ -329,47 +328,23 @@ export function getSignUpUrl(defaultValue = "/sign-up"): string {
 }
 
 export function getSignInForceRedirectUrl(): string | undefined {
-  return firstSet(
-    "BLERP_SIGN_IN_FORCE_REDIRECT_URL",
-    "CLERK_SIGN_IN_FORCE_REDIRECT_URL",
-    "NEXT_PUBLIC_BLERP_SIGN_IN_FORCE_REDIRECT_URL",
-    "NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL",
-    "VITE_BLERP_SIGN_IN_FORCE_REDIRECT_URL",
-    "VITE_CLERK_SIGN_IN_FORCE_REDIRECT_URL",
-  );
+  // BUG-113 (codex r19): full cross-framework alias chain.
+  return firstSet(...publicAliases("SIGN_IN_FORCE_REDIRECT_URL", "SIGN_IN_FORCE_REDIRECT_URL"));
 }
 
 export function getSignInFallbackRedirectUrl(defaultValue = "/"): string {
+  // BUG-113 (codex r19): full cross-framework alias chain + deprecated
+  // AFTER_SIGN_IN_URL alias (BUG-97 / BUG-103) on every prefix family.
   return (
     firstSet(
-      "BLERP_SIGN_IN_FALLBACK_REDIRECT_URL",
-      "CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
-      "NEXT_PUBLIC_BLERP_SIGN_IN_FALLBACK_REDIRECT_URL",
-      "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
-      "VITE_BLERP_SIGN_IN_FALLBACK_REDIRECT_URL",
-      "VITE_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
-      // BUG-97 / BUG-103 (codex r18): deprecated aliases on all four
-      // prefix families. Clerk still honors AFTER_SIGN_IN_URL across
-      // bare / NEXT_PUBLIC_ / VITE_ forms.
-      "BLERP_AFTER_SIGN_IN_URL",
-      "CLERK_AFTER_SIGN_IN_URL",
-      "NEXT_PUBLIC_BLERP_AFTER_SIGN_IN_URL",
-      "NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL",
-      "VITE_BLERP_AFTER_SIGN_IN_URL",
-      "VITE_CLERK_AFTER_SIGN_IN_URL",
+      ...publicAliases("SIGN_IN_FALLBACK_REDIRECT_URL", "SIGN_IN_FALLBACK_REDIRECT_URL"),
+      ...publicAliases("AFTER_SIGN_IN_URL", "AFTER_SIGN_IN_URL"),
     ) ?? defaultValue
   );
 }
 
 export function getSignUpForceRedirectUrl(): string | undefined {
-  return firstSet(
-    "BLERP_SIGN_UP_FORCE_REDIRECT_URL",
-    "CLERK_SIGN_UP_FORCE_REDIRECT_URL",
-    "NEXT_PUBLIC_BLERP_SIGN_UP_FORCE_REDIRECT_URL",
-    "NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL",
-    "VITE_BLERP_SIGN_UP_FORCE_REDIRECT_URL",
-    "VITE_CLERK_SIGN_UP_FORCE_REDIRECT_URL",
-  );
+  return firstSet(...publicAliases("SIGN_UP_FORCE_REDIRECT_URL", "SIGN_UP_FORCE_REDIRECT_URL"));
 }
 
 /**
@@ -396,18 +371,8 @@ export function resolveSignUpRedirect(callerSupplied?: string, fallback?: string
 export function getSignUpFallbackRedirectUrl(defaultValue = "/"): string {
   return (
     firstSet(
-      "BLERP_SIGN_UP_FALLBACK_REDIRECT_URL",
-      "CLERK_SIGN_UP_FALLBACK_REDIRECT_URL",
-      "NEXT_PUBLIC_BLERP_SIGN_UP_FALLBACK_REDIRECT_URL",
-      "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL",
-      "VITE_BLERP_SIGN_UP_FALLBACK_REDIRECT_URL",
-      "VITE_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL",
-      "BLERP_AFTER_SIGN_UP_URL",
-      "CLERK_AFTER_SIGN_UP_URL",
-      "NEXT_PUBLIC_BLERP_AFTER_SIGN_UP_URL",
-      "NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL",
-      "VITE_BLERP_AFTER_SIGN_UP_URL",
-      "VITE_CLERK_AFTER_SIGN_UP_URL",
+      ...publicAliases("SIGN_UP_FALLBACK_REDIRECT_URL", "SIGN_UP_FALLBACK_REDIRECT_URL"),
+      ...publicAliases("AFTER_SIGN_UP_URL", "AFTER_SIGN_UP_URL"),
     ) ?? defaultValue
   );
 }
@@ -433,112 +398,51 @@ export function getSignUpFallbackRedirectUrl(defaultValue = "/"): string {
  * without relitigating the alias list.
  */
 export function getClerkJsUrl(): string | undefined {
-  return firstSet(
-    "BLERP_JS_URL",
-    "CLERK_JS_URL",
-    "NEXT_PUBLIC_BLERP_JS_URL",
-    "NEXT_PUBLIC_CLERK_JS_URL",
-    "VITE_BLERP_JS_URL",
-    "VITE_CLERK_JS_URL",
-  );
+  // BUG-113 (codex r19): include deprecated CLERK_JS as a back-compat
+  // alias (was the original name before CLERK_JS_URL was introduced).
+  return firstSet(...publicAliases("JS_URL", "JS_URL"), ...publicAliases("JS", "JS"));
 }
 
 export function getClerkJsVersion(): string | undefined {
-  return firstSet(
-    "BLERP_JS_VERSION",
-    "CLERK_JS_VERSION",
-    "NEXT_PUBLIC_BLERP_JS_VERSION",
-    "NEXT_PUBLIC_CLERK_JS_VERSION",
-    "VITE_BLERP_JS_VERSION",
-    "VITE_CLERK_JS_VERSION",
-  );
+  return firstSet(...publicAliases("JS_VERSION", "JS_VERSION"));
 }
 
 export function getApiVersion(defaultValue = "v1"): string {
-  return (
-    firstSet(
-      "BLERP_API_VERSION",
-      "CLERK_API_VERSION",
-      "NEXT_PUBLIC_BLERP_API_VERSION",
-      "NEXT_PUBLIC_CLERK_API_VERSION",
-      "VITE_BLERP_API_VERSION",
-      "VITE_CLERK_API_VERSION",
-    ) ?? defaultValue
-  );
+  return firstSet(...publicAliases("API_VERSION", "API_VERSION")) ?? defaultValue;
 }
 
 export function getJwtKey(): string | undefined {
-  return firstSet(
-    "BLERP_JWT_KEY",
-    "CLERK_JWT_KEY",
-    "NEXT_PUBLIC_BLERP_JWT_KEY",
-    "NEXT_PUBLIC_CLERK_JWT_KEY",
-    "VITE_BLERP_JWT_KEY",
-    "VITE_CLERK_JWT_KEY",
-  );
+  return firstSet(...publicAliases("JWT_KEY", "JWT_KEY"));
 }
 
 export function getEncryptionKey(): string | undefined {
+  // Server-only — never honored on public prefixes; exposing the
+  // encryption key to client bundles would defeat its purpose.
   return firstSet("BLERP_ENCRYPTION_KEY", "CLERK_ENCRYPTION_KEY");
 }
 
 export function getProxyUrl(): string | undefined {
-  return firstSet(
-    "BLERP_PROXY_URL",
-    "CLERK_PROXY_URL",
-    "NEXT_PUBLIC_BLERP_PROXY_URL",
-    "NEXT_PUBLIC_CLERK_PROXY_URL",
-    "VITE_BLERP_PROXY_URL",
-    "VITE_CLERK_PROXY_URL",
-  );
+  return firstSet(...publicAliases("PROXY_URL", "PROXY_URL"));
+}
+
+function parseBoolEnv(raw: string | undefined): boolean {
+  return raw === undefined ? false : ["1", "true", "yes"].includes(raw.toLowerCase());
 }
 
 export function getTelemetryDisabled(): boolean {
-  const raw = firstSet(
-    "BLERP_TELEMETRY_DISABLED",
-    "CLERK_TELEMETRY_DISABLED",
-    "NEXT_PUBLIC_BLERP_TELEMETRY_DISABLED",
-    "NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED",
-    "VITE_BLERP_TELEMETRY_DISABLED",
-    "VITE_CLERK_TELEMETRY_DISABLED",
-  );
-  // Treat any of {"1", "true", "yes"} (case-insensitive) as on.
-  return raw === undefined ? false : ["1", "true", "yes"].includes(raw.toLowerCase());
+  return parseBoolEnv(firstSet(...publicAliases("TELEMETRY_DISABLED", "TELEMETRY_DISABLED")));
 }
 
 export function getTelemetryDebug(): boolean {
-  const raw = firstSet(
-    "BLERP_TELEMETRY_DEBUG",
-    "CLERK_TELEMETRY_DEBUG",
-    "NEXT_PUBLIC_BLERP_TELEMETRY_DEBUG",
-    "NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG",
-    "VITE_BLERP_TELEMETRY_DEBUG",
-    "VITE_CLERK_TELEMETRY_DEBUG",
-  );
-  return raw === undefined ? false : ["1", "true", "yes"].includes(raw.toLowerCase());
+  return parseBoolEnv(firstSet(...publicAliases("TELEMETRY_DEBUG", "TELEMETRY_DEBUG")));
 }
 
 export function getSatelliteDomain(): string | undefined {
-  return firstSet(
-    "BLERP_DOMAIN",
-    "CLERK_DOMAIN",
-    "NEXT_PUBLIC_BLERP_DOMAIN",
-    "NEXT_PUBLIC_CLERK_DOMAIN",
-    "VITE_BLERP_DOMAIN",
-    "VITE_CLERK_DOMAIN",
-  );
+  return firstSet(...publicAliases("DOMAIN", "DOMAIN"));
 }
 
 export function isSatellite(): boolean {
-  const raw = firstSet(
-    "BLERP_IS_SATELLITE",
-    "CLERK_IS_SATELLITE",
-    "NEXT_PUBLIC_BLERP_IS_SATELLITE",
-    "NEXT_PUBLIC_CLERK_IS_SATELLITE",
-    "VITE_BLERP_IS_SATELLITE",
-    "VITE_CLERK_IS_SATELLITE",
-  );
-  return raw === undefined ? false : ["1", "true", "yes"].includes(raw.toLowerCase());
+  return parseBoolEnv(firstSet(...publicAliases("IS_SATELLITE", "IS_SATELLITE")));
 }
 
 /**

@@ -3,7 +3,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { setSessionCookies } from "../session-cookies";
 import { useBlerpClient } from "../BlerpProvider";
-import { getSignInFallbackRedirectUrl, getSignUpUrl, resolveSignInRedirect } from "@blerp/shared";
+import { getSignUpUrl, resolveSignInRedirect } from "@blerp/shared";
 
 type SignInStep = "email" | "password";
 
@@ -16,17 +16,19 @@ interface SignInProps {
   appearance?: Record<string, unknown>;
 }
 
-// BUG-86 (round-2 sweep): resolve URL defaults once at module load.
-// `getX()` reads process.env, which Next.js inlines at build time for
-// NEXT_PUBLIC_* vars; reading inside the component body would create a
-// new string per render with no behavioural benefit.
-const SIGN_IN_DEFAULT_AFTER = getSignInFallbackRedirectUrl();
 const SIGN_UP_URL = getSignUpUrl();
 
-export function SignIn({
-  afterSignInUrl = SIGN_IN_DEFAULT_AFTER,
-  signUpUrl = SIGN_UP_URL,
-}: SignInProps) {
+// BUG-109 (codex r19): honor `?redirect_url=...` injected by the
+// middleware/openSignIn redirect chain. Reading inside the handler
+// (not at module load) so server-side `next build` doesn't crash on
+// the missing `window`.
+function readRedirectQueryParam(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const v = new URLSearchParams(window.location.search).get("redirect_url");
+  return v && v.trim() !== "" ? v : undefined;
+}
+
+export function SignIn({ afterSignInUrl, signUpUrl = SIGN_UP_URL }: SignInProps) {
   const client = useBlerpClient();
   const [step, setStep] = useState<SignInStep>("email");
   const [email, setEmail] = useState("");
@@ -80,9 +82,14 @@ export function SignIn({
           setSessionCookies(response.tokens.access_token);
         }
         if (response.session) {
-          // BUG-101 (codex r18): apply force > prop > fallback so the
-          // embedded <SignIn> agrees with the imperative openSignIn().
-          window.location.assign(resolveSignInRedirect(afterSignInUrl));
+          // BUG-101 (codex r18) / BUG-109 (codex r19): apply
+          // `force > prop > redirect_url query > env fallback` precedence,
+          // matching Clerk's documented redirect ordering. The query
+          // param is what middleware and `openSignIn()` set when sending
+          // an unauthenticated user here, so honoring it preserves the
+          // user's intended destination.
+          const target = afterSignInUrl ?? readRedirectQueryParam();
+          window.location.assign(resolveSignInRedirect(target));
         }
       }
     } finally {

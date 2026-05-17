@@ -89,6 +89,13 @@ const PROTECTED = [
   "CLERK_JS_VERSION",
   "CLERK_API_VERSION",
   "BLERP_WEBHOOK_SIGNING_SECRET",
+  // BUG-113 (codex r19) — cross-framework prefix aliases
+  "PUBLIC_CLERK_PUBLISHABLE_KEY",
+  "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY",
+  "NUXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+  "CLERK_FAPI",
+  "NEXT_PUBLIC_CLERK_FAPI",
+  "CLERK_JS",
 ] as const;
 
 function snapshot() {
@@ -398,6 +405,59 @@ describe("Clerk-compat env helpers (BUG-46)", () => {
     expect(resolveSignUpRedirect("/from-caller")).toBe("/from-caller");
     process.env.CLERK_SIGN_UP_FORCE_REDIRECT_URL = "/forced-up";
     expect(resolveSignUpRedirect("/from-caller")).toBe("/forced-up");
+  });
+
+  // --- Codex r19 follow-ups (BUG-108..BUG-113) ----------------------
+
+  it("BUG-113: PUBLIC_CLERK_PUBLISHABLE_KEY honored (Astro/SvelteKit prefix)", () => {
+    clear();
+    process.env.PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_astro";
+    expect(getPublishableKey()).toBe("pk_astro");
+  });
+
+  it("BUG-113: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY honored (Expo prefix)", () => {
+    clear();
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_expo";
+    expect(getPublishableKey()).toBe("pk_expo");
+  });
+
+  it("BUG-113: NUXT_PUBLIC_CLERK_PUBLISHABLE_KEY honored (Nuxt prefix)", () => {
+    clear();
+    process.env.NUXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_nuxt";
+    expect(getPublishableKey()).toBe("pk_nuxt");
+  });
+
+  it("BUG-113: cross-framework prefix precedence — bare > NEXT_PUBLIC > VITE > PUBLIC > EXPO > NUXT", () => {
+    clear();
+    process.env.NUXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_nuxt";
+    expect(getPublishableKey()).toBe("pk_nuxt");
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_expo";
+    expect(getPublishableKey()).toBe("pk_expo"); // expo beats nuxt
+    process.env.PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_astro";
+    expect(getPublishableKey()).toBe("pk_astro"); // public beats expo
+    process.env.VITE_CLERK_PUBLISHABLE_KEY = "pk_vite";
+    expect(getPublishableKey()).toBe("pk_vite"); // vite beats public
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_next";
+    expect(getPublishableKey()).toBe("pk_next"); // next beats vite
+    process.env.CLERK_PUBLISHABLE_KEY = "pk_bare_clerk";
+    expect(getPublishableKey()).toBe("pk_bare_clerk"); // bare beats all
+  });
+
+  it("BUG-113: getApiUrl accepts CLERK_FAPI as the Frontend API alias", () => {
+    clear();
+    process.env.CLERK_FAPI = "https://fapi.example.com/v1";
+    expect(getApiUrl()).toBe("https://fapi.example.com");
+    // CLERK_API_URL still wins because it comes earlier in the chain
+    process.env.CLERK_API_URL = "https://api.example.com";
+    expect(getApiUrl()).toBe("https://api.example.com");
+  });
+
+  it("BUG-113: deprecated CLERK_JS env honored as alias of CLERK_JS_URL", () => {
+    clear();
+    process.env.CLERK_JS = "https://legacy.example/blerp.js";
+    expect(getClerkJsUrl()).toBe("https://legacy.example/blerp.js");
+    process.env.CLERK_JS_URL = "https://current.example/blerp.js";
+    expect(getClerkJsUrl()).toBe("https://current.example/blerp.js"); // current wins
   });
 
   it("BUG-91: assertSatelliteNotConfigured throws when CLERK_IS_SATELLITE=true", () => {

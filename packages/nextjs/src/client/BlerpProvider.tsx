@@ -1,6 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import createClient, { type Middleware } from "openapi-fetch";
 import type { paths } from "@blerp/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -36,13 +44,22 @@ interface PublicConfig {
 function isPublicConfig(value: unknown): value is PublicConfig {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
+  // BUG-112 (codex r19): validate every field — including the four
+  // nullable string fields. A malformed `publishable_key` (e.g. a
+  // number) would otherwise propagate to the Authorization header
+  // when stringified.
+  const stringOrNull = (x: unknown): boolean => x === null || typeof x === "string";
   return (
     typeof v.tenant_id === "string" &&
     typeof v.sign_in_url === "string" &&
     typeof v.sign_up_url === "string" &&
     typeof v.sign_in_fallback_redirect_url === "string" &&
     typeof v.sign_up_fallback_redirect_url === "string" &&
-    typeof v.telemetry_disabled === "boolean"
+    typeof v.telemetry_disabled === "boolean" &&
+    stringOrNull(v.publishable_key) &&
+    stringOrNull(v.sign_in_force_redirect_url) &&
+    stringOrNull(v.sign_up_force_redirect_url) &&
+    stringOrNull(v.proxy_url)
   );
 }
 
@@ -101,8 +118,11 @@ interface BlerpContextType {
   setActive: (options: { organization?: string | null }) => Promise<void>;
   has: (check: { permission?: string; role?: string }) => boolean;
   signOut: () => Promise<void>;
-  openSignIn: (options?: { afterSignInUrl?: string }) => void;
-  openSignUp: (options?: { afterSignUpUrl?: string }) => void;
+  // BUG-108 (codex r19): now async — waits on runtime config before
+  // redirecting. Callers can ignore the returned promise; matches
+  // Clerk's own typed signature for these methods.
+  openSignIn: (options?: { afterSignInUrl?: string }) => Promise<void>;
+  openSignUp: (options?: { afterSignUpUrl?: string }) => Promise<void>;
   openUserProfile: () => void;
   openOrganizationProfile: () => void;
 }
@@ -147,6 +167,32 @@ export function BlerpProvider({
     telemetry_disabled: false,
   }));
   const [runtimeConfigReady, setRuntimeConfigReady] = useState(!needsRuntimeFetch);
+
+  // BUG-108 (codex r19): every consumer of config (apiClient requests,
+  // openSignIn / openSignUp redirects) must wait for runtimeConfigReady
+  // before acting — otherwise an immediate API call or redirect fires
+  // with the placeholder key / wrong URL. A ref-held promise lets us
+  // expose `await` from both the openapi-fetch middleware and the
+  // imperative callbacks. The resolver is captured once on mount and
+  // resolved by the runtime-config effect (or immediately when no
+  // fetch is needed).
+  const readyResolverRef = useRef<(() => void) | null>(null);
+  const readyPromiseRef = useRef<Promise<void> | null>(null);
+  if (readyPromiseRef.current === null) {
+    readyPromiseRef.current = needsRuntimeFetch
+      ? new Promise<void>((resolve) => {
+          readyResolverRef.current = resolve;
+        })
+      : Promise.resolve();
+  }
+  const markReady = useCallback(() => {
+    setRuntimeConfigReady(true);
+    if (readyResolverRef.current) {
+      readyResolverRef.current();
+      readyResolverRef.current = null;
+    }
+  }, []);
+
   const key = config.publishable_key ?? buildTimeKey;
   const resolvedTenantId = config.tenant_id;
 
@@ -169,6 +215,16 @@ export function BlerpProvider({
         "X-Tenant-Id": resolvedTenantId,
       },
     });
+    // BUG-108 (codex r19): block every request until runtime config is
+    // ready. Without this, a child component that fires `client.GET(...)`
+    // on mount would issue the request with the placeholder publishable
+    // key in the Authorization header.
+    c.use({
+      async onRequest({ request }) {
+        if (readyPromiseRef.current) await readyPromiseRef.current;
+        return request;
+      },
+    });
     c.use(createCsrfMiddleware(resolvedTenantId));
     return c;
   }, [key, activeOrgId, resolvedTenantId]);
@@ -185,7 +241,7 @@ export function BlerpProvider({
       try {
         const res = await fetch("/v1/public-config", { credentials: "include" });
         if (!res.ok || cancelled) {
-          if (!cancelled) setRuntimeConfigReady(true);
+          if (!cancelled) markReady();
           return;
         }
         const raw: unknown = await res.json();
@@ -203,13 +259,13 @@ export function BlerpProvider({
       } catch {
         // Network failure — fall through to ready with build-time defaults.
       } finally {
-        if (!cancelled) setRuntimeConfigReady(true);
+        if (!cancelled) markReady();
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [needsRuntimeFetch, publishableKey, tenantId]);
+  }, [needsRuntimeFetch, publishableKey, tenantId, markReady]);
 
   useEffect(() => {
     // BUG-98 (codex r18): wait for runtime config to land — otherwise
@@ -339,8 +395,12 @@ export function BlerpProvider({
   // values are sourced from `config` (which incorporates runtime
   // overrides from /v1/public-config) — not from build-time env reads
   // — so single-image multi-env deploys see consistent values.
+  // BUG-108 (codex r19): also wait on readyPromiseRef before navigating,
+  // so a click during the narrow [mount → /v1/public-config resolves]
+  // window doesn't redirect to the build-time placeholder URL.
   const openSignIn = useCallback(
-    (options?: { afterSignInUrl?: string }) => {
+    async (options?: { afterSignInUrl?: string }) => {
+      if (readyPromiseRef.current) await readyPromiseRef.current;
       const base = config.sign_in_url;
       const force = config.sign_in_force_redirect_url;
       const target = force ?? options?.afterSignInUrl ?? config.sign_in_fallback_redirect_url;
@@ -351,7 +411,8 @@ export function BlerpProvider({
   );
 
   const openSignUp = useCallback(
-    (options?: { afterSignUpUrl?: string }) => {
+    async (options?: { afterSignUpUrl?: string }) => {
+      if (readyPromiseRef.current) await readyPromiseRef.current;
       const base = config.sign_up_url;
       const force = config.sign_up_force_redirect_url;
       const target = force ?? options?.afterSignUpUrl ?? config.sign_up_fallback_redirect_url;
