@@ -117,6 +117,53 @@ describe("audit controller", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeLessThanOrEqual(5);
   });
+
+  it("BUG-183 (codex r49): AuditLogService.create persists project_id; list filter returns only matching rows", async () => {
+    // Direct service test — exercises the BUG-161 list filter against
+    // rows the worker would persist. Pre-BUG-183 the column existed
+    // but no writer populated it, so a project-scoped query returned
+    // an empty list even after events fired.
+    const { getTenantDb } = await import("../db/router");
+    const { AuditLogService } = await import("../v1/services/audit.service");
+    const db = await getTenantDb(tenantId);
+    const service = new AuditLogService(db);
+
+    const projectA = `proj_bug183_a_${Date.now()}`;
+    const projectB = `proj_bug183_b_${Date.now()}`;
+    const rowA = await service.create({
+      action: "organization.created",
+      actor: { type: "system" },
+      projectId: projectA,
+    });
+    const rowB = await service.create({
+      action: "organization.created",
+      actor: { type: "system" },
+      projectId: projectB,
+    });
+    const rowNull = await service.create({
+      action: "session.created",
+      actor: { type: "system" },
+    });
+
+    const listA = await service.list({ projectId: projectA });
+    const idsA = listA.data.map((r) => r.id);
+    expect(idsA).toContain(rowA);
+    expect(idsA).not.toContain(rowB);
+    expect(idsA).not.toContain(rowNull);
+
+    const listB = await service.list({ projectId: projectB });
+    const idsB = listB.data.map((r) => r.id);
+    expect(idsB).toContain(rowB);
+    expect(idsB).not.toContain(rowA);
+    expect(idsB).not.toContain(rowNull);
+
+    // Tenant-root caller (no projectId filter) sees all three.
+    const listAll = await service.list({});
+    const idsAll = listAll.data.map((r) => r.id);
+    expect(idsAll).toContain(rowA);
+    expect(idsAll).toContain(rowB);
+    expect(idsAll).toContain(rowNull);
+  });
 });
 
 // -----------------------------------------------------------------------------

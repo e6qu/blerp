@@ -9,6 +9,14 @@ export class AuditLogService {
   async create(data: {
     userId?: string;
     organizationId?: string;
+    // BUG-183 (codex r49): persist the project the event belongs to
+    // so the list() filter (BUG-161) can actually return rows for a
+    // project-scoped M2M caller. Pre-r49 the column existed but no
+    // writer populated it, so every newly-emitted audit row had
+    // project_id = NULL and the scoped filter returned an empty
+    // stream. Optional: system-level events with no project context
+    // still pass `undefined` and store NULL.
+    projectId?: string;
     action: string;
     actor: Record<string, unknown>;
     payload?: Record<string, unknown>;
@@ -20,6 +28,7 @@ export class AuditLogService {
       id,
       userId: data.userId,
       organizationId: data.organizationId,
+      projectId: data.projectId,
       action: data.action,
       actor: data.actor,
       payload: data.payload || {},

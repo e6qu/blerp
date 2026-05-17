@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as jose from "jose";
-import { assertSatelliteNotConfigured, getApiUrl, getSignInUrl, getSignUpUrl } from "@blerp/shared";
+import { assertSatelliteNotConfigured, getSignInUrl, getSignUpUrl } from "@blerp/shared";
+import { verifySessionToken } from "./session-verify";
 
 // BUG-91 (round-2 sweep): satellite-domain SSO isn't implemented; refuse
 // to start instead of silently routing users to the wrong domain.
@@ -97,18 +97,9 @@ export function blerpMiddleware(
       const token =
         req.cookies.get("__blerp_session")?.value ?? req.cookies.get("__session")?.value;
 
-      // Verify the token is actually valid (not just present)
-      let tokenValid = false;
-      if (token) {
-        try {
-          const apiUrl = getApiUrl();
-          const jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
-          await jose.jwtVerify(token, jwks, { issuer: "blerp", audience: "blerp-api" });
-          tokenValid = true;
-        } catch {
-          // Token is invalid/expired — treat as unauthenticated
-        }
-      }
+      // Verify the token is actually valid (not just present).
+      // BUG-181 (codex r49): tenant-binding too — see session-verify.ts.
+      const tokenValid = token ? (await verifySessionToken(token)) !== null : false;
 
       const auth = (): AuthObject => ({
         protect() {
@@ -156,18 +147,9 @@ export function blerpMiddleware(
 
     const token = req.cookies.get("__blerp_session")?.value ?? req.cookies.get("__session")?.value;
 
-    // Verify token is valid, not just present
-    let tokenValid = false;
-    if (token) {
-      try {
-        const apiUrl = getApiUrl();
-        const jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
-        await jose.jwtVerify(token, jwks, { issuer: "blerp", audience: "blerp-api" });
-        tokenValid = true;
-      } catch {
-        // Invalid token
-      }
-    }
+    // Verify token is valid, not just present.
+    // BUG-181 (codex r49): tenant-binding too — see session-verify.ts.
+    const tokenValid = token ? (await verifySessionToken(token)) !== null : false;
 
     const reqOrigin = req.nextUrl.origin;
     const reqPath = req.nextUrl.pathname;

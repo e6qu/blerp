@@ -2,7 +2,7 @@ import { redis } from "../lib/redis";
 import { logger } from "../lib/logger";
 import { getTenantDb } from "../db/router";
 import * as schema from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import crypto from "node:crypto";
 import { nanoid } from "nanoid";
 
@@ -108,16 +108,30 @@ async function deliverEvent(event: WorkerEvent) {
   // (rare — system-level emissions); in that case we deliver only to
   // legacy "default" project endpoints (the back-compat bucket from
   // BUG-162's default value).
+  //
+  // BUG-182 (codex r49): migration 0016 stamps every pre-existing
+  // endpoint with `project_id = 'default'`. Without preserving the
+  // "default" bucket as a wildcard fallback, every upgraded
+  // deployment silently stops delivering project-scoped events
+  // (e.g. `organization.created`) to tenant-wide endpoints that
+  // existed before the migration. Match endpoints whose `project_id`
+  // is either the event's specific project OR `'default'`. Customers
+  // narrow scope by editing each endpoint to its real `project_id`;
+  // leaving an endpoint on `'default'` is the explicit opt-in for
+  // tenant-wide delivery. Per-tenant DB scoping (BUG-163) still
+  // prevents cross-tenant leakage.
   const endpointProjectId = event.projectId !== "" ? event.projectId : "default";
+  const projectIdFilter =
+    endpointProjectId === "default"
+      ? eq(schema.webhookEndpoints.projectId, "default")
+      : or(
+          eq(schema.webhookEndpoints.projectId, endpointProjectId),
+          eq(schema.webhookEndpoints.projectId, "default"),
+        );
   const endpoints = await db
     .select()
     .from(schema.webhookEndpoints)
-    .where(
-      and(
-        eq(schema.webhookEndpoints.enabled, true),
-        eq(schema.webhookEndpoints.projectId, endpointProjectId),
-      ),
-    );
+    .where(and(eq(schema.webhookEndpoints.enabled, true), projectIdFilter));
 
   for (const endpoint of endpoints) {
     const eventTypes = endpoint.eventTypes as string[];

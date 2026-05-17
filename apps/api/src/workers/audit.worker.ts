@@ -76,6 +76,13 @@ function parseEvent(fields: string[]) {
     id: data.id,
     type: data.type,
     tenantId: data.tenantId,
+    // BUG-183 (codex r49): the event bus already carries projectId
+    // (BUG-163), the audit worker was just dropping it on the floor.
+    // Empty string ("" — the eventBus's "no project context" sentinel)
+    // becomes undefined so the audit row stores NULL, matching the
+    // BUG-161 filter's "system events visible only to tenant-root
+    // callers" contract.
+    projectId: data.projectId !== "" ? data.projectId : undefined,
     timestamp: parseInt(data.timestamp),
     payload: JSON.parse(data.data) as Record<string, unknown>,
   };
@@ -85,6 +92,7 @@ interface WorkerEvent {
   id: string;
   type: string;
   tenantId: string;
+  projectId?: string;
   timestamp: number;
   payload: Record<string, unknown>;
 }
@@ -100,6 +108,7 @@ async function persistAuditLog(event: WorkerEvent) {
       payload: event.payload,
       userId: event.payload.userId as string | undefined,
       organizationId: event.payload.organizationId as string | undefined,
+      projectId: event.projectId,
     });
 
     logger.info({ eventId: event.id, type: event.type }, "Audit log persisted");

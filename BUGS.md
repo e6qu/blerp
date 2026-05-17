@@ -1954,3 +1954,27 @@ Cross-tenant enumeration is still impossible (auth is required outside the `?dom
 **Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
 
 **Fix applied:** Added a `latestAuthRef` mirror, updated by effect on `[key, resolvedTenantId]`. The `onRequest` middleware re-stamps Authorization + X-Tenant-Id from the ref after awaiting `readyPromise`, so the request sent to the network always carries the latest resolved values regardless of when the Request object was constructed.
+
+### BUG-181 (codex r49): Next.js SDK accepted cross-tenant session JWTs that the API now rejects (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — divergent contract. BUG-155 (codex r37) bound API-side session JWTs to their minting tenant, but the Next.js SDK's `auth()` (`packages/nextjs/src/server/auth.ts`) and `blerpMiddleware` (`packages/nextjs/src/server/middleware.ts`) verified only the JWT signature. A session minted for tenant A presented to a Next.js app configured for tenant B would pass both SDK call sites — `auth()` would return a `userId` and `blerpMiddleware`'s `tokenValid` would be true — even though the very next API call from the same request would 401 ("Session is scoped to a different tenant"). Effects: stale-but-still-authenticated UI redirects, server components rendering with the wrong-tenant identity until the first API call surfaced the 401.
+**Files:** `packages/nextjs/src/server/session-verify.ts` (new), `packages/nextjs/src/server/auth.ts`, `packages/nextjs/src/server/middleware.ts`
+
+**Fix applied:** New `verifySessionToken(token)` helper consolidates the contract — signature verification + `payload.tenant_id` must match `getTenantId()`, and a missing `tenant_id` claim is honored only in non-production (back-compat with sessions minted before BUG-155). Both `auth()` and both `blerpMiddleware` branches (callback form + options form) now route through the helper. JWKS caching moved into the helper so the three call sites share a single cached set.
+
+### BUG-182 (codex r49): Webhook migration 0016 silently stopped delivering project-scoped events to legacy tenant-wide endpoints (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — upgrade-time regression. Migration `0016_harsh_sersi.sql` adds `project_id` with `DEFAULT 'default' NOT NULL` to `webhook_endpoints`, so every pre-existing endpoint becomes a `'default'`-bucket endpoint on upgrade. The post-BUG-163 worker delivers project-scoped events (e.g. `organization.created` from a real project) only to endpoints whose `project_id` matches the event's project, so legacy endpoints — which used to receive every event in their tenant — silently stopped getting any project-scoped event after the migration. Customer-visible symptom: a freshly-upgraded deploy stops firing webhooks the customer had been relying on, with no error in the logs.
+**Files:** `apps/api/src/workers/webhook.worker.ts`
+
+**Fix applied:** In `deliverEvent()`, broaden the endpoint filter to match either the event's specific `project_id` OR `'default'` (the legacy bucket). Customers narrow scope by editing each endpoint to its real `project_id`; leaving an endpoint on `'default'` is now the explicit opt-in for tenant-wide delivery. Per-tenant DB scoping (BUG-163) still prevents cross-tenant leakage. The "no project context" event path (empty `event.projectId`) still delivers only to `'default'`-bucket endpoints — that branch hasn't changed.
+
+### BUG-183 (codex r49): `AuditLogService.create()` ignored `project_id`, so the BUG-161 project-scoped audit filter returned empty for newly-emitted rows (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — BUG-161 (codex r40) added a `project_id` filter on `auditLogs.list()` so project-scoped M2M callers see only their own project's audit stream. But `AuditLogService.create()` had no `projectId` field and `audit.worker.ts::parseEvent()` dropped the redis-stream `projectId` field on the floor before calling `create()`. Net effect: every newly-emitted audit row had `project_id = NULL`, so a project-scoped M2M token's filtered query returned an empty list. Tenant-root callers still saw everything (no filter applied), masking the issue in dev where the X-User-Id shim has tenant-root scopes.
+**Files:** `apps/api/src/v1/services/audit.service.ts`, `apps/api/src/workers/audit.worker.ts`
+
+**Fix applied:** Added optional `projectId` to `AuditLogService.create()`'s argument shape; persisted to `schema.auditLogs.projectId`. `parseEvent()` now extracts `projectId` from the redis-stream fields (empty string → `undefined` → stored as NULL for system-level events). `persistAuditLog()` forwards `event.projectId` to `create()`. Emitters that already pass `projectId` to `eventBus.emit()` (BUG-166) now produce audit rows that the project-scoped filter actually returns.

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import * as jose from "jose";
 import type { components } from "@blerp/shared";
 import { getApiUrl, getSecretKey, getTenantId } from "@blerp/shared";
+import { verifySessionToken } from "./session-verify";
 
 type User = components["schemas"]["User"];
 
@@ -11,37 +12,31 @@ export interface BlerpSessionPayload extends jose.JWTPayload {
   org_permissions?: string[];
 }
 
-let jwks: ReturnType<typeof jose.createRemoteJWKSet> | undefined;
-
-function getJWKS(): ReturnType<typeof jose.createRemoteJWKSet> {
-  if (!jwks) {
-    const apiUrl = getApiUrl();
-    jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
-  }
-  return jwks;
-}
-
 export async function auth() {
   const cookieStore = await cookies();
   // BUG-51: accept either cookie name. `__session` is the Clerk-compat alias.
   const token = cookieStore.get("__blerp_session")?.value ?? cookieStore.get("__session")?.value;
 
+  const empty = {
+    userId: null,
+    orgId: null,
+    orgRole: null,
+    orgPermissions: [] as string[],
+    has: () => false,
+  };
+
   if (!token) {
-    return {
-      userId: null,
-      orgId: null,
-      orgRole: null,
-      orgPermissions: [] as string[],
-      has: () => false,
-    };
+    return empty;
   }
 
-  try {
-    const { payload } = await jose.jwtVerify(token, getJWKS(), {
-      issuer: "blerp",
-      audience: "blerp-api",
-    });
+  // BUG-181 (codex r49): signature alone is not enough — the API
+  // middleware (BUG-155 codex r37) binds sessions to the tenant they
+  // were minted for. Mirror that check here so cross-tenant cookies
+  // don't pass `auth()` only to be rejected on the next API call.
+  const payload = await verifySessionToken(token);
+  if (!payload) return empty;
 
+  try {
     const sessionPayload = payload as BlerpSessionPayload;
     const userId = (sessionPayload.sub as string) || null;
 
@@ -121,13 +116,7 @@ export async function auth() {
       },
     };
   } catch {
-    return {
-      userId: null,
-      orgId: null,
-      orgRole: null,
-      orgPermissions: [] as string[],
-      has: () => false,
-    };
+    return empty;
   }
 }
 
