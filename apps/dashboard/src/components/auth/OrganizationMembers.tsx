@@ -132,17 +132,21 @@ export function OrganizationMembers({ organizationId }: { organizationId: string
                 {editingId === membership.id ? (
                   <div className="flex justify-end gap-2">
                     <button
+                      type="button"
+                      aria-label="Save role"
                       onClick={() => handleSave(membership.id)}
                       disabled={updateMembership.isPending}
                       className="text-green-600 hover:text-green-900 disabled:opacity-50"
                     >
-                      <Check className="h-4 w-4" />
+                      <Check className="h-4 w-4" aria-hidden="true" />
                     </button>
                     <button
+                      type="button"
+                      aria-label="Cancel role edit"
                       onClick={handleCancel}
                       className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
                 ) : (

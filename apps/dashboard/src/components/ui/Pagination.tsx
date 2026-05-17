@@ -46,18 +46,22 @@ export function Pagination({
         </span>
         <div className="flex gap-1">
           <button
+            type="button"
+            aria-label="Previous page"
             onClick={onPreviousPage}
             disabled={!hasPreviousPage}
             className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
           <button
+            type="button"
+            aria-label="Next page"
             onClick={onNextPage}
             disabled={!hasNextPage}
             className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ChevronRight className="h-5 w-5" />
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
       </div>

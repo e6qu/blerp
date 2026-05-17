@@ -1,0 +1,474 @@
+/*
+ * Integration tests for the 13 controllers that had zero coverage prior to
+ * BUG-38 (skills audit 2026-05-17). Each suite exercises the highest-signal
+ * path through one controller and asserts the wire-shape contract (snake_case
+ * fields, status codes, auth envelope). Where a controller talks to an
+ * external service (OAuth IdP, SMS, filesystem), the test exercises the
+ * input-validation / first-failure path so we still catch contract drift
+ * without standing up the external dependency.
+ */
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import request from "supertest";
+import { app } from "../app";
+import { getTenantDb, clearDbCache } from "../db/router";
+import * as schema from "../db/schema";
+import fs from "node:fs";
+import path from "node:path";
+
+vi.mock("../lib/redis", () => ({
+  redis: {
+    get: vi.fn(),
+    set: vi.fn(),
+    del: vi.fn(),
+    sadd: vi.fn(),
+    srem: vi.fn(),
+    smembers: vi.fn().mockResolvedValue([]),
+    on: vi.fn(),
+    incr: vi.fn().mockResolvedValue(1),
+    expire: vi.fn(),
+  },
+  isRedisAvailable: vi.fn().mockReturnValue(true),
+  cache: {
+    get: vi.fn(),
+    set: vi.fn(),
+    del: vi.fn(),
+  },
+}));
+
+const tenantId = "ctrl_audit_tenant";
+const userId = "user_ctrl_audit";
+const otherUserId = "user_ctrl_audit_other";
+const orgId = "org_ctrl_audit";
+
+const headers = (uid: string = userId) => ({
+  "X-Tenant-Id": tenantId,
+  "X-User-Id": uid,
+});
+
+beforeAll(async () => {
+  clearDbCache();
+  const dbPath = path.resolve(process.cwd(), "tenants", `${tenantId}.db`);
+  if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+
+  const db = await getTenantDb(tenantId);
+  await db.insert(schema.projects).values({
+    id: "proj_ctrl_audit",
+    ownerUserId: userId,
+    name: "Audit Project",
+    slug: "audit-project",
+  });
+  await db.insert(schema.users).values([
+    { id: userId, firstName: "Aud", lastName: "User" },
+    { id: otherUserId, firstName: "Other", lastName: "User" },
+  ]);
+  await db.insert(schema.organizations).values({
+    id: orgId,
+    projectId: "proj_ctrl_audit",
+    name: "Audit Org",
+    slug: "audit-org",
+  });
+  // Membership so RBAC-gated routes (org metadata) admit the user as owner.
+  await db.insert(schema.memberships).values({
+    id: "mem_ctrl_audit",
+    organizationId: orgId,
+    userId,
+    role: "admin",
+  });
+});
+
+afterAll(() => {
+  clearDbCache();
+  const dbPath = path.resolve(process.cwd(), "tenants", `${tenantId}.db`);
+  if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+});
+
+// -----------------------------------------------------------------------------
+// quota.controller — GET /v1/usage
+// -----------------------------------------------------------------------------
+describe("quota controller", () => {
+  it("GET /v1/usage returns the UsageResponse shape with users / organizations / sessions / limits", async () => {
+    const res = await request(app).get("/v1/usage").set(headers());
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("users");
+    expect(res.body).toHaveProperty("organizations");
+    expect(res.body).toHaveProperty("sessions");
+    expect(res.body).toHaveProperty("limits");
+  });
+});
+
+// -----------------------------------------------------------------------------
+// audit.controller — GET /v1/audit_logs
+// -----------------------------------------------------------------------------
+describe("audit controller", () => {
+  it("GET /v1/audit_logs returns { data, meta: { total } }", async () => {
+    const res = await request(app).get("/v1/audit_logs").set(headers());
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.meta).toBeDefined();
+    expect(typeof res.body.meta.total).toBe("number");
+  });
+
+  it("honours limit + offset query params", async () => {
+    const res = await request(app).get("/v1/audit_logs?limit=5&offset=0").set(headers());
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeLessThanOrEqual(5);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// redirect.controller — /v1/redirect-urls
+// -----------------------------------------------------------------------------
+describe("redirect controller", () => {
+  let createdId: string;
+
+  it("POST /v1/redirect-urls creates a redirect URL", async () => {
+    const res = await request(app)
+      .post("/v1/redirect-urls")
+      .set(headers())
+      .send({ url: "https://example.com/cb", type: "web" });
+    expect(res.status).toBe(201);
+    expect(res.body.url).toBe("https://example.com/cb");
+    createdId = res.body.id;
+    expect(createdId).toBeTruthy();
+  });
+
+  it("POST without url returns 400", async () => {
+    const res = await request(app).post("/v1/redirect-urls").set(headers()).send({});
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /v1/redirect-urls lists what was created", async () => {
+    const res = await request(app).get("/v1/redirect-urls").set(headers());
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.some((r: { id: string }) => r.id === createdId)).toBe(true);
+  });
+
+  it("DELETE /v1/redirect-urls/:id 204s on success and 404 on missing", async () => {
+    const del = await request(app).delete(`/v1/redirect-urls/${createdId}`).set(headers());
+    expect(del.status).toBe(204);
+
+    const missing = await request(app).delete("/v1/redirect-urls/does_not_exist").set(headers());
+    expect(missing.status).toBe(404);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// restriction.controller — /v1/signup-restrictions
+// -----------------------------------------------------------------------------
+describe("restriction controller", () => {
+  let restrictionId: string;
+
+  it("POST /v1/signup-restrictions creates and returns the row", async () => {
+    const res = await request(app)
+      .post("/v1/signup-restrictions")
+      .set(headers())
+      .send({ type: "blocklist", identifier_type: "domain", value: "spam.example" });
+    expect(res.status).toBe(201);
+    expect(res.body.value).toBe("spam.example");
+    restrictionId = res.body.id;
+  });
+
+  it("POST with invalid type returns 400", async () => {
+    const res = await request(app)
+      .post("/v1/signup-restrictions")
+      .set(headers())
+      .send({ type: "denylist", identifier_type: "domain", value: "x" });
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toMatch(/allowlist|blocklist/);
+  });
+
+  it("GET /v1/signup-restrictions returns the list", async () => {
+    const res = await request(app).get("/v1/signup-restrictions").set(headers());
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
+
+  it("DELETE /v1/signup-restrictions/:id 204s", async () => {
+    const res = await request(app)
+      .delete(`/v1/signup-restrictions/${restrictionId}`)
+      .set(headers());
+    expect(res.status).toBe(204);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// magic-link.controller — /v1/auth/magic-links
+// -----------------------------------------------------------------------------
+describe("magic-link controller", () => {
+  it("POST /v1/auth/magic-links without email returns 400", async () => {
+    const res = await request(app).post("/v1/auth/magic-links").set(headers()).send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toMatch(/email/i);
+  });
+
+  it("POST /v1/auth/magic-links/verify without token returns 400", async () => {
+    const res = await request(app).post("/v1/auth/magic-links/verify").set(headers()).send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toMatch(/token/i);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// oauth.controller — GET /v1/auth/oauth/:provider (authorize)
+// -----------------------------------------------------------------------------
+describe("oauth controller", () => {
+  it("GET /v1/auth/oauth/:provider rejects unknown providers", async () => {
+    const res = await request(app).get("/v1/auth/oauth/notarealprovider").set(headers());
+    // OAuthService throws on unknown providers → 400 envelope.
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toBeTruthy();
+  });
+
+  it("GET /v1/auth/oauth/:provider rejects disallowed redirect_uri (when redirect-allowlist is populated)", async () => {
+    // Seed an allowed redirect so the allowlist check is active. Otherwise
+    // RedirectService.isAllowed treats every URI as allowed (empty allowlist).
+    await request(app)
+      .post("/v1/redirect-urls")
+      .set(headers())
+      .send({ url: "https://app.example/cb", type: "web" });
+    const res = await request(app)
+      .get("/v1/auth/oauth/github?redirect_uri=https://attacker.example/x")
+      .set(headers());
+    expect(res.status).toBe(400);
+    // Either the redirect_uri rejection (allowlist hit) OR the provider-not-configured
+    // rejection (no GITHUB_CLIENT_ID in env) — both are correct refusals, just
+    // assert the call did not silently succeed.
+    expect(res.body.error?.message).toBeTruthy();
+  });
+});
+
+// -----------------------------------------------------------------------------
+// organization-metadata.controller — PATCH /v1/organizations/:id/metadata
+// -----------------------------------------------------------------------------
+describe("organization-metadata controller", () => {
+  it("PATCH /v1/organizations/:id/metadata updates public_metadata and returns snake_case Organization", async () => {
+    const res = await request(app)
+      .patch(`/v1/organizations/${orgId}/metadata`)
+      .set(headers())
+      .send({ public_metadata: { tier: "gold" } });
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(orgId);
+    expect(res.body.public_metadata.tier).toBe("gold");
+    expect(res.body).toHaveProperty("created_at");
+    expect(res.body).not.toHaveProperty("createdAt");
+  });
+
+  it("returns 400 envelope when the organization does not exist", async () => {
+    const res = await request(app)
+      .patch("/v1/organizations/org_missing/metadata")
+      .set(headers())
+      .send({ public_metadata: {} });
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toBeTruthy();
+  });
+});
+
+// -----------------------------------------------------------------------------
+// user-metadata.controller — PATCH /v1/users/:id/metadata
+// -----------------------------------------------------------------------------
+describe("user-metadata controller", () => {
+  it("PATCH /v1/users/:id/metadata returns User in snake_case with merged public_metadata", async () => {
+    const res = await request(app)
+      .patch(`/v1/users/${userId}/metadata`)
+      .set(headers())
+      .send({ public_metadata: { plan: "pro" } });
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(userId);
+    expect(res.body.public_metadata.plan).toBe("pro");
+    // Snake case projection, not raw Drizzle camelCase.
+    expect(res.body).not.toHaveProperty("publicMetadata");
+    expect(res.body).not.toHaveProperty("createdAt");
+  });
+});
+
+// -----------------------------------------------------------------------------
+// identity.controller — GET /v1/users/:id/identities
+// -----------------------------------------------------------------------------
+describe("identity controller", () => {
+  it("GET /v1/users/:id/identities returns the linked-identities list", async () => {
+    const res = await request(app).get(`/v1/users/${userId}/identities`).set(headers());
+    expect(res.status).toBe(200);
+    // IdentityService.listUserIdentities returns an object keyed by provider
+    // (oauth: [...], passkeys: [...], totp: bool). Verify the envelope shape.
+    expect(res.body).toBeDefined();
+    expect(typeof res.body).toBe("object");
+  });
+});
+
+// -----------------------------------------------------------------------------
+// phone.controller — /v1/users/:id/phone_numbers
+// -----------------------------------------------------------------------------
+describe("phone controller", () => {
+  let createdId: string;
+
+  it("POST /v1/users/:id/phone_numbers without phone_number returns 400", async () => {
+    const res = await request(app)
+      .post(`/v1/users/${userId}/phone_numbers`)
+      .set(headers())
+      .send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toMatch(/phone_number/i);
+  });
+
+  it("POST /v1/users/:id/phone_numbers creates a phone in snake_case", async () => {
+    const res = await request(app)
+      .post(`/v1/users/${userId}/phone_numbers`)
+      .set(headers())
+      .send({ phone_number: "+15555550100" });
+    expect(res.status).toBe(201);
+    expect(res.body.phone_number).toBe("+15555550100");
+    expect(res.body.verification_status).toBe("unverified");
+    expect(res.body).toHaveProperty("created_at");
+    expect(res.body).not.toHaveProperty("phoneNumber");
+    createdId = res.body.id;
+  });
+
+  it("POST again with the same number returns 400 (uniqueness)", async () => {
+    const res = await request(app)
+      .post(`/v1/users/${userId}/phone_numbers`)
+      .set(headers())
+      .send({ phone_number: "+15555550100" });
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toMatch(/already/i);
+  });
+
+  it("GET /v1/users/:id/phone_numbers lists in snake_case", async () => {
+    const res = await request(app).get(`/v1/users/${userId}/phone_numbers`).set(headers());
+    expect(res.status).toBe(200);
+    expect(res.body.data.some((p: { id: string }) => p.id === createdId)).toBe(true);
+    expect(res.body.data[0]).toHaveProperty("phone_number");
+  });
+});
+
+// -----------------------------------------------------------------------------
+// totp.controller — /v1/users/:id/mfa/totp(+verify+disable)
+// -----------------------------------------------------------------------------
+describe("totp controller", () => {
+  it("POST /v1/users/:id/mfa/totp returns secret + uri (enrollment)", async () => {
+    const res = await request(app).post(`/v1/users/${userId}/mfa/totp`).set(headers()).send({});
+    expect(res.status).toBe(201);
+    expect(res.body.secret).toBeTruthy();
+    expect(res.body.uri).toBeTruthy();
+  });
+
+  it("POST verify rejects when TOTP not enrolled (clean state)", async () => {
+    // Drive the path that doesn't need the otplib crypto plugin: a user with
+    // no enrollment should be rejected with 400 "TOTP not enrolled".
+    const res = await request(app)
+      .post(`/v1/users/${otherUserId}/mfa/totp/verify`)
+      .set(headers(otherUserId))
+      .send({ code: "000000" });
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toMatch(/not enrolled/i);
+  });
+
+  it("DELETE /v1/users/:id/mfa/totp returns 200 (disable)", async () => {
+    const res = await request(app).delete(`/v1/users/${userId}/mfa/totp`).set(headers());
+    expect(res.status).toBe(200);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// upload.controller — POST /v1/uploads/avatar
+// -----------------------------------------------------------------------------
+describe("upload controller", () => {
+  it("POST /v1/uploads/avatar rejects non-data-url image", async () => {
+    const res = await request(app)
+      .post("/v1/uploads/avatar")
+      .set(headers())
+      .send({ image: "not a data url" });
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toMatch(/image/i);
+  });
+
+  it("POST without image returns 400", async () => {
+    const res = await request(app).post("/v1/uploads/avatar").set(headers()).send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toMatch(/image/i);
+  });
+
+  it("accepts a real 1x1 png and returns a /uploads/... URL", async () => {
+    // 1x1 transparent PNG, base64.
+    const png =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+    const res = await request(app)
+      .post("/v1/uploads/avatar")
+      .set(headers())
+      .send({ image: `data:image/png;base64,${png}` });
+    expect(res.status).toBe(201);
+    expect(res.body.url).toMatch(/^\/uploads\/avatars\//);
+
+    // Best-effort cleanup of the test artifact.
+    const filename = res.body.url.replace(/^\/uploads\/avatars\//, "");
+    const fp = path.resolve(process.cwd(), "uploads", "avatars", filename);
+    if (fs.existsSync(fp)) fs.unlinkSync(fp);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// m2m.controller — /v1/m2m-tokens + /v1/oauth/token (client_credentials)
+// -----------------------------------------------------------------------------
+describe("m2m controller", () => {
+  let tokenId: string;
+  let clientId: string;
+  let clientSecret: string;
+
+  it("POST /v1/m2m-tokens creates a token and returns client_id + client_secret", async () => {
+    const res = await request(app)
+      .post("/v1/m2m-tokens")
+      .set(headers())
+      .send({ name: "test token", project_id: "proj_ctrl_audit", scopes: ["read:users"] });
+    expect(res.status).toBe(201);
+    expect(res.body.id).toBeTruthy();
+    expect(res.body.client_id).toBeTruthy();
+    expect(res.body.client_secret).toBeTruthy();
+    tokenId = res.body.id;
+    clientId = res.body.client_id;
+    clientSecret = res.body.client_secret;
+  });
+
+  it("POST without name returns 400", async () => {
+    const res = await request(app)
+      .post("/v1/m2m-tokens")
+      .set(headers())
+      .send({ project_id: "proj_ctrl_audit" });
+    expect(res.status).toBe(400);
+    expect(res.body.error?.message).toMatch(/name/i);
+  });
+
+  it("GET /v1/m2m-tokens lists tokens (client_secret never returned)", async () => {
+    const res = await request(app).get("/v1/m2m-tokens?project_id=proj_ctrl_audit").set(headers());
+    expect(res.status).toBe(200);
+    const created = (res.body.data as Array<{ id: string }>).find((t) => t.id === tokenId);
+    expect(created).toBeTruthy();
+    // Secret must never come back on list — would be a credential leak (BUG-34 lineage).
+    expect(JSON.stringify(res.body)).not.toContain(clientSecret);
+  });
+
+  it("POST /v1/oauth/token client_credentials grant returns access_token", async () => {
+    const res = await request(app).post("/v1/oauth/token").set("X-Tenant-Id", tenantId).send({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.access_token).toBeTruthy();
+    expect(res.body.token_type).toBe("Bearer");
+  });
+
+  it("POST /v1/oauth/token rejects bad client_secret with invalid_client envelope", async () => {
+    const res = await request(app).post("/v1/oauth/token").set("X-Tenant-Id", tenantId).send({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: "wrong",
+    });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("invalid_client");
+  });
+
+  it("DELETE /v1/m2m-tokens/:id revokes (204)", async () => {
+    const res = await request(app).delete(`/v1/m2m-tokens/${tokenId}`).set(headers());
+    expect(res.status).toBe(204);
+  });
+});

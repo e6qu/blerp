@@ -93,10 +93,11 @@ export function CreateWebhookModal({ isOpen, onClose }: CreateWebhookModalProps)
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Webhook created</h2>
             <button
+              aria-label="Close"
               onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
@@ -115,14 +116,16 @@ export function CreateWebhookModal({ isOpen, onClose }: CreateWebhookModalProps)
                   {createdSecret}
                 </code>
                 <button
+                  type="button"
+                  aria-label={copied ? "Copied" : "Copy signing secret to clipboard"}
                   onClick={handleCopySecret}
                   className="rounded p-2 hover:bg-gray-200 dark:hover:bg-gray-600"
                   title="Copy to clipboard"
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
                   ) : (
-                    <Copy className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    <Copy className="h-4 w-4 text-gray-500 dark:text-gray-400" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -147,10 +150,12 @@ export function CreateWebhookModal({ isOpen, onClose }: CreateWebhookModalProps)
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Add webhook</h2>
           <button
+            type="button"
+            aria-label="Close"
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 

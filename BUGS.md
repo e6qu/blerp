@@ -402,3 +402,197 @@ The dashboard home page displayed both SignIn and SignUp forms side-by-side, whi
 After successful sign-in, the dashboard redirected to `/` which showed auth forms again instead of the authenticated dashboard content. Users had to manually navigate to see their data.
 
 **Fix applied:** Post-login redirect now goes to the dashboard view. The home route detects authenticated state and shows dashboard content instead of auth forms.
+
+---
+
+## Open — Skills audit findings (2026-05-17)
+
+Discovered while running the new `.claude/skills/hidden-rot-audit`, `frontend-slop-check`, `design-system-check`, `clerk-monite-fidelity`, and `ui-verification` skills against the post-PR-51 baseline. Per `CLAUDE.md` § 7 (Zero Tolerance), every finding logged here is being fixed in the same PR unless explicitly deferred with a tracked next-action.
+
+### BUG-30: Orphan `SecurityPage.tsx` duplicates `UserProfile`'s `SecurityTab`
+
+**Status:** Open
+**Severity:** Low (dead code)
+**Files:** `apps/dashboard/src/components/auth/SecurityPage.tsx`, `apps/dashboard/src/components/auth/SecurityPage.stories.tsx`
+
+`SecurityPage.tsx` is imported only by its own Storybook story — it is not registered in `App.tsx` and not linked from `Layout.tsx`. The same Security UI is implemented (more fully — password + 2FA + backup codes + passkey rename/delete) inside `UserProfile.tsx::SecurityTab`. `SecurityPage.tsx` is a strict subset, an abandoned earlier attempt.
+
+**Fix plan:** Delete `SecurityPage.tsx` and `SecurityPage.stories.tsx`. The active Security surface remains the SecurityTab under `/auth` → "Security".
+
+### BUG-31: Orphan Playwright spec `apps/dashboard/e2e/clerk.spec.ts` never runs
+
+**Status:** Open
+**Severity:** Low (dead test)
+**Files:** `apps/dashboard/e2e/clerk.spec.ts`
+
+`playwright.config.ts` declares `testDir: "./tests"`. The `e2e/` directory is outside that scope, so `clerk.spec.ts` (a 6-line title check) is never executed. Looks like a CI-passing illusion of coverage.
+
+**Fix plan:** Delete `apps/dashboard/e2e/clerk.spec.ts` and remove the empty `e2e/` directory.
+
+### BUG-32: "Manage 2FA" button has no `onClick` — once TOTP is enabled, users cannot manage it from the UI
+
+**Status:** Open
+**Severity:** Medium (functional gap: 2FA is one-way through the UI)
+**Files:** `apps/dashboard/src/components/auth/UserProfile.tsx` (line 308)
+
+When `user.totp_enabled === true`, the SecurityTab renders an "Enabled" badge next to a `<button>Manage 2FA</button>` that has no `onClick` handler. Clicking does nothing. The matching "Enable 2FA" button (line 317, shown when `!totp_enabled`) does work — it opens `TwoFactorEnrollmentModal`. There is no UI path to disable or rotate TOTP once enrolled.
+
+**Fix plan:** Either (a) wire "Manage 2FA" to open `TwoFactorEnrollmentModal` in a "manage" mode that exposes disable + view backup codes, or (b) replace with a "Disable 2FA" + "View backup codes" pair. Minimum viable fix for this PR: hide the button when there is no manage action yet, OR add a disable handler via the existing `useDisableTotp` mutation if it exists.
+
+### BUG-33: Icon-only buttons missing `aria-label` across ~23 components
+
+**Status:** Open
+**Severity:** Medium (WCAG 2.1 4.1.2 violation — screen readers announce "button" with no name)
+**Files:** `apps/dashboard/src/components/Layout.tsx`, `apps/dashboard/src/components/ui/Toast.tsx`, `apps/dashboard/src/components/ui/GlobalSearch.tsx`, plus modal close (`<X>`) buttons in `AddDomainModal`, `InviteMemberModal`, `TwoFactorEnrollmentModal`, `CreateOrganizationModal`, `BackupCodesModal`, `CreateWebhookModal` (×2), `ProjectSettingsForm`, `DeleteProjectModal`, `OrganizationMembers`, `DeleteAccountModal`, `EditOrganizationModal`, `DeleteOrganizationModal`, `LeaveOrganizationModal`, `ChangePasswordModal`, `AddEmailModal`, `EditUserModal`, `CreateApiKeyModal` (×2), `UserProfile.tsx` (passkey rename actions).
+
+Every `<button>` whose only child is a `lucide-react` icon needs `aria-label` (or `aria-labelledby`). The grep `awk` sweep counted 23 sites; sweep is mechanical.
+
+**Fix plan:** Add `aria-label` to each. Most close-modal buttons get `aria-label="Close"`; sidebar collapse gets `"Close menu"`; theme toggle (if surfaced) gets dynamic label.
+
+### BUG-34: WebAuthn passkey response leaks credential material AND violates OpenAPI contract
+
+**Status:** Open
+**Severity:** **High** (security + contract drift — same class as BUG-3)
+**Files:** `apps/api/src/v1/services/webauthn.service.ts`, `apps/api/src/v1/controllers/webauthn.controller.ts`, OpenAPI `openapi/blerp.v1.yaml` `PasskeyCredential` schema
+
+`WebAuthnService.listPasskeys()` and `renamePasskey()` return raw Drizzle rows from `schema.passkeys` directly. That row shape exposes `userId`, `publicKey`, `counter`, `credentialId`, `createdAt`, `lastUsedAt`, and uses camelCase. The OpenAPI `PasskeyCredential` schema declares `{ id, friendly_name, transports }`. The dashboard reads `pk.friendly_name` and renders an empty string today because the actual field is `name`.
+
+Effects:
+
+- Crypto material (`publicKey`, `counter`, `credentialId`) is sent to the client on every passkey list — unnecessary and a hardening miss.
+- Dashboard passkey rows render with blank friendly names.
+- `transports` declared in OpenAPI is not in the DB schema at all; need to either drop from spec or add to schema.
+- The same pattern likely affects all controllers in the "0 tests" list (audit, identity, m2m, magic-link, oauth, etc.) — see BUG-39.
+
+**Fix plan:**
+
+1. Add `mapPasskey()` projection in `apps/api/src/v1/controllers/webauthn.controller.ts` returning `{ id, friendly_name: row.name, created_at, last_used_at }`. Use it in `listPasskeys`, `renamePasskey`.
+2. Update OpenAPI `PasskeyCredential` to drop `transports` (no DB column) OR add `transports` to the Drizzle schema and surface it. Recommended: drop from OpenAPI for now; add as a follow-up if/when we capture transports during registration.
+3. Verify dashboard `SecurityTab` and `SecurityPage` (the latter being deleted in BUG-30) render the friendly name correctly.
+
+### BUG-35: Undocumented `as unknown as ...` casts in API controllers (FIXED)
+
+**Status:** Fixed
+**Severity:** Low (type discipline)
+**Files:** `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/controllers/user-metadata.controller.ts`, `apps/api/src/v1/controllers/discovery.controller.ts`, `apps/api/src/v1/services/webauthn.service.ts`, `apps/dashboard/src/hooks/usePasskeys.ts`
+
+Per `CLAUDE.md` Engineering Standards, type casts (`as`) should be avoided and used only as a documented last resort. Six undocumented `as unknown as ...` sites in user/user-metadata/discovery controllers — most were bridging Drizzle row shapes to a hand-rolled `UserWithRelations` interface, which `db.query.users.findFirst({ with: { emailAddresses: true } })` already infers.
+
+**Fix applied:**
+
+1. Removed all four `mapUser(... as unknown as UserWithRelations)` casts in `user.controller.ts` — `AuthService.getUser` / `listUsers` / `updateUser` already return the relational shape; the cast was masking a missing null-check that the compiler then correctly flagged. Added explicit 404 responses for the (previously silent) `updateUser` and `restoreUser` post-mutate refetch returning `undefined`.
+2. Removed `user as unknown as UserWithRelations` in `user-metadata.controller.ts`.
+3. Removed `jwk as unknown as Record<string, unknown>` in `discovery.controller.ts`: spread the JWK into a `Record<string, unknown>` directly (no cast needed; JWK is string-keyed by spec).
+4. The two remaining sites are real wire-boundary casts:
+   - `webauthn.service.ts` `credential as unknown as RegResponse` (documented in commit-2 — @simplewebauthn validates structurally at runtime).
+   - `usePasskeys.ts` `options.user.id as unknown as string` (documented — JSON-encoded base64url string masquerading as `BufferSource` in the DOM type).
+
+   Both now carry inline comments explaining why the cast is load-bearing at the boundary. Per `CLAUDE.md`, casts "should be avoided and used only as a documented last resort" — these qualify.
+
+### BUG-36: Dashboard `index.css` declares no design tokens — Tailwind defaults only
+
+**Status:** Open
+**Severity:** Low (style baseline)
+**Files:** `apps/dashboard/src/index.css`
+
+The dashboard's CSS is currently just `@import "tailwindcss"` + the dark variant. There is no `@theme` block — no project brand color, no typography ladder pinning, no semantic surface tokens. The dashboard rides Tailwind defaults entirely. Per `.claude/skills/design-system-check`, tokens should be declared once when a value will be reused 3+ times.
+
+**Fix plan:** Add a minimal `@theme inline` block declaring (a) the brand accent already in use (`blue-600`), (b) semantic status colors aligned with current usage (success=emerald, warning=amber, destructive=red, info=sky), and (c) the existing Inter-or-system font stack so future components can opt into named tokens. This is additive — does not change rendered output of any existing component.
+
+### BUG-37: Raw "Loading X..." text instead of `<Skeleton>` in 6 components
+
+**Status:** Open
+**Severity:** Low (UX consistency)
+**Files:** `apps/dashboard/src/components/auth/OrganizationDomains.tsx` (line 33), `ProjectSettingsForm.tsx` (line 53), `RedirectUrlsList.tsx` (line 38), `UsageDashboard.tsx` (line 8), `PhoneNumberList.tsx` (line 44), `EmailList.tsx` (line 43). (`SecurityPage.tsx` is being deleted in BUG-30.)
+
+The dashboard provides `apps/dashboard/src/components/ui/Skeleton.tsx`; `UserProfile.tsx::SecurityTab` uses an inline skeleton pattern. Other components use raw text.
+
+**Fix plan:** Replace each `Loading X...` div with `<Skeleton>` matching the row/card shape that will follow once data loads.
+
+### BUG-38: Test coverage gap — 14 controllers have no sibling integration test
+
+**Status:** Open
+**Severity:** Medium (silent risk class — BUG-3/BUG-34 went undetected because passkey response shape is untested)
+**Files:** `apps/api/src/v1/controllers/{audit,identity,m2m,magic-link,oauth,organization-metadata,phone,quota,redirect,restriction,totp,upload,user-metadata,webauthn}.controller.ts`
+
+The controllers above have zero references from any file under `apps/api/src/__tests__`. They are real production controllers (some security-critical: m2m, oauth, totp, webauthn, magic-link). The absence of round-trip tests is how response-shape drift like BUG-3 and BUG-34 hides until users see blanks.
+
+**Fix plan:** Add at minimum one integration test per controller asserting (a) the happy-path response shape matches the OpenAPI schema field-by-field, (b) the auth/error envelope for one failure mode. Start with `webauthn` (driven by BUG-34), then sweep the rest. If scope outgrows the session, track remaining controllers as a numbered phase in `PLAN.md`.
+
+### BUG-39: OpenAPI was missing `DELETE /v1/organizations/{organization_id}` despite the route being shipped
+
+**Status:** Fixed
+**Severity:** Medium (contract drift surfaced during BUG-34 regen)
+**Files:** `openapi/blerp.v1.yaml`
+
+Regenerating `packages/shared/src/schema.ts` from OpenAPI (after the BUG-34 PasskeyCredential update) produced 87 insertions / 33 deletions — the spec had drifted from the actual surface across multiple endpoints. The first concrete typecheck failure that surfaced was `@blerp/backend/src/api/organizations.ts:57` calling `client.DELETE("/v1/organizations/{organization_id}", ...)`, which the regenerated types rejected because the spec only declared GET + PATCH on that path. The route is in fact implemented (`apps/api/src/v1/routes/organization.routes.ts:29-34`) with RBAC `org:write`, the controller is real, and the SDK has shipped this method.
+
+**Fix applied:** Added `delete:` to `/v1/organizations/{organization_id}` in OpenAPI with the 204 / 404 response shape and the existing `SecretKey` security scheme. Reran `bun run openapi:lint` (clean), regenerated `packages/shared/src/schema.ts`, all 6 packages typecheck again.
+
+**Follow-up:** The 87/33 line drift suggests other endpoints are likely missing from the spec. Tracking a full diff sweep against `apps/api/src/v1/routes/*.routes.ts` in `DO_NEXT.md`.
+
+---
+
+## Open — Second skills-audit sweep + codex review (2026-05-17)
+
+After PR #52's first batch of fixes landed locally, ran a second vibe-slop sweep against the new diff plus a non-interactive `codex review --base main`. The first found one more a11y miss and a token-hygiene violation against the very skill I introduced; codex found two real OpenAPI-vs-controller contract drifts in the BUG-34 / BUG-39 fixes themselves.
+
+### BUG-40: Design tokens added but no consumer migrated (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — but it violated `design-system-check` which says "Add a token when a new value will be reused 3+ times"
+**Files:** `apps/dashboard/src/index.css`
+
+BUG-36's fix introduced `--color-brand-50/500/600/700/900` and `--color-status-{success,warning,destructive,info}` tokens. Zero components consumed them — the dashboard still uses `*-blue-*` (136 sites) and `*-red-*` / `*-emerald-*` / `*-amber-*` / `*-sky-*` directly. The tokens declared-but-unused were dead code by the skill's own rule.
+
+**Fix applied:** Removed the unused `brand-*` and `status-*` aliases from `index.css`. Kept `--font-sans` and `--font-mono` (the latter is consumed by ~10 components — codes, IDs, secrets, kbd hints). The CSS file now declares only tokens that are actually exercised. The next genuine adoption of brand/status colours should land in a PR that simultaneously migrates ≥3 consumers — the very pattern the skill prescribes.
+
+### BUG-41 (codex): Passkey rename / 404 contract drift
+
+**Status:** Open
+**Severity:** P2 — contract drift; generated SDK clients will see 400 where spec says 404
+**Files:** `apps/api/src/v1/controllers/webauthn.controller.ts`, `apps/api/src/v1/services/webauthn.service.ts`
+
+The BUG-34 fix added an explicit `404` branch when `service.renamePasskey` returns nullish — but the service throws `new Error("Passkey not found")` first, which falls into the generic `catch` and returns `400`. The OpenAPI now documents `404` for the same case, so the wire contract lies.
+
+**Fix plan:** Map the well-known `"Passkey not found"` error to 404 in the controller's catch (or refactor service to return `null` rather than throw for the not-found case). Cover both `renamePasskey` and `deletePasskey`. Extend the webauthn integration test to assert 404 on rename-by-non-owner.
+
+### BUG-42 (codex): `DELETE /v1/organizations/{id}` 404 contract drift (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — contract drift; same class as BUG-41 + BUG-39
+**Files:** `apps/api/src/v1/controllers/organization.controller.ts`, `openapi/blerp.v1.yaml`, `apps/api/src/__tests__/organization.integration.test.ts`
+
+BUG-39 added `404` to the documented responses, but the route is gated by `requirePermission("org:write")` middleware which fires **before** the controller. Without a membership row pointing at the target org, the caller gets 403; the controller's existence-check (if any) is unreachable. Generated clients trained on the spec would never see the 404 the spec promised.
+
+**Fix applied:** Reverted the (unreachable) controller existence-check that I'd tentatively added. Dropped `404` from the OpenAPI response set for `DELETE /v1/organizations/{organization_id}` and added `403` with an explicit note that the missing-org and not-permitted cases are intentionally indistinguishable (avoids leaking existence to unauthorized callers — the standard REST-permission convention). Extended `organization.integration.test.ts` to assert a second DELETE on the same id returns 403 (the membership row was cascaded away with the org).
+
+### BUG-43: Pagination prev/next icon buttons lack aria-label
+
+**Status:** Fixed
+**Severity:** Medium — same WCAG 4.1.2 class as BUG-33; missed in the first sweep because the icons are `ChevronLeft` / `ChevronRight`, not `<X>`
+**Files:** `apps/dashboard/src/components/ui/Pagination.tsx`
+
+The first aria-sweep grepped for `<X>` close buttons; pagination uses `<ChevronLeft>` / `<ChevronRight>` so it slipped through.
+
+**Fix applied:** Added `type="button"`, `aria-label="Previous page"` / `"Next page"` to both buttons; chevron icons carry `aria-hidden="true"`.
+
+### BUG-44 (codex round 2): DELETE passkey OpenAPI still says 400, controller now returns 404 (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — contract drift introduced by the BUG-41 fix
+**Files:** `openapi/blerp.v1.yaml`, `packages/shared/src/schema.ts`
+
+When fixing BUG-41 I routed both `renamePasskey` and `deletePasskey` through the new `sendPasskeyError` helper (which maps `"Passkey not found"` to 404). The integration test asserts 404 for delete-non-existent. But the OpenAPI spec for `DELETE /v1/auth/webauthn/passkeys/{passkey_id}` still documented `400` for that case — generated SDK clients would type/handle the response wrong.
+
+**Fix applied:** Changed the `400` response to `404` in the OpenAPI spec to match controller behaviour. Regenerated `packages/shared/src/schema.ts`. Existing integration test `DELETE /v1/auth/webauthn/passkeys/{id} returns 404 for a non-existent passkey` already pinned the controller-side contract.
+
+### BUG-45 (codex round 2): CreateWebhookModal Copy button still mislabelled "Close" (FIXED)
+
+**Status:** Fixed
+**Severity:** P3 — WCAG 4.1.2; screen-reader users hear "Close" on the button that copies the one-time signing secret
+**Files:** `apps/dashboard/src/components/auth/CreateWebhookModal.tsx`
+
+Same shape as the BUG-33 follow-up that caught `CreateApiKeyModal`'s Copy button. The over-greedy regex in chunk 3 of the audit had applied `aria-label="Close"` to the `handleCopySecret` button. The earlier follow-up fixed the API-key twin but missed this one because my sweep grep only filtered files with `<X>` icons (the webhook Copy button has `<Check>` / `<Copy>` instead).
+
+**Fix applied:** Replaced `aria-label="Close"` with `aria-label={copied ? "Copied" : "Copy signing secret to clipboard"}`, added `type="button"`, and added `aria-hidden="true"` to both `<Check>` / `<Copy>` icons. Re-ran the sweep for any other mis-labelled Copy/Check/Pencil/Trash buttons across the dashboard — none remain.

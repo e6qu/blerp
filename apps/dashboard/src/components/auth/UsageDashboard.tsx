@@ -1,11 +1,21 @@
 import { useUsage } from "../../hooks/useUsage";
+import { CardSkeleton } from "../ui/Skeleton";
 
 export function UsageDashboard() {
   const { data: usage, isLoading } = useUsage();
 
   if (isLoading)
     return (
-      <div className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading usage data...</div>
+      <div
+        className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <span className="sr-only">Loading usage data</span>
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
+      </div>
     );
 
   if (!usage)

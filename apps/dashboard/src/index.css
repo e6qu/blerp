@@ -1,3 +1,23 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Blerp dashboard design tokens (Tailwind v4 @theme).
+ *
+ * Only the font stack is pinned today — `font-mono` is consumed by
+ * ~10 components (codes, IDs, secrets, kbd hints). Brand/status colour
+ * aliases were drafted but no component had migrated to them, so they
+ * were removed (violating .claude/skills/design-system-check's "add a
+ * token when reused 3+ times" rule). Reintroduce them in a focused PR
+ * when the design owner picks a brand colour and migrates the first
+ * three consumers as part of the same change.
+ */
+@theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}

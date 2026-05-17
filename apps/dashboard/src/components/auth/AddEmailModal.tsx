@@ -40,10 +40,11 @@ export function AddEmailModal({ isOpen, onClose }: AddEmailModalProps) {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Add email address</h2>
           <button
+            aria-label="Close"
             onClick={handleClose}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 

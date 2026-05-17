@@ -19,3 +19,4 @@ test-results/
 apps/api/tenants/
 keys/
 apps/docs/.vitepress/cache/
+.claude/scheduled_tasks.lock

@@ -80,8 +80,13 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     >
       <Icon className={`h-5 w-5 flex-shrink-0 ${iconColorMap[toast.type]}`} />
       <p className="text-sm font-medium">{toast.message}</p>
-      <button onClick={onDismiss} className="ml-2 flex-shrink-0 opacity-70 hover:opacity-100">
-        <X className="h-4 w-4" />
+      <button
+        type="button"
+        aria-label="Dismiss notification"
+        onClick={onDismiss}
+        className="ml-2 flex-shrink-0 opacity-70 hover:opacity-100"
+      >
+        <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   );

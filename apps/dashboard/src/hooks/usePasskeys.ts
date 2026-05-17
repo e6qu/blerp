@@ -33,6 +33,12 @@ export function useRegisterPasskey() {
         pubKeyCredParams: PublicKeyCredentialParameters[];
       };
 
+      // WebAuthn options arrive as JSON: `challenge` and `user.id` are wire-encoded
+      // base64url strings even though the DOM `PublicKeyCredentialUserEntity` types
+      // declare them as `BufferSource`. We must decode to `Uint8Array` before passing
+      // to `navigator.credentials.create`. The `as unknown as string` is the
+      // documented wire-boundary cast — there is no JSON-friendly variant of the
+      // browser type.
       const credential = (await navigator.credentials.create({
         publicKey: {
           challenge: Uint8Array.from(atob(options.challenge), (c) => c.charCodeAt(0)),

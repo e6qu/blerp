@@ -118,6 +118,11 @@ export async function deleteOrganization(req: Request, res: Response) {
   const id = (req.params.organization_id || req.params.id) as string;
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
+  // Note: the route is gated by requirePermission("org:write"), which
+  // requires a membership row pointing at this organization. That check
+  // fires before the controller, so a missing org never reaches this
+  // function — the user gets 403 instead. The OpenAPI contract therefore
+  // documents 403 (not 404) for the missing/not-permitted case.
   await service.delete(id);
   await cache.del(`blerp:orgs:${req.tenantId}`);
   res.status(204).send();

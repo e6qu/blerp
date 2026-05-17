@@ -37,7 +37,7 @@
         "@opentelemetry/semantic-conventions": "^1.39.0",
         "@simplewebauthn/server": "^13.3.0",
         "argon2": "^0.44.0",
-        "better-sqlite3": "^12.6.2",
+        "better-sqlite3": "^12.10.0",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.6",
         "csrf-csrf": "^4.0.3",
@@ -1568,7 +1568,7 @@
 
     "better-ajv-errors": ["better-ajv-errors@1.2.0", "", { "dependencies": { "@babel/code-frame": "^7.16.0", "@humanwhocodes/momoa": "^2.0.2", "chalk": "^4.1.2", "jsonpointer": "^5.0.0", "leven": "^3.1.0 < 4" }, "peerDependencies": { "ajv": "4.11.8 - 8" } }, "sha512-UW+IsFycygIo7bclP9h5ugkNH8EjCSgqyFB/yQ4Hqqa1OEYDtb0uFIkYE0b6+CjkgJYVM5UKI/pJPxjYe9EZlA=="],
 
-    "better-sqlite3": ["better-sqlite3@12.6.2", "", { "dependencies": { "bindings": "^1.5.0", "prebuild-install": "^7.1.1" } }, "sha512-8VYKM3MjCa9WcaSAI3hzwhmyHVlH8tiGFwf0RlTsZPWJ1I5MkzjiudCo4KC4DxOaL/53A5B1sI/IbldNFDbsKA=="],
+    "better-sqlite3": ["better-sqlite3@12.10.0", "", { "dependencies": { "bindings": "^1.5.0", "prebuild-install": "^7.1.1" } }, "sha512-CyzaZRQKyHkB2ZInfTTl2nvT33EbDpjkLEbE8/Zck3Ll6O0qqvuGdrJ45HgtH+HykRg88ITY3AdreBGN70aBSQ=="],
 
     "bignumber.js": ["bignumber.js@9.3.1", "", {}, "sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ=="],
 

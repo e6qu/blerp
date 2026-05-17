@@ -6,6 +6,7 @@ import {
   useDeleteRedirectUrl,
 } from "../../hooks/useRedirectUrls";
 import { useFormValidation, required } from "../../hooks/useFormValidation";
+import { SkeletonLine } from "../ui/Skeleton";
 
 export function RedirectUrlsList() {
   const { data: urls, isLoading } = useRedirectUrls();
@@ -35,7 +36,13 @@ export function RedirectUrlsList() {
   };
 
   if (isLoading) {
-    return <p className="text-sm text-gray-500 dark:text-gray-400">Loading redirect URLs...</p>;
+    return (
+      <div className="space-y-2" aria-busy="true" aria-live="polite">
+        <span className="sr-only">Loading redirect URLs</span>
+        <SkeletonLine width="w-3/4" />
+        <SkeletonLine width="w-1/2" />
+      </div>
+    );
   }
 
   return (

@@ -78,10 +78,11 @@ export function TwoFactorEnrollmentModal({ isOpen, onClose }: TwoFactorEnrollmen
             </h2>
           </div>
           <button
+            aria-label="Close"
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 

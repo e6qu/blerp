@@ -63,8 +63,12 @@ export function CreateApiKeyModal({ isOpen, onClose }: CreateApiKeyModalProps) {
         <div className="relative z-10 w-full max-w-md rounded-xl border bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">API Key Created</h2>
-            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
-              <X className="h-5 w-5" />
+            <button
+              aria-label="Close"
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
@@ -80,14 +84,16 @@ export function CreateApiKeyModal({ isOpen, onClose }: CreateApiKeyModalProps) {
                   {createdKey}
                 </code>
                 <button
+                  type="button"
+                  aria-label={copied ? "Copied" : "Copy API key to clipboard"}
                   onClick={handleCopyKey}
                   className="rounded p-2 hover:bg-gray-200"
                   title="Copy to clipboard"
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
                   ) : (
-                    <Copy className="h-4 w-4 text-gray-500" />
+                    <Copy className="h-4 w-4 text-gray-500" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -111,8 +117,13 @@ export function CreateApiKeyModal({ isOpen, onClose }: CreateApiKeyModalProps) {
       <div className="relative z-10 w-full max-w-md rounded-xl border bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Create API Key</h2>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 

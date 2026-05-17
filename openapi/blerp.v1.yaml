@@ -133,7 +133,7 @@ components:
           $ref: "#/components/schemas/EmailAddress/properties/verification"
     PasskeyCredential:
       type: object
-      required: [id, friendly_name, transports]
+      required: [id, friendly_name]
       properties:
         id:
           type: string
@@ -143,6 +143,13 @@ components:
           type: array
           items:
             type: string
+          description: WebAuthn transports captured at registration. Always present, may be empty until the registration verifier surfaces them.
+        created_at:
+          type: [string, "null"]
+          format: date-time
+        last_used_at:
+          type: [string, "null"]
+          format: date-time
     PublicMetadata:
       type: object
       additionalProperties: true
@@ -1599,6 +1606,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Organization"
+    delete:
+      tags: [Organizations]
+      summary: Delete an organization
+      description: |
+        Permanently deletes the organization. Requires `org:write` on the
+        target organization (a membership row with that permission must
+        exist for the caller). The RBAC layer evaluates first, so a
+        request for an organization the caller cannot access — whether
+        the row exists or not — receives 403, never 404.
+      operationId: deleteOrganization
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Organization deleted
+        "403":
+          description: Caller lacks `org:write` on the target organization (or the organization does not exist; the two cases are not distinguished, by design, to avoid leaking existence to unauthorized callers)
 
   /v1/organizations/{organization_id}/metadata:
     patch:
@@ -2804,6 +2834,49 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/PasskeyCredential"
+
+  /v1/auth/webauthn/passkeys/{passkey_id}:
+    parameters:
+      - in: path
+        name: passkey_id
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Auth]
+      summary: Rename a passkey
+      description: Update the friendly name for an existing passkey owned by the authenticated user.
+      operationId: renamePasskey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: New friendly name for the passkey.
+      responses:
+        "200":
+          description: Updated passkey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyCredential"
+        "404":
+          description: Passkey not found or not owned by the authenticated user
+    delete:
+      tags: [Auth]
+      summary: Delete a passkey
+      description: Permanently remove a passkey owned by the authenticated user.
+      operationId: deletePasskey
+      responses:
+        "204":
+          description: Passkey deleted
+        "404":
+          description: Passkey not found or not owned by the authenticated user
 
   /v1/auth/webauthn/registration/options:
     get:
