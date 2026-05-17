@@ -1752,3 +1752,11 @@ The dev X-User-Id shim was extended to grant the full scope set (`webhooks:*`, `
 **Files:** `apps/api/src/v1/routes/invitation.routes.ts`
 
 **Fix applied:** Extract three small middleware helpers — `projectOrgIdFromQuery`, `projectOrgIdFromBody`, and the body/query-fallback for the revoke route — that run BEFORE `authMiddleware`. `authMiddleware` then loads `req.membership` for the correct org, and `requirePermission` can see it.
+
+### BUG-159 (codex r39): `requirePermission` M2M branch accepted any scoped token without checking the org's project (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-142 made M2M tokens project-scoped (each token bound to one project). BUG-154 made `requirePermission` accept M2M tokens by scope. But the M2M branch never checked that the requested **organization** belongs to the **token's project**. Organizations are project-scoped in the schema (`organizations.projectId`), so a project-A M2M token with `invitations:write` could act on a project-B org in the same tenant — bypassing the project boundary that BUG-142 was meant to enforce.
+**Files:** `apps/api/src/middleware/rbac.ts`
+
+**Fix applied:** In the M2M branch, after the scope check, also resolve the organization (from `req.params.organization_id` / body / query — the route's own middleware sets `req.params.organization_id` before this gate runs, per BUG-158's pattern) and require `org.projectId === req.m2m.projectId`. Dev shim wildcard preserved (clientId starts with "dev-shim:" → skipped). Returns `ForbiddenError` with a clear "M2M token is scoped to a different project than this organization" message.

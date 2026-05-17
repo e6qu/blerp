@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { eq } from "drizzle-orm";
 import {
   Permission,
   Role,
@@ -7,6 +8,7 @@ import {
   hasPermissionDynamic,
 } from "../lib/rbac";
 import { ForbiddenError } from "../lib/errors";
+import * as schema from "../db/schema";
 
 const DEFAULT_ROLES = ["owner", "admin", "member"];
 
@@ -30,11 +32,37 @@ export function requirePermission(permission: Permission) {
     // every scope. Filter the shim out so RBAC behavior is faithful
     // in dev.
     if (req.m2m && !req.m2m.clientId.startsWith("dev-shim:")) {
-      if (req.m2m.scopes.includes(permission)) {
-        next();
-        return;
+      if (!req.m2m.scopes.includes(permission)) {
+        return next(new ForbiddenError(`M2M token is missing the required scope: ${permission}`));
       }
-      return next(new ForbiddenError(`M2M token is missing the required scope: ${permission}`));
+      // BUG-159 (codex r39): also verify project binding. M2M tokens
+      // are project-scoped (BUG-142). Orgs live inside projects, so a
+      // token minted for project A must NOT act on project B's orgs
+      // even when both share the same tenant. When the route has an
+      // `organization_id` in path/body/query (set by the route's
+      // own middleware before this runs), resolve the org's project
+      // and require it equal the token's project.
+      const orgId =
+        (req.params.organization_id as string | undefined) ??
+        (req.body?.organization_id as string | undefined) ??
+        (req.query?.organization_id as string | undefined);
+      if (orgId && req.tenantDb) {
+        const org = await req.tenantDb.query.organizations.findFirst({
+          where: eq(schema.organizations.id, orgId),
+        });
+        if (!org) {
+          return next(new ForbiddenError("Organization not found"));
+        }
+        if (org.projectId !== req.m2m.projectId) {
+          return next(
+            new ForbiddenError(
+              "M2M token is scoped to a different project than this organization.",
+            ),
+          );
+        }
+      }
+      next();
+      return;
     }
 
     if (!req.membership) {
