@@ -1207,61 +1207,14 @@ paths:
                         type: string
         "400":
           $ref: "#/components/responses/BadRequest"
-  /v1/sessions/{session_id}/revoke:
-    post:
-      tags: [Auth]
-      summary: Revoke a session
-      description: Immediately revokes a session so the associated devices must reauthenticate.
-      operationId: revokeSession
-      security:
-        - SecretKey: []
-      parameters:
-        - in: path
-          name: session_id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                reason:
-                  type: string
-      responses:
-        "204":
-          description: Revoked
-        "400":
-          $ref: "#/components/responses/BadRequest"
-  /v1/tokens/refresh:
-    post:
-      tags: [Auth]
-      summary: Exchange refresh token for access token
-      description: Trades a refresh token for a new pair of access/refresh tokens using the rotation policy.
-      operationId: refreshSessionToken
-      security:
-        - SecretKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [refresh_token]
-              properties:
-                refresh_token:
-                  type: string
-      responses:
-        "200":
-          description: Token response
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TokenResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+  # BUG-175 (codex r47): the following endpoints used to be documented
+  # here but had no runtime handlers (spec/runtime drift). Removed
+  # rather than implemented to keep the OpenAPI accurate. The runtime
+  # equivalent for session revocation is `DELETE /v1/sessions/{session_id}`
+  # (already documented elsewhere in this spec). `/v1/tokens/refresh`
+  # was also advertised as the OIDC `token_endpoint` in the discovery
+  # response — the discovery controller has been updated to stop
+  # publishing it. Re-add these paths when handlers exist.
   /v1/users:
     get:
       tags: [Users]
@@ -2344,34 +2297,9 @@ paths:
                     type: array
                     items:
                       type: string
-  /v1/users/{user_id}/mfa/webauthn:
-    post:
-      tags: [MFA]
-      summary: Register WebAuthn device
-      description: Starts a WebAuthn registration ceremony for the user.
-      operationId: registerWebauthnDevice
-      security:
-        - SecretKey: []
-      parameters:
-        - in: path
-          name: user_id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [attestation]
-              properties:
-                attestation:
-                  type: object
-                  additionalProperties: true
-      responses:
-        "201":
-          description: Device registered
+  # BUG-175 (codex r47): /v1/users/{user_id}/mfa/webauthn removed —
+  # the actual WebAuthn registration / verification ceremony is at
+  # /v1/auth/webauthn/registration/{options,verify} (already documented).
   /v1/webhooks/endpoints:
     get:
       tags: [Webhooks]
@@ -2493,27 +2421,10 @@ paths:
       responses:
         "204":
           description: Deleted
-  /v1/webhooks/endpoints/{endpoint_id}/rotate_secret:
-    post:
-      tags: [Webhooks]
-      summary: Rotate webhook endpoint secret
-      description: Rotates the signing secret for a webhook endpoint while preserving its id.
-      operationId: rotateWebhookSecret
-      security:
-        - SecretKey: []
-      parameters:
-        - in: path
-          name: endpoint_id
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Secret rotated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WebhookEndpoint"
+  # BUG-175 (codex r47): rotate_secret was advertised but had no
+  # handler. Re-add when a real rotate-with-grace-period implementation
+  # ships (the previous design lacked any way to keep the old secret
+  # validating signatures during the rollout window).
   /v1/audit_logs:
     get:
       tags: [Audit]
@@ -2904,78 +2815,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/APIKey"
-  /v1/client:
-    get:
-      tags: [Client]
-      summary: Retrieve publishable configuration
-      description: Returns the publishable configuration consumed directly by browser-based clients.
-      operationId: getClientConfig
-      security:
-        - PublishableKey: []
-      responses:
-        "200":
-          description: Client config
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  project:
-                    $ref: "#/components/schemas/Project"
-                  enabled_strategies:
-                    type: array
-                    items:
-                      type: string
-  /v1/client/sessions:
-    post:
-      tags: [Client]
-      summary: Create session during SSR
-      description: Creates a session while rendering on the server and returns the cookie payload.
-      operationId: createClientSession
-      security:
-        - PublishableKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [user_id]
-              properties:
-                user_id:
-                  type: string
-                organization_id:
-                  type: string
-                expires_at:
-                  type: string
-                  format: date-time
-      responses:
-        "201":
-          description: Session created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Session"
-  /v1/client/user:
-    get:
-      tags: [Client]
-      summary: Retrieve current session user
-      description: Returns the current session's user to light-weight server actions or clients.
-      operationId: getClientUser
-      security:
-        - SessionToken: []
-      responses:
-        "200":
-          description: Current user
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: "#/components/schemas/User"
-                  session:
-                    $ref: "#/components/schemas/Session"
+  # BUG-175 (codex r47): the /v1/client family (config / sessions /
+  # user) was Clerk-inspired but never implemented in this repo.
+  # `/v1/public-config` covers the same publishable-config use case
+  # (BUG-96) and `/v1/userinfo` (below) is the current-user endpoint.
   /v1/userinfo:
     get:
       tags: [Auth]

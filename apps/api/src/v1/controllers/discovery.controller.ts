@@ -74,7 +74,12 @@ export async function getOIDCConfig(req: Request, res: Response) {
     issuer,
     jwks_uri: `${baseUrl}/v1/jwks`,
     authorization_endpoint: `${baseUrl}/v1/auth/oauth/authorize`,
-    token_endpoint: `${baseUrl}/v1/tokens/refresh`,
+    // BUG-175 (codex r47): /v1/tokens/refresh was advertised here but
+    // never implemented. Removed from OpenAPI; point token_endpoint
+    // at the OAuth2 client-credentials endpoint, which IS implemented
+    // (M2M token exchange). Re-add a refresh-token endpoint when that
+    // grant type ships.
+    token_endpoint: `${baseUrl}/v1/oauth/token`,
     userinfo_endpoint: `${baseUrl}/v1/userinfo`,
     response_types_supported: ["code", "id_token", "token id_token"],
     subject_types_supported: ["public"],

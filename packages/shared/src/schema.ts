@@ -94,20 +94,6 @@ export interface paths {
      */
     post: operations["completeSignin"];
   };
-  "/v1/sessions/{session_id}/revoke": {
-    /**
-     * Revoke a session
-     * @description Immediately revokes a session so the associated devices must reauthenticate.
-     */
-    post: operations["revokeSession"];
-  };
-  "/v1/tokens/refresh": {
-    /**
-     * Exchange refresh token for access token
-     * @description Trades a refresh token for a new pair of access/refresh tokens using the rotation policy.
-     */
-    post: operations["refreshSessionToken"];
-  };
   "/v1/users": {
     /**
      * List users
@@ -344,13 +330,6 @@ export interface paths {
      */
     post: operations["regenerateBackupCodes"];
   };
-  "/v1/users/{user_id}/mfa/webauthn": {
-    /**
-     * Register WebAuthn device
-     * @description Starts a WebAuthn registration ceremony for the user.
-     */
-    post: operations["registerWebauthnDevice"];
-  };
   "/v1/webhooks/endpoints": {
     /**
      * List webhook endpoints
@@ -379,13 +358,6 @@ export interface paths {
      * @description Updates the configuration for an existing webhook endpoint.
      */
     patch: operations["updateWebhookEndpoint"];
-  };
-  "/v1/webhooks/endpoints/{endpoint_id}/rotate_secret": {
-    /**
-     * Rotate webhook endpoint secret
-     * @description Rotates the signing secret for a webhook endpoint while preserving its id.
-     */
-    post: operations["rotateWebhookSecret"];
   };
   "/v1/audit_logs": {
     /**
@@ -462,27 +434,6 @@ export interface paths {
      * @description Rotates the secret for an existing API key without changing the identifier.
      */
     post: operations["rotateApiKeySecret"];
-  };
-  "/v1/client": {
-    /**
-     * Retrieve publishable configuration
-     * @description Returns the publishable configuration consumed directly by browser-based clients.
-     */
-    get: operations["getClientConfig"];
-  };
-  "/v1/client/sessions": {
-    /**
-     * Create session during SSR
-     * @description Creates a session while rendering on the server and returns the cookie payload.
-     */
-    post: operations["createClientSession"];
-  };
-  "/v1/client/user": {
-    /**
-     * Retrieve current session user
-     * @description Returns the current session's user to light-weight server actions or clients.
-     */
-    get: operations["getClientUser"];
   };
   "/v1/userinfo": {
     /**
@@ -1295,53 +1246,6 @@ export interface operations {
               },
             ]
           >;
-        };
-      };
-      400: components["responses"]["BadRequest"];
-    };
-  };
-  /**
-   * Revoke a session
-   * @description Immediately revokes a session so the associated devices must reauthenticate.
-   */
-  revokeSession: {
-    parameters: {
-      path: {
-        session_id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          reason?: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Revoked */
-      204: {
-        content: never;
-      };
-      400: components["responses"]["BadRequest"];
-    };
-  };
-  /**
-   * Exchange refresh token for access token
-   * @description Trades a refresh token for a new pair of access/refresh tokens using the rotation policy.
-   */
-  refreshSessionToken: {
-    requestBody: {
-      content: {
-        "application/json": {
-          refresh_token: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Token response */
-      200: {
-        content: {
-          "application/json": components["schemas"]["TokenResponse"];
         };
       };
       400: components["responses"]["BadRequest"];
@@ -2221,32 +2125,6 @@ export interface operations {
     };
   };
   /**
-   * Register WebAuthn device
-   * @description Starts a WebAuthn registration ceremony for the user.
-   */
-  registerWebauthnDevice: {
-    parameters: {
-      path: {
-        user_id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          attestation: {
-            [key: string]: unknown;
-          };
-        };
-      };
-    };
-    responses: {
-      /** @description Device registered */
-      201: {
-        content: never;
-      };
-    };
-  };
-  /**
    * List webhook endpoints
    * @description Returns configured webhook endpoints for the project.
    */
@@ -2343,25 +2221,6 @@ export interface operations {
     };
     responses: {
       /** @description Updated endpoint */
-      200: {
-        content: {
-          "application/json": components["schemas"]["WebhookEndpoint"];
-        };
-      };
-    };
-  };
-  /**
-   * Rotate webhook endpoint secret
-   * @description Rotates the signing secret for a webhook endpoint while preserving its id.
-   */
-  rotateWebhookSecret: {
-    parameters: {
-      path: {
-        endpoint_id: string;
-      };
-    };
-    responses: {
-      /** @description Secret rotated */
       200: {
         content: {
           "application/json": components["schemas"]["WebhookEndpoint"];
@@ -2657,64 +2516,6 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["APIKey"];
-        };
-      };
-    };
-  };
-  /**
-   * Retrieve publishable configuration
-   * @description Returns the publishable configuration consumed directly by browser-based clients.
-   */
-  getClientConfig: {
-    responses: {
-      /** @description Client config */
-      200: {
-        content: {
-          "application/json": {
-            project?: components["schemas"]["Project"];
-            enabled_strategies?: string[];
-          };
-        };
-      };
-    };
-  };
-  /**
-   * Create session during SSR
-   * @description Creates a session while rendering on the server and returns the cookie payload.
-   */
-  createClientSession: {
-    requestBody: {
-      content: {
-        "application/json": {
-          user_id: string;
-          organization_id?: string;
-          /** Format: date-time */
-          expires_at?: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Session created */
-      201: {
-        content: {
-          "application/json": components["schemas"]["Session"];
-        };
-      };
-    };
-  };
-  /**
-   * Retrieve current session user
-   * @description Returns the current session's user to light-weight server actions or clients.
-   */
-  getClientUser: {
-    responses: {
-      /** @description Current user */
-      200: {
-        content: {
-          "application/json": {
-            user?: components["schemas"]["User"];
-            session?: components["schemas"]["Session"];
-          };
         };
       };
     };

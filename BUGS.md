@@ -1890,3 +1890,19 @@ Dev shim extended to grant the new scopes.
 **Files:** `apps/api/src/v1/controllers/organization.controller.ts`
 
 **Fix applied:** Dropped the read-through cache on `listOrganizations` entirely. The org list is small and database-backed; the speedup didn't justify the data-freshness hazard. `bustOrgListCache` is retained for one release cycle to clear any stale entries written by a prior deploy. If caching becomes necessary later, the proper fix is versioned keys — a per-tenant counter incremented on every mutation, included in the cache key, so a stale `set` lands under an orphaned key and gets TTL-evicted without serving stale reads.
+
+### BUG-175 (codex r47): OpenAPI advertised 5 endpoints with no runtime handlers — spec/runtime drift (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — customers reading the spec and trying these endpoints got 404. Generated SDK consumers had typed methods that always failed. The mismatch eroded trust in the spec as the source of truth.
+**Files:** `openapi/blerp.v1.yaml`, `apps/api/src/v1/controllers/discovery.controller.ts`, `packages/shared/src/schema.ts` (regenerated)
+
+**Fix applied:** Removed the unimplemented paths from `openapi/blerp.v1.yaml`:
+
+- `POST /v1/sessions/{session_id}/revoke` — runtime uses `DELETE /v1/sessions/{session_id}` (already documented).
+- `/v1/tokens/refresh` — no handler. OIDC discovery's `token_endpoint` now points at `/v1/oauth/token` (the implemented OAuth2 client-credentials endpoint). Re-add when a refresh-token grant ships.
+- `POST /v1/webhooks/endpoints/{endpoint_id}/rotate_secret` — no handler. Documented design lacks a grace-period rollover; re-add when that's specified.
+- `/v1/users/{user_id}/mfa/webauthn` — runtime uses `/v1/auth/webauthn/registration/{options,verify}` (already documented).
+- `/v1/client`, `/v1/client/sessions`, `/v1/client/user` — Clerk-inspired but never implemented; `/v1/public-config` (BUG-96) and `/v1/userinfo` cover the same use cases.
+
+OpenAPI lint clean; types regenerated.
