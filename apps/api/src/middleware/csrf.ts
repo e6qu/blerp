@@ -37,6 +37,18 @@ export const { invalidCsrfTokenError, generateCsrfToken, validateRequest, double
         typeof req.headers.authorization === "string" &&
         req.headers.authorization.startsWith("Bearer ");
       const hasSessionCookie = !!(req.cookies?.__blerp_session || req.cookies?.__session);
-      return hasBearer && !hasSessionCookie;
+      if (hasBearer && !hasSessionCookie) return true;
+      // BUG-215 (codex r65): OAuth 2.0 client_credentials grant. The
+      // standard contract sends `client_id`/`client_secret` in the
+      // body — no Bearer, no cookies — so the BUG-198 predicate
+      // above doesn't fire. CSRF is conceptually inapplicable to
+      // this token-exchange endpoint (it's a server-to-server OAuth
+      // primitive, not a user-borne mutation), and standards-compliant
+      // OAuth clients have no way to obtain `x-csrf-token` /
+      // `__blerp_csrf`. The endpoint authenticates via the
+      // client_credentials themselves (BUG-187 chain-of-trust still
+      // validates the minted token's scopes downstream).
+      if (req.path === "/v1/oauth/token") return true;
+      return false;
     },
   });

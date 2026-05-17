@@ -2254,3 +2254,19 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/nextjs/src/client/components/Auth.tsx`, `packages/nextjs/src/client/components/SignUp.tsx`
 
 **Fix applied:** Exposed `signInUrl` and `signUpUrl` on the BlerpContextType backed by runtime-hydrated `config.sign_in_url` / `config.sign_up_url`. Auth.tsx and SignUp.tsx consume them via `useAuth()` (caller-supplied prop still wins). Module-level constants and the `getSign*Url` imports are gone.
+
+### BUG-215 (codex r65): OAuth `client_credentials` grant 403'd on CSRF — standards-compliant OAuth clients couldn't get an access token (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — companion to BUG-198. The CSRF skip from BUG-198 covers Bearer-without-cookie callers (backend SDK), but the OAuth 2.0 client-credentials grant sends `client_id` + `client_secret` in the request BODY — no Bearer header, no cookies. So `POST /v1/oauth/token` (newly documented + advertised via OIDC discovery `token_endpoint`) 403'd on CSRF before `clientCredentialsGrant` could authenticate the client. Standards-compliant OAuth clients have no way to obtain `x-csrf-token` / `__blerp_csrf`.
+**Files:** `apps/api/src/middleware/csrf.ts`
+
+**Fix applied:** Added a path-based CSRF exemption for `/v1/oauth/token`. CSRF is conceptually inapplicable to this token-exchange endpoint — it's a server-to-server OAuth primitive, not a user-borne mutation, and authenticates via the client_credentials themselves (BUG-187 chain-of-trust still validates the minted token's scopes downstream). Browser-borne mutation endpoints still hit CSRF.
+
+### BUG-216 (codex r65): `blerpMiddleware` redirected `/v1/public-config` boot requests to sign-in, silently breaking runtime-config (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — broke runtime-config fallback on signed-out pages. When a host app's Next.js matcher covers `/v1/*` (the quickstart pattern), the BlerpProvider's boot request to `/v1/public-config` ran through `blerpMiddleware`. For a signed-out user on a protected page, that path was non-public and non-auth so the middleware redirected the request to sign-in instead of letting it through. The provider's fetch then received the sign-in HTML, JSON parse failed silently, and the SDK fell back to build-time defaults — defeating the entire BUG-96 runtime-config fix on the most common deployment shape.
+**Files:** `packages/nextjs/src/server/middleware.ts`
+
+**Fix applied:** Added a module-scope `FRAMEWORK_PUBLIC_PATHS` set (`/v1/public-config`, `/v1/jwks`, `/.well-known/openid-configuration`, `/.well-known/jwks.json`, `/v1/oauth/token`, `/v1/csrf-token`). Both middleware forms (options + callback) short-circuit these paths through to `NextResponse.next()` regardless of session state. Documented why each is in the list — runtime config, JWKS / OIDC discovery, OAuth token exchange, CSRF token fetch — all intentionally unauthenticated or self-authenticating by their own contract.

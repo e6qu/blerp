@@ -23,6 +23,26 @@ assertSatelliteNotConfigured();
 const PLACEHOLDER_BASE = "https://blerp-middleware.invalid";
 const SIGN_IN_RAW = getSignInUrl();
 const SIGN_UP_RAW = getSignUpUrl();
+
+// BUG-216 (codex r65): always treat the runtime-config and OAuth
+// discovery endpoints as public. `BlerpProvider` boots by hitting
+// `/v1/public-config` to hydrate runtime overrides (BUG-96), even
+// for signed-out users on protected pages — when the host's
+// middleware matcher covers `/v1/*` (the quickstart pattern), this
+// previously redirected the boot request to sign-in and the provider
+// silently fell back to build-time defaults. The other endpoints
+// here (`/v1/jwks`, `/.well-known/*`, `/v1/oauth/token`,
+// `/v1/csrf-token`) are intentionally unauthenticated or self-
+// authenticating by their own contract and should never trigger a
+// sign-in redirect.
+const FRAMEWORK_PUBLIC_PATHS = new Set<string>([
+  "/v1/public-config",
+  "/v1/jwks",
+  "/.well-known/openid-configuration",
+  "/.well-known/jwks.json",
+  "/v1/oauth/token",
+  "/v1/csrf-token",
+]);
 function parseAuthUrl(raw: string): { pathname: string; isAbsolute: boolean; origin?: string } {
   const parsed = new URL(raw, PLACEHOLDER_BASE);
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
@@ -94,6 +114,14 @@ export function blerpMiddleware(
   if (typeof optionsOrCallback === "function") {
     const callback = optionsOrCallback;
     return async (req: NextRequest) => {
+      // BUG-216 (codex r65): also short-circuit framework public
+      // paths here. If the host's `matcher` covers `/v1/*` and the
+      // callback unconditionally calls `auth().protect()`, the boot
+      // request to `/v1/public-config` would otherwise redirect to
+      // sign-in. Skip the callback entirely for these paths.
+      if (FRAMEWORK_PUBLIC_PATHS.has(req.nextUrl.pathname)) {
+        return NextResponse.next();
+      }
       const token =
         req.cookies.get("__blerp_session")?.value ?? req.cookies.get("__session")?.value;
 
@@ -140,10 +168,12 @@ export function blerpMiddleware(
   // Options form (original)
   const { publicRoutes } = optionsOrCallback;
   return async (req: NextRequest) => {
+    const isFrameworkPublic = FRAMEWORK_PUBLIC_PATHS.has(req.nextUrl.pathname);
     const isPublic =
-      typeof publicRoutes === "function"
+      isFrameworkPublic ||
+      (typeof publicRoutes === "function"
         ? publicRoutes(req)
-        : publicRoutes?.includes(req.nextUrl.pathname);
+        : (publicRoutes?.includes(req.nextUrl.pathname) ?? false));
 
     const token = req.cookies.get("__blerp_session")?.value ?? req.cookies.get("__session")?.value;
 
