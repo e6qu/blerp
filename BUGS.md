@@ -2179,3 +2179,24 @@ Project-owner sessions pass through the user-owner branch unchanged. Dev-shim is
 **Files:** `apps/api/src/middleware/auth.ts`
 
 **Fix applied:** Appended `.execute().catch(...)` to actually run the SQL and swallow rejections (transient DB errors must not break the request lifecycle). Logged failures via the request-scoped `logger` so operators still see persistent issues.
+
+### BUG-207 (codex r60): BUG-205's tenant-root predicate over-matched — project-bound `:admin` scopes leaked cross-project audit rows (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — same root cause as BUG-186. My BUG-205 fix classified ANY M2M holding a `*:admin` scope as tenant-root, bypassing the audit project filter. But `projects:admin` and `api_keys:admin` are PROJECT-bound scopes — they let you mint M2M tokens WITHIN your project (chain-of-trust, BUG-186/187), not authority across the tenant. A project-A token with `audit_logs:read` + `projects:admin` was wrongly classified as tenant-root and could read project-B audit rows.
+**Files:** `apps/api/src/v1/controllers/audit.controller.ts`
+
+**Fix applied:** Replaced the open-ended `s.endsWith(":admin")` check with an explicit allowlist (`TENANT_ROOT_ADMIN_SCOPES = {users:admin, signup_restrictions:admin, redirect_urls:admin, usage:admin}`). Same family as BUG-186's `TENANT_WIDE_PREFIXES` — these gate routes that have NO project boundary at the controller level, so holding them already implies tenant-wide authority. Project-bound `:admin` scopes no longer falsely qualify as tenant-root.
+
+### BUG-208 (codex r60): `readRedirectQueryParam` in `<SignIn>` / `<SignUp>` was an open-redirect (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — phishing vector. The helper read `?redirect_url=` verbatim from the URL and the submit handler later navigated `window.location.assign(...)` to it after successful auth. The middleware-generated values are always relative paths, but an attacker could craft `https://yourapp.com/sign-in?redirect_url=https://evil.com`, lure a user there, and after they successfully authenticated (with their real credentials!) the SDK would send them to evil.com — a textbook open-redirect, classic post-auth phishing primitive.
+**Files:** `packages/nextjs/src/client/components/Auth.tsx`, `packages/nextjs/src/client/components/SignUp.tsx`
+
+**Fix applied:** Added an `isSafeRedirect(value)` predicate that accepts only:
+
+- Relative paths starting with `/` and NOT `//` (protocol-relative) or `/\` (some browsers treat as protocol-relative too).
+- Absolute URLs whose `origin` matches `window.location.origin`.
+
+Anything else (different host, `javascript:`, `data:`, malformed) returns false, so `readRedirectQueryParam()` returns `undefined` and the caller falls through to the runtime-config redirect resolution (BUG-201 — force / fallback URLs configured by the deployer, always safe). Duplicated the helper in both files since they're separate components; if a third surface adopts the same pattern, lift to a shared util.

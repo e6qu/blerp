@@ -22,10 +22,25 @@ interface SignUpProps {
 const SIGN_IN_URL = getSignInUrl();
 
 // BUG-109 (codex r19): honor `?redirect_url=...` — see Auth.tsx.
+// BUG-208 (codex r60): validate before returning — open-redirect
+// guard, same rule as Auth.tsx (relative path OR same-origin URL).
+function isSafeRedirect(value: string): boolean {
+  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) {
+    return true;
+  }
+  try {
+    const url = new URL(value, window.location.origin);
+    return url.origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 function readRedirectQueryParam(): string | undefined {
   if (typeof window === "undefined") return undefined;
   const v = new URLSearchParams(window.location.search).get("redirect_url");
-  return v && v.trim() !== "" ? v : undefined;
+  if (!v || v.trim() === "") return undefined;
+  return isSafeRedirect(v) ? v : undefined;
 }
 
 export function SignUp({ afterSignUpUrl, signInUrl = SIGN_IN_URL }: SignUpProps) {

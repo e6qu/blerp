@@ -26,10 +26,38 @@ const SIGN_UP_URL = getSignUpUrl();
 // middleware/openSignIn redirect chain. Reading inside the handler
 // (not at module load) so server-side `next build` doesn't crash on
 // the missing `window`.
+//
+// BUG-208 (codex r60): validate before returning. An attacker can
+// link to `https://yourapp.com/sign-in?redirect_url=https://evil.com`
+// and the post-auth navigation in `handlePasswordSubmit` /
+// `handleTotpSubmit` would otherwise send the authenticated user
+// to the attacker's domain — open-redirect / phishing. The
+// middleware-generated values are always relative paths, so the
+// safe set is: relative paths (start with `/` and NOT `//`, which
+// is protocol-relative and could escape origin) OR absolute URLs
+// whose origin matches `window.location.origin`. Anything else is
+// dropped to undefined so the caller falls through to the runtime-
+// config redirect resolution (BUG-201).
+function isSafeRedirect(value: string): boolean {
+  // Relative path. Reject `//host` (protocol-relative) and `/\…`
+  // (path that some browsers treat as protocol-relative too).
+  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) {
+    return true;
+  }
+  // Absolute URL — must match current origin.
+  try {
+    const url = new URL(value, window.location.origin);
+    return url.origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 function readRedirectQueryParam(): string | undefined {
   if (typeof window === "undefined") return undefined;
   const v = new URLSearchParams(window.location.search).get("redirect_url");
-  return v && v.trim() !== "" ? v : undefined;
+  if (!v || v.trim() === "") return undefined;
+  return isSafeRedirect(v) ? v : undefined;
 }
 
 export function SignIn({ afterSignInUrl, signUpUrl = SIGN_UP_URL }: SignInProps) {
