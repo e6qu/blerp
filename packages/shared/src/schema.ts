@@ -521,9 +521,21 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     ErrorResponse: {
+      errors: {
+        code: string;
+        message: string;
+        long_message: string;
+        meta?: {
+          [key: string]: unknown;
+        };
+      }[];
+      /** @description Legacy singular alias; prefer `errors[0]` in new code. */
       error: {
         code: string;
         message: string;
+        details?: {
+          [key: string]: unknown;
+        };
         /** Format: uri */
         doc_url?: string;
         request_id?: string;
@@ -1503,7 +1515,8 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            data?: components["schemas"]["Organization"][];
+            data: components["schemas"]["Organization"][];
+            total_count: number;
             meta?: components["schemas"]["PaginationMeta"];
           };
         };
@@ -2171,7 +2184,8 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            data?: components["schemas"]["AuditLogEntry"][];
+            data: components["schemas"]["AuditLogEntry"][];
+            total_count: number;
             meta?: components["schemas"]["PaginationMeta"];
           };
         };

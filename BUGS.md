@@ -640,6 +640,36 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-56 (codex round 3): `turbo test` could fail on a clean checkout — new runtime imports from `@blerp/shared` need `dist` to exist (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — first-time CI/clean-clone test runs would fail with "cannot find module '@blerp/shared'"
+**Files:** `turbo.json`
+
+BUG-46's shared env helper promoted several files (`apps/api/src/v1/services/webauthn.service.ts`, `apps/api/src/index.ts`, `apps/dashboard/vite.config.ts`, `apps/dashboard/tests/global.setup.ts`, `packages/testing/src/*`) from type-only imports of `@blerp/shared` to runtime value imports. Runtime imports resolve via `packages/shared/package.json::main: dist/index.js`, but `dist` is gitignored and the turbo `test` task only depended on `^test`, not `^build`. Result: a fresh `bun install && bun run test` would fail to resolve `@blerp/shared`.
+
+**Fix applied:** Changed `turbo.json` `test.dependsOn` from `["^test"]` to `["^build"]`. Now `bun run test` builds upstream workspace packages first. Verified by removing `packages/shared/dist` and running `bun run test` — turbo rebuilt shared before running tests.
+
+### BUG-57 (codex round 3): OpenAPI `ErrorResponse` doesn't document the new `errors[]` envelope (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — SDK clients generated from the spec couldn't type `body.errors[0]` even though the runtime emits it
+**Files:** `openapi/blerp.v1.yaml` `components.schemas.ErrorResponse`, `packages/shared/src/schema.ts` (regen)
+
+BUG-47's runtime change to `BlerpError.toJSON()` emits both `errors: [{ code, message, long_message, meta? }]` (Clerk-canonical) and the legacy `error: { ... }`. But the OpenAPI `ErrorResponse` schema still listed only the singular `error` field, so generated types didn't surface `errors[]` to consumers.
+
+**Fix applied:** `ErrorResponse` now requires both `errors` and `error`; the `errors` item schema documents `code` + `message` + `long_message` + optional `meta`. The legacy `error` field gains `details` to match what `BlerpError.toJSON` actually emits. Regenerated `packages/shared/src/schema.ts`. New SDK code can type-safely read `body.errors[0]`.
+
+### BUG-58 (codex round 3): OpenAPI paginated list schemas don't declare `total_count` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same shape as BUG-57; SDK clients couldn't type the new pagination field
+**Files:** `openapi/blerp.v1.yaml` (`listOrganizations` + `listAuditLogs` 200 responses), `packages/shared/src/schema.ts` (regen)
+
+BUG-48's runtime change added `total_count` to `listOrganizations` and `listAuditLogs` responses, but the OpenAPI schemas still described only `data` + `meta`. SDK consumers couldn't see `total_count` in generated types.
+
+**Fix applied:** Both list-response schemas now `required: [data, total_count]` and include `total_count: integer minimum 0`. `meta` remains as a legacy alias for one release. Regenerated `packages/shared/src/schema.ts`.
+
 ### BUG-54 (codex round 2): Monite-example entity helper still reads only `__blerp_session` — Clerk-cookie-only callers regress (FIXED)
 
 **Status:** Fixed
