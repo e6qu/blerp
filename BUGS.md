@@ -1736,3 +1736,19 @@ Tokens minted between r31 and r33 carry `project_id` but no `tenant_id` (BUG-142
 - usage: `requireM2M("usage:read")`.
 
 The dev X-User-Id shim was extended to grant the full scope set (`webhooks:*`, `audit_logs:read`, `usage:read`, `org:*`, `members:*`, `invitations:*`) so existing tests pass; the shim is dev-only via `NODE_ENV` gate. Also stabilised the BUG-149 cross-tenant test to use `Date.now() + Math.random()` for tenant ids — back-to-back runs were occasionally colliding on the millisecond.
+
+### BUG-157 (codex r38): Cross-org invitation revoke — controller revoked by id without verifying org match (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `revokeInvitation` took the invitation id from the URL and called `InvitationService.revoke(id)` which UPDATEs by id only. A user with `invitations:write` in org A could revoke any other org's invitation by calling org A's nested revoke route with org B's invitation id, OR by hitting the flat `/v1/invitations/:id/revoke` route (which had no org context at all).
+**Files:** `apps/api/src/v1/controllers/invitation.controller.ts`
+
+**Fix applied:** Controller now fetches the invitation first (404 on miss), resolves the request's intended org from `req.params.organization_id` ?? `req.body.organization_id` ?? `req.query.organization_id`, and 403s if the invitation's `organizationId` doesn't match. Combined with the RBAC gate on the route, this ensures: the caller has `invitations:write` on the org AND the invitation belongs to that org.
+
+### BUG-158 (codex r38): Flat invitation routes set `organization_id` AFTER authMiddleware — `req.membership` never loaded; effectively M2M-only (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — `authMiddleware` loads `req.membership` from `req.params.organization_id` during its own execution. The flat invitation routes assigned `organization_id` in a later handler, so by the time `requirePermission` ran, `req.membership` was empty and session callers all 403'd. The endpoints were effectively M2M-only despite being session-scoped per OpenAPI.
+**Files:** `apps/api/src/v1/routes/invitation.routes.ts`
+
+**Fix applied:** Extract three small middleware helpers — `projectOrgIdFromQuery`, `projectOrgIdFromBody`, and the body/query-fallback for the revoke route — that run BEFORE `authMiddleware`. `authMiddleware` then loads `req.membership` for the correct org, and `requirePermission` can see it.

@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import * as invitationController from "../controllers/invitation.controller";
 import { authMiddleware } from "../../middleware/auth";
 import { requirePermission } from "../../middleware/rbac";
@@ -21,13 +21,32 @@ const router = Router();
 // BEFORE requirePermission runs, since requirePermission reads
 // req.params.organization_id to resolve membership.
 
+// BUG-158 (codex r38): set `req.params.organization_id` BEFORE
+// authMiddleware so authMiddleware can load `req.membership` for the
+// session-RBAC path. The previous order ran authMiddleware first with
+// an empty organization_id, so req.membership stayed unset and
+// requirePermission's session path rejected every caller — flat
+// invitations were effectively M2M-only.
+const projectOrgIdFromQuery = (req: Request, _res: Response, next: NextFunction) => {
+  if (typeof req.query.organization_id === "string") {
+    req.params.organization_id = req.query.organization_id;
+  }
+  next();
+};
+const projectOrgIdFromBody = (req: Request, _res: Response, next: NextFunction) => {
+  if (typeof req.body?.organization_id === "string") {
+    req.params.organization_id = req.body.organization_id;
+  }
+  if (req.body) {
+    req.body.email_address = req.body.email_address ?? req.body.email;
+  }
+  next();
+};
+
 router.get(
   "/invitations",
+  projectOrgIdFromQuery,
   authMiddleware,
-  (req, _res, next) => {
-    req.params.organization_id = req.query.organization_id as string;
-    next();
-  },
   requirePermission("invitations:read"),
   (req, res) => {
     invitationController.listInvitations(req, res);
@@ -36,20 +55,29 @@ router.get(
 
 router.post(
   "/invitations",
+  projectOrgIdFromBody,
   authMiddleware,
-  (req, _res, next) => {
-    req.params.organization_id = req.body.organization_id;
-    req.body.email_address = req.body.email_address || req.body.email;
-    next();
-  },
   requirePermission("invitations:write"),
   (req, res) => {
     invitationController.createInvitation(req, res);
   },
 );
 
+// BUG-157 (codex r38): the controller now verifies that the
+// invitation belongs to the org from path/body/query before revoking,
+// so cross-org revoke is impossible even via this flat route. The
+// caller must supply `organization_id` in body or query; the
+// controller 400s otherwise.
 router.post(
   "/invitations/:id/revoke",
+  (req: Request, _res: Response, next: NextFunction) => {
+    if (typeof req.body?.organization_id === "string") {
+      req.params.organization_id = req.body.organization_id;
+    } else if (typeof req.query?.organization_id === "string") {
+      req.params.organization_id = req.query.organization_id;
+    }
+    next();
+  },
   authMiddleware,
   requirePermission("invitations:write"),
   (req, res) => {
