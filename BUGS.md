@@ -596,3 +596,86 @@ When fixing BUG-41 I routed both `renamePasskey` and `deletePasskey` through the
 Same shape as the BUG-33 follow-up that caught `CreateApiKeyModal`'s Copy button. The over-greedy regex in chunk 3 of the audit had applied `aria-label="Close"` to the `handleCopySecret` button. The earlier follow-up fixed the API-key twin but missed this one because my sweep grep only filtered files with `<X>` icons (the webhook Copy button has `<Check>` / `<Copy>` instead).
 
 **Fix applied:** Replaced `aria-label="Close"` with `aria-label={copied ? "Copied" : "Copy signing secret to clipboard"}`, added `type="button"`, and added `aria-hidden="true"` to both `<Check>` / `<Copy>` icons. Re-ran the sweep for any other mis-labelled Copy/Check/Pencil/Trash buttons across the dashboard — none remain.
+
+---
+
+## Open — Clerk compliance sweep + vibe-slop sweep (2026-05-17 / PR #53)
+
+After PR #52 merged, ran a focused Clerk-API-compliance sweep + a second vibe-slop sweep against `origin/main`. Vibe slop is mostly clean (no orphans, no fake tests, no type erosion, no UI accessibility gaps, all controllers have tests). The Clerk-fidelity sweep turned up 6 wire-contract drifts and one camelCase-leak class. Plan: fix all in this same PR per CLAUDE.md zero-tolerance, then a `codex review` round before pushing for merge.
+
+### BUG-46: `CLERK_*` env-var aliases only honored inside `@blerp/backend`
+
+**Status:** Open
+**Severity:** High — silently breaks the "drop-in Clerk replacement" story; a customer who exports `CLERK_SECRET_KEY` will see the SDK pick it up but the dashboard, examples, testing harness, and `@blerp/nextjs` middleware all read `process.env.BLERP_*` directly and treat the env as unset
+**Files:**
+
+- `packages/nextjs/src/server/auth.ts` (5 sites: `BLERP_API_URL`, `BLERP_TENANT_ID`, `BLERP_SECRET_KEY`)
+- `packages/nextjs/src/server/middleware.ts` (2 sites: `BLERP_API_URL`)
+- `apps/api/src/v1/services/webauthn.service.ts` (3 sites: `BLERP_API_URL`)
+- `apps/api/src/index.ts` (1 site: `BLERP_API_PORT` — no Clerk equivalent, but `CLERK_API_URL`-derived port could be honored)
+- `apps/dashboard/vite.config.ts` (2 sites: `BLERP_DASHBOARD_PORT`, `BLERP_API_PORT`)
+- `apps/dashboard/tests/global.setup.ts` (1 site)
+- `packages/testing/src/{setup,tokens,playwright}.ts` (7 sites: `BLERP_API_URL`, `BLERP_SECRET_KEY`, plus testing-only vars)
+- `examples/monite-sdk-parity/{next.config.js,scripts/dev-setup.ts,tests/global.setup.ts,src/lib/blerp-api/get-current-user-entity.ts}` (4 sites: `BLERP_API_URL`)
+
+The existing helpers in `packages/backend/src/env.ts` correctly accept either name (BLERP* wins, warns when both set, falls back to CLERK*). The helper is only used inside `@blerp/backend`. Every other consumer reads the env directly.
+
+**Fix plan:** Promote the env helper out of `packages/backend` into a shared utility (probably under `packages/shared/src/env.ts` so both server and client packages can import it). Replace every `process.env.BLERP_*` direct read in `packages/nextjs`, `packages/testing`, `apps/api`, `apps/dashboard`, and `examples/` with a call to the shared helper (`getApiUrl()`, `getSecretKey()`, `getTenantId()`, `getApiPort()`, `getDashboardPort()` etc.). Add an integration test that sets only `CLERK_SECRET_KEY` and verifies `@blerp/nextjs.auth()` and `@blerp/testing.createTestUser()` both still work.
+
+### BUG-47: Error envelope drift — blerp returns `{ error: { code, message } }`, Clerk returns `{ errors: [{ code, message, long_message, meta }] }`
+
+**Status:** Open
+**Severity:** Medium — SDK clients (Clerk's, ours) typed for `errors: []` will not parse our envelope; the dashboard's `useMutation` error path also has to special-case the singular shape
+**Files:** `apps/api/src/lib/errors.ts` (`BlerpError.toJSON()`), every controller that hand-rolls `res.status(N).json({ error: { message } })` (~40 sites), `openapi/blerp.v1.yaml` (error response schemas — currently undocumented in most paths)
+
+Clerk's REST always returns the `errors` plural array. Even on a single-error response, the array has one item with `code` + `message` + optional `long_message` and `meta`.
+
+**Fix plan:** Add `errors: [{ code, message, long_message?, meta? }]` plural shape to `BlerpError.toJSON()`. Keep the singular `error` field as a back-compat alias for one release (callers in the dashboard read `body.error.message` today; can be flipped to `body.errors[0].message` in a follow-up). Standardise every hand-rolled `res.status().json({ error: ... })` in controllers to throw `BlerpError` subclasses so the error-handler middleware does the formatting in one place. Add an integration test that asserts the response body has both `error` (legacy) and `errors[0]` (Clerk-shape) keys, and that `code` matches a known `ErrorCode`. Document the contract in OpenAPI `components.schemas.ClerkErrorEnvelope`.
+
+### BUG-48: Pagination shape drift — blerp returns `{ data, meta: { total } }`, Clerk returns `{ data, total_count }`
+
+**Status:** Open
+**Severity:** Low-Medium — same generated-client confusion as BUG-47; Clerk SDK code that destructures `{ data, total_count }` reads `undefined` against our response
+**Files:** `apps/api/src/v1/controllers/organization.controller.ts:75` (listOrganizations), `apps/api/src/v1/controllers/audit.controller.ts:17` (listAuditLogs), `openapi/blerp.v1.yaml` (paginated list response schemas)
+
+**Fix plan:** Add `total_count` as the canonical paginated field; keep `meta.total` for one release as a legacy alias. Sweep for other paginated controllers (users, organizations, audit, m2m tokens, sessions, invitations, webhooks, domains) and make sure each emits `total_count`. Update OpenAPI schemas. Update the existing integration tests that assert `meta.total` to assert both `total_count` (new) and tolerate `meta.total` (legacy).
+
+### BUG-49: Session JWT missing `org_id` / `org_role` / `org_slug` / `org_permissions` claims when an active org is in scope
+
+**Status:** Open
+**Severity:** Medium — forces `@blerp/nextjs`'s `auth()` to make an extra `/v1/organizations/{org}/memberships` round-trip on every server-rendered request, defeating the whole point of JWT-encoded org context. Clerk's JWT always includes these claims when the user has an active org.
+**Files:** `apps/api/src/v1/services/auth.service.ts:361` (token issuance — currently only `{ sub: userId, sid: sessionId }`), `packages/nextjs/src/server/auth.ts:43-81` (the fallback fetch path)
+
+Today our session JWT contains only `sub` (user id) and `sid` (session id). `packages/nextjs/src/server/auth.ts` reads `payload.org_id` and falls back to a network call when missing. Issuance never sets the org claims, so the fallback always fires.
+
+**Fix plan:** When issuing the access token, read the user's active org (the `__blerp_org` cookie's value if set, or the first membership otherwise), look up the membership row, and set `{ org_id, org_role, org_slug, org_permissions }` claims. When the org is switched via `OrganizationSwitcher`, re-mint the access token (or accept the stale-org-claims drift between switches — current behaviour is to fetch live, which is fine on switch). Add an integration test that signs a user in via `/v1/sessions`, decodes the returned `access_token`, and asserts the four org claims are present when a membership exists.
+
+### BUG-50: Webhook signature drift — `X-Blerp-Signature` (raw HMAC) vs Clerk's Svix triple
+
+**Status:** Open
+**Severity:** Medium — the most-load-bearing fidelity point; customers' webhook receivers verifying `svix-id` / `svix-timestamp` / `svix-signature` will reject every blerp webhook
+**Files:** `apps/api/src/workers/webhook.worker.ts:122-131` (delivery code)
+
+Today we send a single `X-Blerp-Signature: <hex-hmac-sha256(secret, body)>` header. Clerk uses Svix's format: three headers `svix-id` (unique message id), `svix-timestamp` (Unix seconds), `svix-signature` (`v1,<base64-hmac-sha256(secret, id.timestamp.body)>`). Customers porting their Clerk webhook handler to point at blerp will fail signature verification immediately.
+
+**Fix plan:** Emit BOTH header conventions on every delivery (keep `X-Blerp-Signature` for back-compat with native consumers; add `svix-id` + `svix-timestamp` + `svix-signature` for drop-in Clerk-compat). The signed payload format matches Svix's: `${svix-id}.${svix-timestamp}.${body}`. Bonus: stop generating the secret in our own format and use Svix's `whsec_` prefix (already do — confirmed `whsec_${nanoid(32)}`). Add a unit test that round-trips a signed payload through the Svix verification algorithm (we can copy the ~30-line verifier into a test file without taking on the `svix` npm dep, since the algorithm is small and stable).
+
+### BUG-51: Session cookie name (`__blerp_session`) differs from Clerk's (`__session`)
+
+**Status:** Open
+**Severity:** Low — only an issue for customers who read the session cookie directly (bypassing our SDK). Our `@blerp/nextjs` knows the right name.
+**Files:** `apps/api/src/lib/session.ts:75`, `packages/nextjs/src/server/{auth,middleware}.ts`, `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/testing/src/{setup,playwright}.ts`, `apps/dashboard/src/hooks/useSignOut.ts`
+
+**Fix plan:** Set BOTH cookies on session issuance (`__blerp_session` + `__session`). Read either on session inspection. Document in the BlerpProvider/middleware comments that `__session` is the Clerk-compat alias. Update tests to expect both cookies. Lowest priority of this batch — flag it as "nice to have" but include in the same PR.
+
+### BUG-52: Several controllers still return raw Drizzle rows (camelCase leak — BUG-3 lineage)
+
+**Status:** Open
+**Severity:** Medium — same class as BUG-3 / BUG-34; dashboard / SDK reading snake_case field on the response gets `undefined`
+**Files:**
+
+- `apps/api/src/v1/controllers/role.controller.ts` (`createRole` line 33, `updateRole` line 56) — `roleService.create` / `update` return raw `customRoles` rows with `organizationId`, `createdAt`
+- `apps/api/src/v1/controllers/identity.controller.ts:27` — wrapper has snake_case (`oauth_accounts`, `email_addresses`) but the inner arrays are raw `oauthAccounts` / `emailAddresses` rows with `userId`, `providerUserId`, `createdAt` etc.
+- `apps/api/src/v1/services/role.service.ts` `list()` — the in-memory "default roles" use snake_case (`is_default`, `created_at`); the DB-stored custom roles use raw Drizzle camelCase. Mixed shape in the same list.
+
+**Fix plan:** Add `mapRole()` projection in `role.controller.ts` and use it for create/update/list (mapping the DB row to snake_case `id`, `organization_id`, `name`, `description`, `permissions`, `is_default: false`, `created_at`, `updated_at`). Add `mapOAuthIdentity()` / `mapEmailIdentity()` in `identity.controller.ts` and apply inside the wrapper. Extend the existing `controllers-audit.integration.test.ts` `role` + `identity` blocks to assert snake_case + no camelCase leak (`expect(body).not.toHaveProperty("organizationId")`).
