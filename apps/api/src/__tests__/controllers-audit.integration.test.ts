@@ -555,7 +555,12 @@ describe("m2m controller", () => {
     const res = await request(app)
       .post("/v1/m2m-tokens")
       .set(headers())
-      .send({ name: "test token", project_id: "proj_ctrl_audit", scopes: ["read:users"] });
+      // BUG-187 (codex r52): chain-of-trust now requires the minter
+      // to actually hold the requested scope. Pre-r52 the test used
+      // the typo "read:users" which slipped through because nothing
+      // checked it; now use a real project-bound scope the dev-shim
+      // grants.
+      .send({ name: "test token", project_id: "proj_ctrl_audit", scopes: ["webhooks:read"] });
     expect(res.status).toBe(201);
     expect(res.body.id).toBeTruthy();
     expect(res.body.client_id).toBeTruthy();
@@ -607,6 +612,59 @@ describe("m2m controller", () => {
   it("DELETE /v1/m2m-tokens/:id revokes (204)", async () => {
     const res = await request(app).delete(`/v1/m2m-tokens/${tokenId}`).set(headers());
     expect(res.status).toBe(204);
+  });
+
+  it("BUG-187 (codex r52): an M2M caller cannot mint a token with scopes it does not hold (chain-of-trust)", async () => {
+    // Mint a low-scope M2M token via the dev-shim (which carries the
+    // full scope set, so the create itself succeeds).
+    const lowCreate = await request(app)
+      .post("/v1/m2m-tokens")
+      .set(headers())
+      .send({
+        name: "low-scope chain-of-trust source",
+        project_id: "proj_ctrl_audit",
+        scopes: ["webhooks:read"],
+      });
+    expect(lowCreate.status).toBe(201);
+    const lowClientId = lowCreate.body.client_id as string;
+    const lowClientSecret = lowCreate.body.client_secret as string;
+
+    // Exchange for a JWT.
+    const tokenRes = await request(app).post("/v1/oauth/token").set("X-Tenant-Id", tenantId).send({
+      grant_type: "client_credentials",
+      client_id: lowClientId,
+      client_secret: lowClientSecret,
+    });
+    expect(tokenRes.status).toBe(200);
+    const lowJwt = tokenRes.body.access_token as string;
+
+    // Use that low-scope JWT to try minting a higher-scope peer.
+    // Pre-r52 this 201'd because the chain-of-trust only refused
+    // `:admin` / tenant-wide scopes. Post-r52 every scope flows down
+    // the tree.
+    const escalation = await request(app)
+      .post("/v1/m2m-tokens")
+      .set("X-Tenant-Id", tenantId)
+      .set("Authorization", `Bearer ${lowJwt}`)
+      .send({
+        name: "attempted escalation",
+        project_id: "proj_ctrl_audit",
+        scopes: ["webhooks:write"],
+      });
+    expect(escalation.status).toBe(403);
+    expect(escalation.body.error?.message).toMatch(/does not hold/);
+
+    // Sanity: low-scope JWT CAN mint a peer with the same scope.
+    const sameScope = await request(app)
+      .post("/v1/m2m-tokens")
+      .set("X-Tenant-Id", tenantId)
+      .set("Authorization", `Bearer ${lowJwt}`)
+      .send({
+        name: "same-scope peer",
+        project_id: "proj_ctrl_audit",
+        scopes: ["webhooks:read"],
+      });
+    expect(sameScope.status).toBe(201);
   });
 
   it("BUG-186 (codex r51): project-owner session cannot mint tenant-wide scopes (users:* / signup_restrictions:* / redirect_urls:* / usage:*)", async () => {

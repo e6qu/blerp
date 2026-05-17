@@ -2002,3 +2002,39 @@ Cross-tenant enumeration is still impossible (auth is required outside the `?dom
 **Files:** `apps/api/src/v1/controllers/m2m.controller.ts`, `apps/api/src/middleware/auth.ts`, `apps/api/src/__tests__/controllers-audit.integration.test.ts`
 
 **Fix applied:** Widened the gate to refuse ANY privileged scope from a plain session — privileged = `s.endsWith(":admin")` OR `s` starts with one of the tenant-wide prefixes `users:`, `signup_restrictions:`, `redirect_urls:`, `usage:`. The chain-of-trust still works for real M2M minters (only an M2M token already holding the requested privileged scope can grant it). Also extended `X-No-Dev-Shim: true` opt-out (introduced by BUG-176) to the X-User-Id auth path so production-semantics tests can disable BOTH dev-shim auto-elevations (session JWT shim AND X-User-Id shim), not just the session one. Test pins both halves: the five tenant-wide scopes 403 with `X-No-Dev-Shim`, and the four project-bound scopes (`webhooks:read`, `members:read`, `org:read`, `audit_logs:read`) still mint 201. Dev-shim continues to grant tenant-root scopes by default so existing tests keep working without changes.
+
+### BUG-187 (codex r52): M2M chain-of-trust only fired on privileged scopes — low-scope M2M tokens could self-elevate within their project (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — privilege-escalation across the project's scope set. The BUG-145 / BUG-186 chain-of-trust gate only blocked `:admin` / tenant-wide scopes. The M2M branch of `assertProjectOwnerOrM2M` returned early for any M2M token in the same project, so a token minted with e.g. `webhooks:read` could call `POST /v1/m2m-tokens` and grant itself `webhooks:write`, `org:write`, or `members:write` — every project-bound scope was self-mintable. Also: a low-scope M2M could revoke a higher-scope peer (DoS / privilege-downgrade).
+**Files:** `apps/api/src/v1/controllers/m2m.controller.ts`, `apps/api/src/__tests__/controllers-audit.integration.test.ts`
+
+**Fix applied:** Generalised the chain-of-trust in `createM2MToken`: any M2M minter must already hold every requested scope (not just privileged ones). Plain session minters (project owners) keep the BUG-186 rule (refused only on tenant-wide / `:admin`; project-bound scopes still mintable because the controllers scope by project at the row level). `revokeM2MToken` got the same chain-of-trust check on the target token's scopes — a low-scope M2M can no longer revoke a peer with broader scopes. Dev-shim is unaffected (it carries the full scope list, so any chain-of-trust check passes trivially). Test pins: a `webhooks:read` JWT mints itself a `webhooks:read` peer (201) but is refused `webhooks:write` (403). Pre-existing test had a typo scope `read:users` that slipped through pre-r52; fixed to use the real `webhooks:read`.
+
+### BUG-188 (codex r52): `requireProjectAccess` accepted any M2M with matching `project_id` without scope checks — low-scope token could rotate API keys or delete the project (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — same class as BUG-187. The M2M branch of `requireProjectAccess` only validated `req.m2m.projectId === projectId` and let any matching token through. Routes that mutate project state (`PUT /v1/projects/:id`, `DELETE /v1/projects/:id`) and API-key admin (`POST/PATCH/DELETE /v1/projects/:id/keys[/...]`) were gated only on `requireProjectAccess`, so a read-only `webhooks:read` token could delete the project, rotate API keys, or mint new ones. API keys are credential-issuing, so this is a path to tenant-wide credential issuance.
+**Files:** `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/routes/project.routes.ts`
+
+**Fix applied:** Added an optional second arg `requiredScope` to `requireProjectAccess(getProjectId, requiredScope?)`. When set, M2M callers must hold the scope in addition to the project match. Session callers (project owners) bypass the scope check — they have full authority over their project. Updated `project.routes.ts` to pass:
+
+- `projects:read` on `GET /v1/projects/:id`.
+- `projects:write` on `PUT` / `DELETE /v1/projects/:id`.
+- `api_keys:read` on `GET /v1/projects/:id/keys`.
+- `api_keys:write` on `POST` / `rotate` / `DELETE` of API keys.
+
+Introduced the new scope strings `projects:read|write|admin` and `api_keys:read|write|admin` and added them to both dev-shim scope sets so tests with `X-User-Id` (and session JWTs in dev) keep wildcard project + API-key access. Production M2M tokens for project / API-key management now need to be minted with the explicit scope (mintable through the chain-of-trust gate by a tenant-root admin token).
+
+### BUG-189 (codex r52): MFA wrong-code counter was per-pending-signin only — attacker with stolen password could brute-force TOTP indefinitely (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — auth-flow bypass. `attemptSecondFactor` only bumped the in-memory `pendingSignins[signinId].failedAttempts` counter. After 5 wrong codes the pending was consumed, but the attacker (who has the user's password — that's why they reached the second-factor step) could just call `POST /v1/auth/signins` again with the password to mint a fresh pending and reset the counter. The persistent BUG-137 user-level lockout (`users.failedSignInAttempts` + `users.locked`) never engaged on MFA failures, so an automated brute force against TOTP's 6-digit space was viable.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Mirrored the first-factor failure path inside `attemptSecondFactor`:
+
+1. Check `user.locked` early (after `getUser`) — a parallel attempt that already locked the user gets the lockout error instead of consuming another MFA attempt.
+2. On every wrong second-factor code, run `bumpUserFailures()` (same atomic SQL `failedSignInAttempts + 1` / `locked = (… + 1) >= MAX_SIGNIN_ATTEMPTS` pattern as first-factor) in addition to `restoreWithFailure()`. Now MFA brute-force trips the persistent lock at the same threshold as password brute-force, and restarting sign-in doesn't reset the counter.
+
+The successful-MFA path already runs the atomic `WHERE locked=false` reset (BUG-143), so a lockout that fires between code-check and session-create still blocks session creation.

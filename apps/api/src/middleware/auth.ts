@@ -126,6 +126,16 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
                 "signup_restrictions:admin",
                 "redirect_urls:read",
                 "redirect_urls:admin",
+                // BUG-188 (codex r52): project + API-key write paths
+                // now require an explicit scope on the M2M branch.
+                // Dev-shim grants the full set so tests don't have to
+                // thread tokens through every request.
+                "projects:read",
+                "projects:write",
+                "projects:admin",
+                "api_keys:read",
+                "api_keys:write",
+                "api_keys:admin",
               ],
               projectId: "dev-shim",
             };
@@ -220,6 +230,13 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
           "signup_restrictions:admin",
           "redirect_urls:read",
           "redirect_urls:admin",
+          // BUG-188 (codex r52): see session-JWT shim block above.
+          "projects:read",
+          "projects:write",
+          "projects:admin",
+          "api_keys:read",
+          "api_keys:write",
+          "api_keys:admin",
         ],
         projectId: "dev-shim",
       };
@@ -356,6 +373,7 @@ export function requireSelfOrM2M(
  */
 export function requireProjectAccess(
   projectIdFrom: (req: Request) => string | undefined,
+  requiredScope?: string,
 ): (req: Request, res: Response, next: NextFunction) => Promise<void> {
   return async (req, res, next) => {
     const projectId = projectIdFrom(req);
@@ -383,6 +401,22 @@ export function requireProjectAccess(
         res.status(403).json({
           error: {
             message: "M2M token is scoped to a different project. Mint a token for this project.",
+          },
+        });
+        return;
+      }
+      // BUG-188 (codex r52): scope check on the M2M branch. Pre-r52
+      // any M2M with a matching project_id passed this gate, so a
+      // read-only project token (`webhooks:read`) could call
+      // `PUT/DELETE /v1/projects/:id` or rotate / create / revoke
+      // API keys. Routes that mutate now pass an explicit scope so
+      // the M2M caller has to actually hold it. Project-owner
+      // sessions still pass via the user-owner branch below
+      // (sessions have full authority over their project).
+      if (requiredScope && !isDevShim && !req.m2m.scopes.includes(requiredScope)) {
+        res.status(403).json({
+          error: {
+            message: `M2M token lacks the required scope: ${requiredScope}. Mint a token with this scope.`,
           },
         });
         return;

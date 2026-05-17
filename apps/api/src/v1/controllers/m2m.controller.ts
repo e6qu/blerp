@@ -80,28 +80,22 @@ export async function createM2MToken(req: Request, res: Response) {
     throw err;
   }
 
-  // BUG-145 (codex r32): chain-of-trust on admin scopes. A plain
-  // project-owner session cannot mint an admin-scoped M2M token —
-  // only an existing M2M token that ALREADY holds the requested
-  // admin scope can. This prevents a project owner from minting a
-  // `users:admin` token that would let them unlock other projects'
-  // users in the same tenant. The first admin token bootstraps via
-  // the install/seed path (direct DB).
+  // BUG-145 (codex r32): chain-of-trust on admin scopes.
+  // BUG-186 (codex r51): widen the gate to tenant-wide scopes too.
+  // BUG-187 (codex r52): generalise the M2M branch — an M2M minter
+  // must hold EVERY requested scope, not just the privileged ones.
+  // Pre-r52 a `webhooks:read` token could call `POST /v1/m2m-tokens`
+  // for its own project and grant itself `webhooks:write` /
+  // `org:write` / `members:write`, because the project-bound
+  // scopes weren't on the privileged-scope list. Full chain-of-
+  // trust closes that — every scope only flows down the tree.
   //
-  // BUG-186 (codex r51): widen the gate to ALL tenant-wide scopes,
-  // not just `:admin`. Pre-r51 the filter only caught `*:admin`, so
-  // a project owner could mint `users:read` / `users:write` /
-  // `signup_restrictions:*` / `redirect_urls:*` / `usage:read`. The
-  // routes gated by those scopes (`/v1/users/*`, SCIM `/scim/v2/Users`,
-  // `/v1/signup-restrictions`, `/v1/redirect-urls`, `/v1/usage`) do
-  // NOT enforce a project boundary at the controller level — there is
-  // no `project_id` filter for users/SCIM, and the restrictions /
-  // redirect-urls / usage tables are tenant-wide allow-lists. So a
-  // project-A owner could mint a token and call SCIM to delete an
-  // arbitrary tenant user. Project-bound scopes (`org:*`, `members:*`,
-  // `invitations:*`, `webhooks:*`, `audit_logs:read`) stay mintable by
-  // the project owner — the controllers filter those by project
-  // already (BUG-161 audit, BUG-162 webhooks, etc.).
+  // For plain session minters (project owners), only the tenant-wide
+  // / `:admin` set is gated (BUG-186) — project-bound scopes still
+  // mintable by the project owner because those controllers scope by
+  // project at the row level (BUG-161 audit, BUG-162 webhooks, etc.).
+  // Dev-shim sessions carry the full scope list so test surfaces are
+  // unaffected.
   const TENANT_WIDE_PREFIXES = [
     "users:",
     "signup_restrictions:",
@@ -113,24 +107,30 @@ export async function createM2MToken(req: Request, res: Response) {
     return TENANT_WIDE_PREFIXES.some((p) => scope.startsWith(p));
   }
   const requestedScopes = scopes ?? [];
-  const privilegedScopes = requestedScopes.filter(isPrivilegedScope);
-  if (privilegedScopes.length > 0) {
-    if (!req.m2m) {
+
+  if (req.m2m) {
+    // BUG-187 (codex r52): full chain-of-trust — every requested
+    // scope must already be held by the minting M2M.
+    const missing = requestedScopes.filter((s) => !req.m2m!.scopes.includes(s));
+    if (missing.length > 0) {
+      res.status(403).json({
+        error: {
+          message: `Cannot grant scopes the caller does not hold: ${missing.join(", ")}.`,
+        },
+      });
+      return;
+    }
+  } else {
+    // Plain session minter (project owner): only tenant-wide / :admin
+    // scopes are gated (BUG-186); project-bound scopes are OK.
+    const privilegedScopes = requestedScopes.filter(isPrivilegedScope);
+    if (privilegedScopes.length > 0) {
       res.status(403).json({
         error: {
           message:
             "Privileged scopes (tenant-wide or `:admin`) can only be granted by an existing M2M " +
             "token that already holds them. " +
             `Requested: ${privilegedScopes.join(", ")}.`,
-        },
-      });
-      return;
-    }
-    const missing = privilegedScopes.filter((s) => !req.m2m!.scopes.includes(s));
-    if (missing.length > 0) {
-      res.status(403).json({
-        error: {
-          message: `Cannot grant privileged scopes the caller does not hold: ${missing.join(", ")}.`,
         },
       });
       return;
@@ -179,6 +179,24 @@ export async function revokeM2MToken(req: Request, res: Response) {
   } catch (err) {
     if (handleAuthError(err, res)) return;
     throw err;
+  }
+  // BUG-187 (codex r52): a low-scope M2M caller must not be able to
+  // revoke a higher-scope peer token. Without this check, a
+  // `webhooks:read` token could DoS / privilege-downgrade an admin
+  // token by revoking it. The dev-shim has every scope so it's
+  // unaffected. Project-owner sessions can revoke any token in
+  // their project (full project authority).
+  if (req.m2m && !req.m2m.clientId.startsWith("dev-shim")) {
+    const targetScopes = (token.scopes as string[]) ?? [];
+    const missing = targetScopes.filter((s) => !req.m2m!.scopes.includes(s));
+    if (missing.length > 0) {
+      res.status(403).json({
+        error: {
+          message: `Cannot revoke a token whose scopes the caller does not hold: ${missing.join(", ")}.`,
+        },
+      });
+      return;
+    }
   }
   await m2mService.revoke(id);
   res.status(204).send();

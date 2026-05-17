@@ -508,11 +508,39 @@ export class AuthService {
       throw new Error("User not found");
     }
 
+    // BUG-189 (codex r52): MFA brute-force defence. Pre-r52 wrong-
+    // second-factor attempts only bumped the in-memory per-pending-
+    // signin counter. After 5 failures the pending was consumed —
+    // but the attacker could just restart sign-in with the (already
+    // compromised) password and get a fresh counter, brute-forcing
+    // TOTP indefinitely. Mirror first-factor: check `user.locked`
+    // here and bump `failedSignInAttempts` on every wrong code so the
+    // persistent BUG-137 lockout engages across new sign-ins too.
+    if (user.locked) {
+      throw new Error(
+        "Account is locked after too many failed sign-in attempts. Contact an administrator.",
+      );
+    }
+
     const restoreWithFailure = () => {
       pendingSignins.set(signinId, {
         ...pending,
         failedAttempts: pending.failedAttempts + 1,
       });
+    };
+    // BUG-189 (codex r52): atomic per-user increment. Same pattern
+    // as `bumpUserFailures` in attemptSignin — SQL fragment so the
+    // increment + lock decision are evaluated together against the
+    // row's current value (SQLite serialises writes per connection).
+    const bumpUserFailures = async () => {
+      await this.db
+        .update(schema.users)
+        .set({
+          failedSignInAttempts: sql`${schema.users.failedSignInAttempts} + 1`,
+          locked: sql`(${schema.users.failedSignInAttempts} + 1) >= ${MAX_SIGNIN_ATTEMPTS}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, user.id));
     };
 
     // BUG-126 (codex r23): respect the requested factor name.
@@ -566,6 +594,8 @@ export class AuthService {
 
     if (!verified) {
       restoreWithFailure();
+      // BUG-189 (codex r52): bump the persistent counter too.
+      await bumpUserFailures();
       throw new Error("Invalid verification code");
     }
 
