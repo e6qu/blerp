@@ -640,6 +640,32 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-68 (codex round 8): Monite example `dev-setup.ts` imports `@blerp/nextjs/server` — fails when `packages/nextjs/dist` is missing (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same startup-import class as BUG-64/65/66, this one hits the "first thing a new dev runs in the example" script
+**Files:** `examples/monite-sdk-parity/scripts/dev-setup.ts`
+
+`scripts/dev-setup.ts` is the documented onboarding command for the Monite parity demo (`bun run scripts/dev-setup.ts`). Importing `@blerp/nextjs/server` resolves through `packages/nextjs/dist/server/index.js` which doesn't exist on a clean checkout. Same `getApiUrl` / `getTenantId` pattern as the dashboard fix.
+
+**Fix applied:** Inlined the two env lookups with the dual-name pattern.
+
+### BUG-69 (codex round 8): Monite example Playwright `global.setup.ts` has the same SDK-import issue (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — `cd examples/monite-sdk-parity && bun run test:e2e` would fail on fresh checkout
+**Files:** `examples/monite-sdk-parity/tests/global.setup.ts`
+
+Identical fix to BUG-66's dashboard-side treatment.
+
+### BUG-70 (codex round 8): New `/v1/organizations/:id/memberships/me` route missing from OpenAPI (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — SDK clients generated from the spec couldn't discover or type the endpoint
+**Files:** `openapi/blerp.v1.yaml`, `packages/shared/src/schema.ts` (regenerated)
+
+BUG-67 added the runtime route. BUG-70 documents it in the spec — `getOwnMembership` operation with the `organization_id` path param, returns `#/components/schemas/Membership`, 404 returns `#/components/schemas/ErrorResponse`. Description explains the `authMiddleware`-only gating and the relationship to `@blerp/nextjs auth()`.
+
 ### BUG-65 (codex round 7): API boot transitively imports `@blerp/shared` at module load, still breaking direct `bun run dev` (FIXED)
 
 **Status:** Fixed

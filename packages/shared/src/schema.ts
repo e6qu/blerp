@@ -209,6 +209,19 @@ export interface paths {
      */
     post: operations["createMembership"];
   };
+  "/v1/organizations/{organization_id}/memberships/me": {
+    /**
+     * Get the caller's own membership in this organization
+     * @description Returns the calling user's membership row plus the authoritative
+     * resolved `permissions` array. Gated only by `authMiddleware` —
+     * every authenticated user can ask about THEIR OWN role +
+     * permissions without needing `members:read`, which custom
+     * read-only roles may lack. This is the endpoint
+     * `@blerp/nextjs auth()` uses to populate `orgPermissions` for
+     * `has({ permission })` checks.
+     */
+    get: operations["getOwnMembership"];
+  };
   "/v1/organizations/{organization_id}/memberships/{membership_id}": {
     /**
      * Delete membership
@@ -1697,6 +1710,37 @@ export interface operations {
       201: {
         content: {
           "application/json": components["schemas"]["Membership"];
+        };
+      };
+    };
+  };
+  /**
+   * Get the caller's own membership in this organization
+   * @description Returns the calling user's membership row plus the authoritative
+   * resolved `permissions` array. Gated only by `authMiddleware` —
+   * every authenticated user can ask about THEIR OWN role +
+   * permissions without needing `members:read`, which custom
+   * read-only roles may lack. This is the endpoint
+   * `@blerp/nextjs auth()` uses to populate `orgPermissions` for
+   * `has({ permission })` checks.
+   */
+  getOwnMembership: {
+    parameters: {
+      path: {
+        organization_id: string;
+      };
+    };
+    responses: {
+      /** @description The caller's membership in the target organization */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Membership"];
+        };
+      };
+      /** @description Caller is not a member of this organization */
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };

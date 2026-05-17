@@ -1,10 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getApiUrl, getTenantId } from "@blerp/nextjs/server";
 
-const API_URL = getApiUrl();
-const TENANT_ID = getTenantId();
+// BUG-69 (codex r8): Playwright loads global.setup.ts outside the
+// turbo build graph, so importing `@blerp/nextjs/server` (which
+// resolves to packages/nextjs/dist) would fail on a clean checkout.
+// Same inlining pattern as apps/dashboard/tests/global.setup.ts.
+const API_URL = process.env.BLERP_API_URL ?? process.env.CLERK_API_URL ?? "http://localhost:3000";
+const TENANT_ID = process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant";
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
 export interface E2ESession {

@@ -13,13 +13,18 @@
 import { $ } from "bun";
 import { existsSync, copyFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { getApiUrl, getTenantId } from "@blerp/nextjs/server";
+
+// BUG-68 (codex r8): inlined env reads — this script is the documented
+// "first thing a new dev runs"; importing `@blerp/nextjs/server` (which
+// resolves to packages/nextjs/dist) would fail on a clean checkout
+// where workspace packages haven't been built. Same dual-name
+// semantics as the shared helper.
+const API_URL = process.env.BLERP_API_URL ?? process.env.CLERK_API_URL ?? "http://localhost:3000";
+const TENANT_ID = process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant";
 
 const ROOT = path.resolve(import.meta.dir, "..");
 const API_ROOT = path.resolve(ROOT, "../../apps/api");
-const API_URL = getApiUrl();
 const MONITE_PORT = process.env.PORT ?? "3002";
-const TENANT_ID = getTenantId();
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
 // ── Step 1: Ensure .env.local exists ──

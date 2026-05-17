@@ -1758,6 +1758,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Membership"
+  /v1/organizations/{organization_id}/memberships/me:
+    get:
+      tags: [Organizations]
+      summary: Get the caller's own membership in this organization
+      description: |
+        Returns the calling user's membership row plus the authoritative
+        resolved `permissions` array. Gated only by `authMiddleware` —
+        every authenticated user can ask about THEIR OWN role +
+        permissions without needing `members:read`, which custom
+        read-only roles may lack. This is the endpoint
+        `@blerp/nextjs auth()` uses to populate `orgPermissions` for
+        `has({ permission })` checks.
+      operationId: getOwnMembership
+      security:
+        - SecretKey: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The caller's membership in the target organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "404":
+          description: Caller is not a member of this organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/organizations/{organization_id}/memberships/{membership_id}:
     patch:
       tags: [Organizations]
