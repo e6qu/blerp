@@ -23,15 +23,24 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
         // M2M token: has client_id + scope
         if (payload.client_id && payload.scope) {
-          // BUG-149 (codex r34): verify the token's tenant matches
-          // the request's tenant. The signing keypair is shared
-          // across tenants, so without this check a token minted in
-          // tenant A could be replayed against tenant B by setting
-          // X-Tenant-Id. New tokens carry tenant_id; older ones get
-          // verified via a DB lookup against the current tenant
-          // (which means a tenant-A token doesn't even resolve in
-          // tenant B's DB and gets rejected). Both paths reject a
-          // cross-tenant replay.
+          // BUG-149 (codex r34) / BUG-151 (codex r35): verify the
+          // token belongs to the request's tenant. The signing keypair
+          // is SHARED across tenants, so without this check a token
+          // minted in tenant A could be replayed against tenant B by
+          // setting X-Tenant-Id. There are two cohorts:
+          //
+          //   (a) Modern tokens (r34+) carry `tenant_id` in the JWT.
+          //       Match must be exact.
+          //   (b) Pre-r34 tokens may have `project_id` but no
+          //       `tenant_id`. We MUST validate against the current
+          //       tenant's DB — the token won't exist in the wrong
+          //       tenant's DB so the lookup rejects the replay.
+          //
+          // BUG-151 (codex r35): the prior version only did the DB
+          // lookup when project_id was ABSENT. A pre-r34 token with
+          // BOTH project_id AND no tenant_id slipped through. Fix:
+          // perform the DB lookup whenever tenant_id is missing,
+          // regardless of project_id presence.
           const jwtTenantId = payload.tenant_id as string | undefined;
           const reqTenantId = req.tenantId;
           if (jwtTenantId && reqTenantId && jwtTenantId !== reqTenantId) {
@@ -41,15 +50,11 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
             return;
           }
 
-          // BUG-142 (codex r31): require project_id on the JWT. New
-          // tokens always carry it. For tokens minted before this
-          // change (and any legacy callers), look it up from the DB
-          // by client_id so existing keys keep working without a
-          // forced rotation. The DB lookup also doubles as the
-          // tenant-binding check for legacy tokens — the token won't
-          // exist in the wrong tenant's DB.
           let projectId = (payload.project_id as string | undefined) ?? "";
-          if (!projectId) {
+          if (!jwtTenantId) {
+            // Tenant-binding fallback for legacy tokens: confirm the
+            // clientId exists in THIS tenant's DB. Done regardless of
+            // project_id presence (BUG-151).
             const row = await req.tenantDb!.query.m2mTokens.findFirst({
               where: eq(schema.m2mTokens.clientId, payload.client_id as string),
             });
@@ -57,6 +62,9 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
               res.status(401).json({ error: "M2M token not recognised in this tenant" });
               return;
             }
+            // Prefer the DB row's project_id (source of truth) over
+            // whatever the JWT carried — protects against a tampered
+            // token claiming a different project.
             projectId = row.projectId;
           }
           req.m2m = {

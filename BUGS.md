@@ -1670,3 +1670,25 @@ Regression test creates an M2M token in tenant A, exchanges it for a JWT, confir
 - `/v1/users/:user_id/mfa/totp` (+ verify, disable, regenerate)
 
 Self can manage their own resources; arbitrary cross-user access requires an M2M token with the appropriate scope.
+
+### BUG-151 (codex r35): Legacy M2M JWTs with `project_id` but no `tenant_id` still bypassed tenant validation (FIXED)
+
+**Status:** Fixed
+**Severity:** Critical — BUG-149's fix was incomplete. The JWT validation logic was:
+
+- If `tenant_id` present and mismatches → reject ✓
+- If `project_id` missing → DB lookup (validates tenant) ✓
+- If `project_id` present AND `tenant_id` absent → **skipped tenant validation** ✗
+
+Tokens minted between r31 and r33 carry `project_id` but no `tenant_id` (BUG-142 added project_id at r31; BUG-149 added tenant_id at r34). Those tokens flew through without any tenant check and could be replayed cross-tenant just like before BUG-149.
+**Files:** `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Inverted the DB-lookup condition. The tenant-binding lookup now runs whenever `tenant_id` is absent — regardless of whether `project_id` is present. The lookup uses `req.tenantDb` so a wrong-tenant token simply doesn't resolve and the request 401s. The DB row's `project_id` is also preferred over the JWT-supplied one (source of truth — protects against a tampered token claiming a different project).
+
+### BUG-152 (codex r35): `PATCH /v1/users/:user_id/metadata` wired in app.ts was missed by BUG-147/150 sweep — bare authMiddleware allowed cross-user metadata overwrite (FIXED)
+
+**Status:** Fixed
+**Severity:** High — the route is wired in `app.ts` not `auth.routes.ts`, so the BUG-147/150 gating sweep didn't catch it. Any signed-in user could `PATCH /v1/users/<victim>/metadata` and overwrite the victim's `public_metadata` / `private_metadata` / `unsafe_metadata`.
+**Files:** `apps/api/src/app.ts`
+
+**Fix applied:** Chained `requireSelfOrM2M("users:write", ...)` after `authMiddleware`. Self can edit their own metadata; arbitrary cross-user edits require an `users:write` M2M token.

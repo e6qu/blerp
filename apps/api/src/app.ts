@@ -20,7 +20,7 @@ import * as discoveryController from "./v1/controllers/discovery.controller";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
-import { authMiddleware } from "./middleware/auth";
+import { authMiddleware, requireSelfOrM2M } from "./middleware/auth";
 import { errorHandler } from "./middleware/error-handler";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -75,7 +75,19 @@ app.use("/v1", webhookRoutes);
 app.use("/v1", projectRoutes);
 
 // Metadata
-app.patch("/v1/users/:user_id/metadata", authMiddleware, userMetadataController.updateMetadata);
+// BUG-152 (codex r35): same self-or-admin gate as the other
+// /v1/users/:user_id routes (BUG-147 / BUG-150) — wired here in
+// app.ts not auth.routes.ts so the BUG-147/150 sweep missed it.
+// Without this, any signed-in user could overwrite any other
+// user's public/private/unsafe metadata.
+app.patch(
+  "/v1/users/:user_id/metadata",
+  authMiddleware,
+  requireSelfOrM2M("users:write", (req) =>
+    typeof req.params.user_id === "string" ? req.params.user_id : undefined,
+  ),
+  userMetadataController.updateMetadata,
+);
 app.patch(
   "/v1/organizations/:organization_id/metadata",
   authMiddleware,
