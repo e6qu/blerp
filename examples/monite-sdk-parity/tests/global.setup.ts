@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getApiUrl, getTenantId } from "@blerp/nextjs/server";
 
-const API_URL = process.env.BLERP_API_URL || "http://localhost:3000";
-const TENANT_ID = "demo-tenant";
+const API_URL = getApiUrl();
+const TENANT_ID = getTenantId();
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
 export interface E2ESession {

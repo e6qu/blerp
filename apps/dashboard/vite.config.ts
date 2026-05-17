@@ -2,6 +2,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { getApiPort, getDashboardPort } from "@blerp/shared";
 
 // https://vitejs.dev/config/
 import path from "node:path";
@@ -18,10 +19,10 @@ export default defineConfig({
     include: ["react-dom/client", "lucide-react", "@tanstack/react-query"],
   },
   server: {
-    port: parseInt(process.env.BLERP_DASHBOARD_PORT || "3001", 10),
+    port: parseInt(getDashboardPort(), 10),
     proxy: {
       "/v1": {
-        target: `http://localhost:${process.env.BLERP_API_PORT || 3000}`,
+        target: `http://localhost:${getApiPort()}`,
         changeOrigin: true,
       },
     },

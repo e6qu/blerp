@@ -603,9 +603,9 @@ Same shape as the BUG-33 follow-up that caught `CreateApiKeyModal`'s Copy button
 
 After PR #52 merged, ran a focused Clerk-API-compliance sweep + a second vibe-slop sweep against `origin/main`. Vibe slop is mostly clean (no orphans, no fake tests, no type erosion, no UI accessibility gaps, all controllers have tests). The Clerk-fidelity sweep turned up 6 wire-contract drifts and one camelCase-leak class. Plan: fix all in this same PR per CLAUDE.md zero-tolerance, then a `codex review` round before pushing for merge.
 
-### BUG-46: `CLERK_*` env-var aliases only honored inside `@blerp/backend`
+### BUG-46: `CLERK_*` env-var aliases only honored inside `@blerp/backend` (FIXED)
 
-**Status:** Open
+**Status:** Fixed
 **Severity:** High — silently breaks the "drop-in Clerk replacement" story; a customer who exports `CLERK_SECRET_KEY` will see the SDK pick it up but the dashboard, examples, testing harness, and `@blerp/nextjs` middleware all read `process.env.BLERP_*` directly and treat the env as unset
 **Files:**
 
@@ -620,7 +620,7 @@ After PR #52 merged, ran a focused Clerk-API-compliance sweep + a second vibe-sl
 
 The existing helpers in `packages/backend/src/env.ts` correctly accept either name (BLERP* wins, warns when both set, falls back to CLERK*). The helper is only used inside `@blerp/backend`. Every other consumer reads the env directly.
 
-**Fix plan:** Promote the env helper out of `packages/backend` into a shared utility (probably under `packages/shared/src/env.ts` so both server and client packages can import it). Replace every `process.env.BLERP_*` direct read in `packages/nextjs`, `packages/testing`, `apps/api`, `apps/dashboard`, and `examples/` with a call to the shared helper (`getApiUrl()`, `getSecretKey()`, `getTenantId()`, `getApiPort()`, `getDashboardPort()` etc.). Add an integration test that sets only `CLERK_SECRET_KEY` and verifies `@blerp/nextjs.auth()` and `@blerp/testing.createTestUser()` both still work.
+**Fix applied:** Promoted the env helper into `packages/shared/src/env.ts` with `getSecretKey()`, `getSecretKeyOrThrow()`, `getApiUrl(defaultValue?)`, `getWebhookSecret()`, `getWebhookSecretOrThrow()`, `getTenantId(defaultValue?)`, `getPublishableKey()`, `getPublishableKeyOrThrow()`, `getPublishableKeyOrBuildPlaceholder()`, `getApiPort()`, `getDashboardPort()`. `packages/backend/src/env.ts` now re-exports from shared; `packages/nextjs/src/server/index.ts` re-exports too so consumers can `import { getApiUrl } from "@blerp/nextjs/server"` without adding a `@blerp/shared` dep. Swept every consumer site: `packages/nextjs/src/server/{auth,middleware}.ts`, `packages/nextjs/src/client/env.ts`, `packages/testing/src/{setup,tokens,playwright}.ts`, `apps/api/src/index.ts`, `apps/api/src/v1/services/webauthn.service.ts`, `apps/dashboard/vite.config.ts`, `apps/dashboard/tests/global.setup.ts`, `examples/monite-sdk-parity/{tests/global.setup.ts,scripts/dev-setup.ts,src/lib/blerp-api/get-current-user-entity.ts}`. The only remaining direct `process.env.BLERP_*` reads are inside the helper itself (the BLERP*API_PORT / BLERP_DASHBOARD_PORT / publishable-key resolution that the helper centralises), inside `packages/testing/src/setup.ts` for `BLERP_TESTING_TOKEN`/`BLERP_TEST_USER_ID` (test-process internal caches, not config the user sets), and inside `examples/monite-sdk-parity/next.config.js` where Next.js's config-time runtime cannot import workspace deps (documented inline; the dual-lookup is replicated locally). New `apps/api/src/__tests__/env-clerk-compat.test.ts` (8/8 pass) pins the regression: setting only `CLERK_SECRET_KEY` / `CLERK_API_URL` / `CLERK_WEBHOOK_SECRET` / `CLERK_TENANT_ID` / `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` returns the right value, and `BLERP*\*` wins on conflict.
 
 ### BUG-47: Error envelope drift — blerp returns `{ error: { code, message } }`, Clerk returns `{ errors: [{ code, message, long_message, meta }] }`
 
@@ -668,14 +668,14 @@ Today we send a single `X-Blerp-Signature: <hex-hmac-sha256(secret, body)>` head
 
 **Fix plan:** Set BOTH cookies on session issuance (`__blerp_session` + `__session`). Read either on session inspection. Document in the BlerpProvider/middleware comments that `__session` is the Clerk-compat alias. Update tests to expect both cookies. Lowest priority of this batch — flag it as "nice to have" but include in the same PR.
 
-### BUG-52: Several controllers still return raw Drizzle rows (camelCase leak — BUG-3 lineage)
+### BUG-52: Several controllers still return raw Drizzle rows (camelCase leak — BUG-3 lineage) (FIXED)
 
-**Status:** Open
+**Status:** Fixed
 **Severity:** Medium — same class as BUG-3 / BUG-34; dashboard / SDK reading snake_case field on the response gets `undefined`
 **Files:**
 
-- `apps/api/src/v1/controllers/role.controller.ts` (`createRole` line 33, `updateRole` line 56) — `roleService.create` / `update` return raw `customRoles` rows with `organizationId`, `createdAt`
-- `apps/api/src/v1/controllers/identity.controller.ts:27` — wrapper has snake_case (`oauth_accounts`, `email_addresses`) but the inner arrays are raw `oauthAccounts` / `emailAddresses` rows with `userId`, `providerUserId`, `createdAt` etc.
-- `apps/api/src/v1/services/role.service.ts` `list()` — the in-memory "default roles" use snake_case (`is_default`, `created_at`); the DB-stored custom roles use raw Drizzle camelCase. Mixed shape in the same list.
+- `apps/api/src/v1/controllers/role.controller.ts` (`createRole`, `updateRole`)
+- `apps/api/src/v1/controllers/identity.controller.ts` (`listIdentities` wrapper + inner arrays)
+- `apps/api/src/__tests__/controllers-audit.integration.test.ts` (extended)
 
-**Fix plan:** Add `mapRole()` projection in `role.controller.ts` and use it for create/update/list (mapping the DB row to snake_case `id`, `organization_id`, `name`, `description`, `permissions`, `is_default: false`, `created_at`, `updated_at`). Add `mapOAuthIdentity()` / `mapEmailIdentity()` in `identity.controller.ts` and apply inside the wrapper. Extend the existing `controllers-audit.integration.test.ts` `role` + `identity` blocks to assert snake_case + no camelCase leak (`expect(body).not.toHaveProperty("organizationId")`).
+**Fix applied:** Added `mapRole()` to `role.controller.ts` and wired into `createRole` + `updateRole` (with explicit 404 / 500 envelopes for the previously-unchecked nullable Drizzle returns). Added `mapOAuthAccount()` + `mapEmailIdentity()` to `identity.controller.ts`; the `listIdentities` wrapper now maps each inner row. The integration-test `identity` block tightened to assert no `userId` / `providerUserId` / `emailAddress` / `createdAt` leakage in either sub-array; a new `role controller` block covers create + update + delete with explicit `not.toHaveProperty("organizationId")`. Seed membership role bumped from `admin` to `owner` (admin doesn't carry `org:write`, which the role routes require). 38/38 controllers-audit pass (was 35).

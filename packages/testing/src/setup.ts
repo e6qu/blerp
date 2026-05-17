@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { request } from "@playwright/test";
+import { getApiUrl, getSecretKey } from "@blerp/shared";
 import { createTestToken } from "./tokens.js";
 
 export interface BlerpSetupOptions {
@@ -18,8 +19,8 @@ let cachedTestUserId: string | null = null;
 
 export async function blerpSetup(options: BlerpSetupOptions = {}): Promise<void> {
   const {
-    baseUrl = process.env.BLERP_API_URL || DEFAULT_BASE_URL,
-    secretKey = process.env.BLERP_SECRET_KEY || "",
+    baseUrl = getApiUrl(DEFAULT_BASE_URL),
+    secretKey = getSecretKey() ?? "",
     testUserId = DEFAULT_TEST_USER_ID,
     testUserEmail = DEFAULT_TEST_USER_EMAIL,
   } = options;

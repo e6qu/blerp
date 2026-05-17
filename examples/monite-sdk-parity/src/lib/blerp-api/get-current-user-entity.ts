@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { auth, currentUser } from "@blerp/nextjs/server";
+import { auth, currentUser, getApiUrl, getTenantId } from "@blerp/nextjs/server";
 import { createBlerpClient } from "@blerp/backend";
 
 export async function getCurrentUserEntity() {
@@ -12,11 +12,10 @@ export async function getCurrentUserEntity() {
   const sessionToken = cookieStore.get("__blerp_session")?.value;
   if (!sessionToken) return null;
 
-  const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
   const blerp = createBlerpClient({
-    baseUrl: apiUrl,
+    baseUrl: getApiUrl(),
     secretKey: sessionToken,
-    tenantId: "demo-tenant",
+    tenantId: getTenantId(),
   });
 
   let org;

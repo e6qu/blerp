@@ -2,6 +2,7 @@ import { startOtel } from "./lib/otel";
 startOtel();
 
 import { app } from "./app";
+import { getApiPort } from "@blerp/shared";
 import pino from "pino";
 
 const logger = pino({
@@ -10,7 +11,7 @@ const logger = pino({
   },
 });
 
-const port = process.env.BLERP_API_PORT || process.env.PORT || 3000;
+const port = getApiPort();
 
 app.listen(port, () => {
   logger.info(`

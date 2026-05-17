@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as jose from "jose";
+import { getApiUrl } from "@blerp/shared";
 
 export type BlerpMiddlewareOptions = {
   publicRoutes?: string[] | ((req: NextRequest) => boolean);
@@ -46,7 +47,7 @@ export function blerpMiddleware(
       let tokenValid = false;
       if (token) {
         try {
-          const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
+          const apiUrl = getApiUrl();
           const jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
           await jose.jwtVerify(token, jwks, { issuer: "blerp", audience: "blerp-api" });
           tokenValid = true;
@@ -97,7 +98,7 @@ export function blerpMiddleware(
     let tokenValid = false;
     if (token) {
       try {
-        const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
+        const apiUrl = getApiUrl();
         const jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
         await jose.jwtVerify(token, jwks, { issuer: "blerp", audience: "blerp-api" });
         tokenValid = true;

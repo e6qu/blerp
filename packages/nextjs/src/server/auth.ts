@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import * as jose from "jose";
 import type { components } from "@blerp/shared";
+import { getApiUrl, getSecretKey, getTenantId } from "@blerp/shared";
 
 type User = components["schemas"]["User"];
 
@@ -14,7 +15,7 @@ let jwks: ReturnType<typeof jose.createRemoteJWKSet> | undefined;
 
 function getJWKS(): ReturnType<typeof jose.createRemoteJWKSet> {
   if (!jwks) {
-    const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
+    const apiUrl = getApiUrl();
     jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
   }
   return jwks;
@@ -51,8 +52,8 @@ export async function auth() {
     let orgPermissions = (sessionPayload.org_permissions as string[]) || [];
     if (orgId && !orgRole && userId && token) {
       try {
-        const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
-        const tenantId = process.env.BLERP_TENANT_ID ?? "demo-tenant";
+        const apiUrl = getApiUrl();
+        const tenantId = getTenantId();
         const res = await fetch(`${apiUrl}/v1/organizations/${orgId}/memberships`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -109,12 +110,12 @@ export async function currentUser(): Promise<User | null> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("__blerp_session")?.value;
 
-  const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
+  const apiUrl = getApiUrl();
 
   // Prefer session JWT for auth (already validated by auth()), fall back to secret key
-  const bearerToken = sessionToken ?? process.env.BLERP_SECRET_KEY ?? "";
+  const bearerToken = sessionToken ?? getSecretKey() ?? "";
 
-  const tenantId = process.env.BLERP_TENANT_ID ?? "demo-tenant";
+  const tenantId = getTenantId();
   const response = await fetch(`${apiUrl}/v1/users/${userId}`, {
     headers: {
       Authorization: `Bearer ${bearerToken}`,

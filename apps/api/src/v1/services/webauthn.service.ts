@@ -3,6 +3,7 @@ import {
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { getApiUrl } from "@blerp/shared";
 import * as schema from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
@@ -10,14 +11,11 @@ import { TransientStore } from "../../lib/transient-store";
 
 function getRpId(): string {
   if (process.env.WEBAUTHN_RP_ID) return process.env.WEBAUTHN_RP_ID;
-  if (process.env.BLERP_API_URL) {
-    try {
-      return new URL(process.env.BLERP_API_URL).hostname;
-    } catch {
-      // fall through
-    }
+  try {
+    return new URL(getApiUrl()).hostname;
+  } catch {
+    return "localhost";
   }
-  return "localhost";
 }
 
 function getRpName(): string {
@@ -25,8 +23,7 @@ function getRpName(): string {
 }
 
 function getOrigin(): string {
-  if (process.env.WEBAUTHN_ORIGIN) return process.env.WEBAUTHN_ORIGIN;
-  return process.env.BLERP_API_URL ?? "http://localhost:3000";
+  return process.env.WEBAUTHN_ORIGIN ?? getApiUrl();
 }
 
 const challengeStore = new TransientStore<string>(5 * 60 * 1000);

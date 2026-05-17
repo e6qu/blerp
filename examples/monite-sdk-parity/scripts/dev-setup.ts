@@ -13,12 +13,13 @@
 import { $ } from "bun";
 import { existsSync, copyFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { getApiUrl, getTenantId } from "@blerp/nextjs/server";
 
 const ROOT = path.resolve(import.meta.dir, "..");
 const API_ROOT = path.resolve(ROOT, "../../apps/api");
-const API_URL = process.env.BLERP_API_URL ?? "http://localhost:3000";
+const API_URL = getApiUrl();
 const MONITE_PORT = process.env.PORT ?? "3002";
-const TENANT_ID = "demo-tenant";
+const TENANT_ID = getTenantId();
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
 // ── Step 1: Ensure .env.local exists ──

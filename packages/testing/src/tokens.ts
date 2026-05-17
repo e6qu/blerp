@@ -1,4 +1,5 @@
 import type { components } from "@blerp/shared";
+import { getSecretKey } from "@blerp/shared";
 import * as crypto from "crypto";
 
 type User = components["schemas"]["User"];
@@ -45,7 +46,7 @@ export function createTestToken(options: TestTokenOptions = {}): string {
     orgId,
     orgRole,
     expiresIn = DEFAULT_EXPIRY_MS,
-    secretKey = process.env.BLERP_SECRET_KEY || DEFAULT_SECRET,
+    secretKey = getSecretKey() ?? DEFAULT_SECRET,
   } = options;
 
   const now = Date.now();
