@@ -65,7 +65,15 @@ router.get(
   // caller is an M2M token; project-owner sessions still pass via
   // the user-owner / membership-derived path.
   (req, res, next) => {
-    if (typeof req.query?.domain === "string") return next();
+    // BUG-202 (codex r58): require a NON-BLANK `domain` for the
+    // discovery-bypass branch. Pre-r58 `typeof "" === "string"` so
+    // `?domain=` (blank) skipped auth, then the controller treated
+    // `domain` as falsy and the service ran the unfiltered list,
+    // returning every org in the tenant (including `private_metadata`)
+    // to an unauthenticated caller. Trim to coerce whitespace-only
+    // queries to "blank" too.
+    const rawDomain = req.query?.domain;
+    if (typeof rawDomain === "string" && rawDomain.trim() !== "") return next();
     return authMiddleware(req, res, () => {
       if (typeof req.query?.project_id === "string") {
         return requireProjectAccess((r) => r.query.project_id as string, "org:read")(

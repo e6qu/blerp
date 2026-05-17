@@ -2139,3 +2139,19 @@ Project-owner sessions pass through the user-owner branch unchanged. Dev-shim is
 **Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
 
 **Fix applied:** Added `latestConfigRef` mirroring `config`, updated via a `useEffect([config])` for normal updates and SYNCHRONOUSLY in the runtime-config success path (alongside the BUG-190 `latestAuthRef` write) before `markReady()` releases the gate. `openSignIn`, `openSignUp`, `resolveSignInRedirect`, and `resolveSignUpRedirect` now read from `latestConfigRef.current` instead of the closure's `config`. Empty dependency arrays on the callbacks — they read from the ref each invocation and don't need to be re-created on config changes.
+
+### BUG-202 (codex r58): `GET /v1/organizations?domain=` (blank) bypassed auth AND returned all orgs incl. `private_metadata` (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — unauthenticated tenant-wide enumeration with private-metadata leak. The discovery bypass on the LIST route checked `typeof req.query?.domain === "string"`. A blank query (`?domain=`) is a string, so the bypass fired — but the controller then treated `domain` as falsy (`if (filters?.domain)` short-circuits on empty string), so the service ran the unfiltered list and returned every org in the tenant including `private_metadata`. Any anonymous caller could enumerate the entire tenant by simply appending `?domain=`.
+**Files:** `apps/api/src/v1/routes/organization.routes.ts`
+
+**Fix applied:** Tightened the predicate to require a non-blank trimmed string: `typeof rawDomain === "string" && rawDomain.trim() !== ""`. Blank / whitespace-only domains now fall to the authenticated branch (which requires session/M2M + scope), so the discovery bypass only fires for genuine domain lookups (the OAuth pre-session "which org owns this domain" flow).
+
+### BUG-203 (codex r58): `<RedirectToSignIn>` / `<RedirectToSignUp>` / failed-status `<AuthenticateWithRedirectCallback>` paths used build-time sign-in URLs (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same regression class as BUG-185, missed surface. Module-level `SIGN_IN_URL_DEFAULT = getSignInUrl()` / `SIGN_UP_URL_DEFAULT = getSignUpUrl()` in `Control.tsx` were resolved ONCE at import time from the build-time env. Single-image multi-env Docker deploys that override `CLERK_SIGN_IN_URL` / `CLERK_SIGN_UP_URL` via `/v1/public-config` had the override honored by `openSignIn` / embedded `<SignIn>` (BUG-185) but ignored by the declarative `<RedirectToSignIn>` redirect components AND by `<AuthenticateWithRedirectCallback>`'s `failed` / `expired` / `__clerk_created_session` fallback paths.
+**Files:** `packages/nextjs/src/client/components/Control.tsx`
+
+**Fix applied:** Deleted the module-level defaults entirely. `RedirectToSignIn` / `RedirectToSignUp` now delegate to the provider's `openSignIn` / `openSignUp` when no explicit `signInUrl` / `signUpUrl` prop is supplied. Those callbacks await the runtime-config gate and read from `latestConfigRef` (BUG-201). Explicit prop URLs are still honored verbatim (build-time semantics preserved for callers being explicit). `AuthenticateWithRedirectCallback`'s `failed`/`expired` and `__clerk_created_session` paths got the same delegation treatment. `getSignInUrl` / `getSignUpUrl` import removed (no longer used).
