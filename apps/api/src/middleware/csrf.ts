@@ -4,7 +4,10 @@ import { Request } from "express";
 export const { invalidCsrfTokenError, generateCsrfToken, validateRequest, doubleCsrfProtection } =
   doubleCsrf({
     getSecret: () => "super-secret-csrf-key", // In real app, use env
-    getSessionIdentifier: (req: Request) => req.cookies?.__blerp_session || req.ip || "anonymous",
+    getSessionIdentifier: (req: Request) =>
+      // BUG-51: read either cookie name so a Clerk-compat caller setting
+      // only `__session` still has a stable CSRF session identifier.
+      req.cookies?.__blerp_session || req.cookies?.__session || req.ip || "anonymous",
     cookieName: "__blerp_csrf",
     cookieOptions: {
       httpOnly: true,

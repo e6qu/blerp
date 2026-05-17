@@ -15,7 +15,10 @@ export function useSignOut() {
         });
       }
 
-      document.cookie = "__blerp_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      // BUG-51: clear both cookie names — Clerk-compat consumers may read `__session`.
+      const expired = "; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = `__blerp_session=${expired}`;
+      document.cookie = `__session=${expired}`;
 
       return true;
     },

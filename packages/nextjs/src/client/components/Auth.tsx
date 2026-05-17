@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Cookies from "js-cookie";
+import { setSessionCookies } from "../session-cookies";
 import { useBlerpClient } from "../BlerpProvider";
 
 type SignInStep = "email" | "password";
@@ -66,10 +66,7 @@ export function SignIn({ afterSignInUrl = "/", signUpUrl = "/sign-up" }: SignInP
           tokens?: { access_token: string };
         };
         if (response.tokens?.access_token) {
-          Cookies.set("__blerp_session", response.tokens.access_token, {
-            expires: 7,
-            sameSite: "lax",
-          });
+          setSessionCookies(response.tokens.access_token);
         }
         if (response.session) {
           window.location.assign(afterSignInUrl);

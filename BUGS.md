@@ -660,13 +660,13 @@ Today we send a single `X-Blerp-Signature: <hex-hmac-sha256(secret, body)>` head
 
 **Fix plan:** Emit BOTH header conventions on every delivery (keep `X-Blerp-Signature` for back-compat with native consumers; add `svix-id` + `svix-timestamp` + `svix-signature` for drop-in Clerk-compat). The signed payload format matches Svix's: `${svix-id}.${svix-timestamp}.${body}`. Bonus: stop generating the secret in our own format and use Svix's `whsec_` prefix (already do — confirmed `whsec_${nanoid(32)}`). Add a unit test that round-trips a signed payload through the Svix verification algorithm (we can copy the ~30-line verifier into a test file without taking on the `svix` npm dep, since the algorithm is small and stable).
 
-### BUG-51: Session cookie name (`__blerp_session`) differs from Clerk's (`__session`)
+### BUG-51: Session cookie name (`__blerp_session`) differs from Clerk's (`__session`) (FIXED)
 
-**Status:** Open
+**Status:** Fixed
 **Severity:** Low — only an issue for customers who read the session cookie directly (bypassing our SDK). Our `@blerp/nextjs` knows the right name.
 **Files:** `apps/api/src/lib/session.ts:75`, `packages/nextjs/src/server/{auth,middleware}.ts`, `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/testing/src/{setup,playwright}.ts`, `apps/dashboard/src/hooks/useSignOut.ts`
 
-**Fix plan:** Set BOTH cookies on session issuance (`__blerp_session` + `__session`). Read either on session inspection. Document in the BlerpProvider/middleware comments that `__session` is the Clerk-compat alias. Update tests to expect both cookies. Lowest priority of this batch — flag it as "nice to have" but include in the same PR.
+**Fix applied:** Added `packages/nextjs/src/client/session-cookies.ts` with `setSessionCookies()` / `clearSessionCookies()` / `readSessionCookie()` — every set writes both names, every clear deletes both, reads check `__blerp_session` first then `__session`. Wired into `BlerpProvider.signOut`, `hooks.ts` (useSignIn `create` + `attemptSecondFactor`, useSignUp `attemptVerification`), `components/Auth.tsx`. Server-side `packages/nextjs/src/server/{auth,middleware}.ts` reads either cookie. `apps/api/src/middleware/csrf.ts` honors either for the CSRF session identifier. `apps/dashboard/src/hooks/useSignOut.ts` clears both cookie names on sign-out. The dashboard itself stores the session in `localStorage` + `Authorization: Bearer`, so it doesn't write the cookie — but its cleanup path still clears both for safety.
 
 ### BUG-52: Several controllers still return raw Drizzle rows (camelCase leak — BUG-3 lineage) (FIXED)
 

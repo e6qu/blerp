@@ -41,7 +41,8 @@ export function blerpMiddleware(
   if (typeof optionsOrCallback === "function") {
     const callback = optionsOrCallback;
     return async (req: NextRequest) => {
-      const token = req.cookies.get("__blerp_session")?.value;
+      const token =
+        req.cookies.get("__blerp_session")?.value ?? req.cookies.get("__session")?.value;
 
       // Verify the token is actually valid (not just present)
       let tokenValid = false;
@@ -74,6 +75,7 @@ export function blerpMiddleware(
           // Clear invalid session cookie so user doesn't get stuck in a loop
           if (!tokenValid && token) {
             response.cookies.delete("__blerp_session");
+            response.cookies.delete("__session");
           }
           return response;
         }
@@ -92,7 +94,7 @@ export function blerpMiddleware(
         ? publicRoutes(req)
         : publicRoutes?.includes(req.nextUrl.pathname);
 
-    const token = req.cookies.get("__blerp_session")?.value;
+    const token = req.cookies.get("__blerp_session")?.value ?? req.cookies.get("__session")?.value;
 
     // Verify token is valid, not just present
     let tokenValid = false;
@@ -116,7 +118,10 @@ export function blerpMiddleware(
       const signInUrl = new URL("/sign-in", req.url);
       signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
       const response = NextResponse.redirect(signInUrl);
-      if (token) response.cookies.delete("__blerp_session");
+      if (token) {
+        response.cookies.delete("__blerp_session");
+        response.cookies.delete("__session");
+      }
       return response;
     }
 

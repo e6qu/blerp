@@ -23,7 +23,8 @@ function getJWKS(): ReturnType<typeof jose.createRemoteJWKSet> {
 
 export async function auth() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("__blerp_session")?.value;
+  // BUG-51: accept either cookie name. `__session` is the Clerk-compat alias.
+  const token = cookieStore.get("__blerp_session")?.value ?? cookieStore.get("__session")?.value;
 
   if (!token) {
     return {
@@ -108,7 +109,8 @@ export async function currentUser(): Promise<User | null> {
   if (!userId) return null;
 
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("__blerp_session")?.value;
+  const sessionToken =
+    cookieStore.get("__blerp_session")?.value ?? cookieStore.get("__session")?.value;
 
   const apiUrl = getApiUrl();
 

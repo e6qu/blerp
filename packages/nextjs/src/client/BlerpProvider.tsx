@@ -6,6 +6,7 @@ import type { paths } from "@blerp/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { getPublishableKeyOrBuildPlaceholder } from "./env.js";
+import { clearSessionCookies, readSessionCookie } from "./session-cookies";
 
 const queryClient = new QueryClient();
 
@@ -15,7 +16,7 @@ async function fetchCsrfToken(tenantId?: string): Promise<string | undefined> {
   try {
     const headers: Record<string, string> = {};
     if (tenantId) headers["X-Tenant-Id"] = tenantId;
-    const sessionToken = Cookies.get("__blerp_session");
+    const sessionToken = readSessionCookie();
     if (sessionToken) headers["Authorization"] = `Bearer ${sessionToken}`;
     const res = await fetch("/v1/csrf-token", { credentials: "include", headers });
     if (!res.ok) return undefined;
@@ -91,7 +92,7 @@ export function BlerpProvider({
   const [isLoaded, setIsLoaded] = useState(false);
 
   const apiClient = useMemo(() => {
-    const sessionToken = Cookies.get("__blerp_session");
+    const sessionToken = readSessionCookie();
     const authHeader = sessionToken ? `Bearer ${sessionToken}` : `Bearer ${key}`;
     const c = createClient<paths>({
       baseUrl: "/",
@@ -110,7 +111,7 @@ export function BlerpProvider({
 
     async function hydrate() {
       try {
-        const sessionToken = Cookies.get("__blerp_session");
+        const sessionToken = readSessionCookie();
         const authHeader = sessionToken ? `Bearer ${sessionToken}` : `Bearer ${key}`;
 
         const response = await fetch("/v1/userinfo", {
@@ -210,7 +211,7 @@ export function BlerpProvider({
     } catch (error) {
       console.error("Sign out failed:", error);
     }
-    Cookies.remove("__blerp_session");
+    clearSessionCookies();
     Cookies.remove("__blerp_org");
     setActiveOrgId(null);
     setUserId(null);

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBlerpClient } from "./BlerpProvider";
 import { useAuth } from "./BlerpProvider";
 import type { components, paths } from "@blerp/shared";
-import Cookies from "js-cookie";
+import { setSessionCookies } from "./session-cookies";
 
 type Organization = components["schemas"]["Organization"];
 type Membership = components["schemas"]["Membership"];
@@ -374,10 +374,7 @@ export function useSignIn() {
       }
 
       if (response.tokens?.access_token) {
-        Cookies.set("__blerp_session", response.tokens.access_token, {
-          expires: 7,
-          sameSite: "lax",
-        });
+        setSessionCookies(response.tokens.access_token);
       }
 
       const result = { status: "complete" as const, session_id: response.session.id };
@@ -404,10 +401,7 @@ export function useSignIn() {
       const response = data as { session: { id: string }; tokens: { access_token: string } };
 
       if (response.tokens?.access_token) {
-        Cookies.set("__blerp_session", response.tokens.access_token, {
-          expires: 7,
-          sameSite: "lax",
-        });
+        setSessionCookies(response.tokens.access_token);
       }
 
       const result = { status: "complete" as const, session_id: response.session.id };
@@ -498,10 +492,7 @@ export function useSignUp() {
       const result = data as { status: string; tokens?: { access_token: string } };
 
       if (result.tokens?.access_token) {
-        Cookies.set("__blerp_session", result.tokens.access_token, {
-          expires: 7,
-          sameSite: "lax",
-        });
+        setSessionCookies(result.tokens.access_token);
       }
 
       setStatus((prev: SignUpStatus) => ({ ...prev, status: "complete" }));
