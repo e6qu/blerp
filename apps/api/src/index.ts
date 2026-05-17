@@ -2,7 +2,6 @@ import { startOtel } from "./lib/otel";
 startOtel();
 
 import { app } from "./app";
-import { getApiPort } from "@blerp/shared";
 import pino from "pino";
 
 const logger = pino({
@@ -11,11 +10,15 @@ const logger = pino({
   },
 });
 
-// BUG-59 (codex r4): getApiPort() returns a string. Node/Express
-// `app.listen(<string>, ...)` selects the Unix-socket-path overload and
-// binds to a socket file rather than a TCP port. Coerce to number so the
-// default "3000" actually binds TCP :3000.
-const port = parseInt(getApiPort(), 10);
+// BUG-64 (codex r6): inline the env reads instead of importing from
+// `@blerp/shared`. Direct dev startup (`bun run dev` inside apps/api,
+// not through turbo) doesn't build workspace deps, so a runtime import
+// of `@blerp/shared` whose `dist` isn't built fails at module resolve.
+// The dual-name reads stay BLERP_API_PORT > CLERK_API_PORT > PORT > 3000;
+// BUG-59 lesson preserved by parseInt before listen().
+const portRaw =
+  process.env.BLERP_API_PORT ?? process.env.CLERK_API_PORT ?? process.env.PORT ?? "3000";
+const port = parseInt(portRaw, 10);
 
 app.listen(port, () => {
   logger.info(`

@@ -2,7 +2,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { getApiPort, getDashboardPort } from "@blerp/shared";
 
 // https://vitejs.dev/config/
 import path from "node:path";
@@ -12,6 +11,13 @@ import { playwright } from "@vitest/browser-playwright";
 const dirname =
   typeof __dirname !== "undefined" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
+// BUG-64 (codex r6): inline env reads — Vite config runs at dev startup
+// (`bun run dev` inside apps/dashboard, not via turbo), so a runtime
+// import of `@blerp/shared` whose dist isn't built fails to resolve.
+// The dual-name reads stay BLERP_* > CLERK_* > default.
+const apiPort = process.env.BLERP_API_PORT ?? process.env.CLERK_API_PORT ?? "3000";
+const dashboardPort = process.env.BLERP_DASHBOARD_PORT ?? "3001";
+
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
   plugins: [tailwindcss(), react()],
@@ -19,10 +25,10 @@ export default defineConfig({
     include: ["react-dom/client", "lucide-react", "@tanstack/react-query"],
   },
   server: {
-    port: parseInt(getDashboardPort(), 10),
+    port: parseInt(dashboardPort, 10),
     proxy: {
       "/v1": {
-        target: `http://localhost:${getApiPort()}`,
+        target: `http://localhost:${apiPort}`,
         changeOrigin: true,
       },
     },

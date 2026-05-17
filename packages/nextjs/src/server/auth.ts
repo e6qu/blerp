@@ -89,12 +89,18 @@ export async function auth() {
           );
           if (membership) {
             orgRole = membership.role ?? null;
-            // Map role to permissions
-            if (orgRole === "owner" || orgRole === "admin") {
-              orgPermissions = ["org:read", "org:write", "org:manage_members"];
-            } else {
-              orgPermissions = ["org:read"];
-            }
+            // BUG-63 (codex r6): consume API-returned `permissions`
+            // verbatim. The membership controller (BUG-63 fix) now
+            // resolves the canonical permission set server-side
+            // (defaults + custom roles). Previously this branch
+            // derived permissions from `role` via a hard-coded map
+            // that disagreed with `apps/api/src/lib/rbac.ts` — `admin`
+            // here had `org:write` but the API's `admin` does NOT, so
+            // single-org admins passed `auth().has("org:write")`
+            // checks the API would reject. Real server-side overgrant.
+            orgPermissions = Array.isArray(membership.permissions)
+              ? (membership.permissions as string[])
+              : [];
           }
         }
       } catch {

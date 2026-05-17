@@ -85,6 +85,17 @@ describe("Membership & Invitation Integration", () => {
     expect(res.status).toBe(201);
     const memId = res.body.id;
 
+    // BUG-63 (codex r6): the response MUST include the resolved
+    // `permissions` array so the SDK doesn't derive permissions from
+    // `role` via a hard-coded map that disagrees with apps/api/src/lib/
+    // rbac.ts (`admin` does NOT have `org:write`). `auth().has(...)`
+    // consumes this field verbatim.
+    expect(Array.isArray(res.body.permissions)).toBe(true);
+    expect(res.body.permissions).toContain("org:read");
+    expect(res.body.permissions).toContain("members:write");
+    // Admin does NOT have org:write — the historical bug.
+    expect(res.body.permissions).not.toContain("org:write");
+
     // 2. List Memberships
     const list = await request(app)
       .get(`/v1/organizations/${orgId}/memberships`)
@@ -92,8 +103,12 @@ describe("Membership & Invitation Integration", () => {
       .set("X-User-Id", userId);
 
     expect(list.body.data).toHaveLength(2); // Initial owner + newly created admin
+    for (const m of list.body.data) {
+      expect(Array.isArray(m.permissions)).toBe(true);
+    }
 
-    // 3. Update Membership
+    // 3. Update Membership — bumping admin to owner should now
+    // include `org:write` in the response permissions.
     const update = await request(app)
       .patch(`/v1/organizations/${orgId}/memberships/${memId}`)
       .set("X-Tenant-Id", tenantId)
@@ -102,6 +117,7 @@ describe("Membership & Invitation Integration", () => {
 
     expect(update.status).toBe(200);
     expect(update.body.role).toBe("owner");
+    expect(update.body.permissions).toContain("org:write");
 
     // 4. Delete Membership
     const del = await request(app)

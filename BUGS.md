@@ -640,6 +640,24 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-63 (codex round 6): `@blerp/nextjs auth().has()` overgrants admins because the SDK derives permissions from `role` via a wrong map (FIXED)
+
+**Status:** Fixed
+**Severity:** **P1 — server-side authorization overgrant** — a single-org admin user passed `auth().has({ permission: "org:write" })` checks in Next.js server code even though the API would forbid the operation, because the SDK's hard-coded role→permission map disagreed with `apps/api/src/lib/rbac.ts`. `admin` had `org:write` in the SDK; `admin` does NOT have `org:write` in the API. The discrepancy was pre-existing but became more salient after BUG-49 made `auth()` always route through this fallback.
+**Files:** `apps/api/src/v1/controllers/membership.controller.ts`, `packages/nextjs/src/server/auth.ts`, `apps/api/src/__tests__/membership.integration.test.ts`
+
+**Fix applied:** The membership controller now resolves and returns the canonical `permissions` array via `resolvePermissions()` from `apps/api/src/lib/rbac.ts` (the single source of truth, honouring custom roles too). `mapMembership` takes the permissions and emits them as a top-level field; the OpenAPI `Membership` schema already declared `permissions: string[]` so no spec change was needed. `@blerp/nextjs auth()` now consumes `membership.permissions` verbatim — the hard-coded role→permission map is gone. Integration test asserts the new behaviour: `admin` permissions include `members:write` and `org:read` but NOT `org:write`; `owner` upgrade adds `org:write`.
+
+### BUG-64 (codex round 6): Direct `bun run dev` still couldn't resolve `@blerp/shared` without a build (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — Playwright's webServer kicks `cd ../api && bun run dev`, which bypasses turbo and starts the API on a fresh checkout before `@blerp/shared`'s `dist` exists; same for `apps/dashboard`'s vite dev server. Both would fail at module resolve.
+**Files:** `apps/api/src/index.ts`, `apps/dashboard/vite.config.ts`
+
+The BUG-56 fix made `turbo run test` depend on `^build`, which covers turbo-driven runs. But Playwright's `webServer` blocks shell out directly to `bun run dev` inside the workspace package, bypassing the turbo task graph entirely. With BUG-46's runtime imports of `@blerp/shared`, a clean checkout would fail.
+
+**Fix applied:** Inlined the env reads in both entry-point files. `apps/api/src/index.ts` reads `BLERP_API_PORT ?? CLERK_API_PORT ?? PORT ?? "3000"` directly; `apps/dashboard/vite.config.ts` reads `BLERP_API_PORT ?? CLERK_API_PORT ?? "3000"` and `BLERP_DASHBOARD_PORT ?? "3001"`. The dual-name semantics are preserved. The trade-off is two tiny duplications of the helper logic in process entry-points; the central helper still serves everything else. Comments call out the dist-resolution trap so future "DRY this up" temptations don't reintroduce it.
+
 ### BUG-61 (codex round 5): JWT-claim shortcut grants stale org permissions for up to 7 days after a role change (FIXED)
 
 **Status:** Fixed
