@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "setup": "bun run scripts/dev-setup.ts",
     "test:e2e": "playwright test",
     "test:screenshots": "playwright test --grep @screenshot"
@@ -23,6 +23,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@blerp/config": "workspace:*",
     "@playwright/test": "^1.58.2",
     "@types/node": "^20",
     "@types/react": "^19.0.0",

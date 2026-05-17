@@ -4,8 +4,14 @@
   "private": true,
   "exports": {
     "./base.json": "./base.json",
-    "./eslint-base": "./eslint-base.js",
-    "./eslint-react": "./eslint-react.js",
+    "./eslint-base": {
+      "types": "./eslint-base.d.ts",
+      "default": "./eslint-base.js"
+    },
+    "./eslint-react": {
+      "types": "./eslint-react.d.ts",
+      "default": "./eslint-react.js"
+    },
     "./prettier-base": "./prettier-base.js"
   },
   "devDependencies": {
