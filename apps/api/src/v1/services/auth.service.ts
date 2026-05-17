@@ -441,27 +441,34 @@ export class AuthService {
     }
     // BUG-137: reset the per-user counter on success.
     // BUG-141 (codex r30) / BUG-148 (codex r33): atomic check-and-
-    // reset on success. The second-factor branch is unchanged here
-    // (TOTP path doesn't INSERT a session yet). The first-factor-only
-    // success path passes the unlocked-at-reset-time signal forward
-    // to `createSessionForUser`, which uses a conditional INSERT
+    // reset on success. The first-factor-only success path passes
+    // the unlocked-at-reset-time signal forward to
+    // `createSessionForUser`, which uses a conditional INSERT
     // (`INSERT … SELECT … FROM users WHERE locked = false`) so even
     // if a parallel wrong attempt locks the user between reset and
     // INSERT, the session row never lands and we throw.
-    const resetRows = await this.db
-      .update(schema.users)
-      .set({ failedSignInAttempts: 0, updatedAt: new Date() })
-      .where(and(eq(schema.users.id, user.id), eq(schema.users.locked, false)))
-      .returning({ id: schema.users.id });
-    if (resetRows.length === 0) {
-      throw new Error(
-        "Account is locked after too many failed sign-in attempts. Contact an administrator.",
-      );
-    }
-
-    // First-factor done — pending entry already consumed via pop().
-    // If TOTP is enabled, install an elevated second-factor entry.
+    //
+    // BUG-204 (codex r59): for MFA users, DO NOT reset the counter
+    // here — only verify the user is still unlocked. Pre-r59 the
+    // password-success reset gave an attacker who knew the password
+    // an infinite retry budget: 4 wrong TOTP → restart signin →
+    // password succeeds → counter reset to 0 → 4 wrong TOTP →
+    // forever. The reset for MFA users now happens in
+    // `attemptSecondFactor` (BUG-191), after the second factor
+    // actually verifies.
     if (user.totpEnabled) {
+      const stillUnlocked = await this.db
+        .update(schema.users)
+        .set({ updatedAt: new Date() })
+        .where(and(eq(schema.users.id, user.id), eq(schema.users.locked, false)))
+        .returning({ id: schema.users.id });
+      if (stillUnlocked.length === 0) {
+        throw new Error(
+          "Account is locked after too many failed sign-in attempts. Contact an administrator.",
+        );
+      }
+      // First-factor done — pending entry already consumed via pop().
+      // Install an elevated second-factor entry.
       pendingSignins.set(signinId, {
         stage: "second_factor",
         userId: user.id,
@@ -474,6 +481,20 @@ export class AuthService {
         status: "needs_second_factor" as const,
         signin_id: signinId,
       };
+    }
+
+    // First-factor-only (no MFA): reset is safe because the session
+    // creation immediately follows; there's no MFA brute-force window
+    // an attacker can exploit by burning the reset.
+    const resetRows = await this.db
+      .update(schema.users)
+      .set({ failedSignInAttempts: 0, updatedAt: new Date() })
+      .where(and(eq(schema.users.id, user.id), eq(schema.users.locked, false)))
+      .returning({ id: schema.users.id });
+    if (resetRows.length === 0) {
+      throw new Error(
+        "Account is locked after too many failed sign-in attempts. Contact an administrator.",
+      );
     }
 
     return this.createSessionForUser(user.id, metadata);

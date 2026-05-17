@@ -60,10 +60,21 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       }
       // Touch lastUsedAt asynchronously — best-effort, fire-and-
       // forget. Failures here must not block the request.
+      //
+      // BUG-206 (codex r59): drizzle update().set().where() is a
+      // builder, not a query — `void` discards the builder without
+      // ever executing the SQL. Call `.execute()` (or await — but
+      // we don't want to block) to actually run the update.
+      // Swallow rejections so a transient DB error doesn't crash
+      // the request lifecycle.
       void req
         .tenantDb!.update(schema.apiKeys)
         .set({ lastUsedAt: new Date() })
-        .where(eq(schema.apiKeys.id, apiKey.id));
+        .where(eq(schema.apiKeys.id, apiKey.id))
+        .execute()
+        .catch((err: unknown) => {
+          logger.warn({ err, apiKeyId: apiKey.id }, "Failed to touch api_keys.last_used_at");
+        });
       // Secret key = tenant-root M2M. Grants the full project-bound
       // scope set + tenant-wide scopes for users/SCIM. This matches
       // Clerk's sk_ contract: the secret key is admin-equivalent.

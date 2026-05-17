@@ -2155,3 +2155,27 @@ Project-owner sessions pass through the user-owner branch unchanged. Dev-shim is
 **Files:** `packages/nextjs/src/client/components/Control.tsx`
 
 **Fix applied:** Deleted the module-level defaults entirely. `RedirectToSignIn` / `RedirectToSignUp` now delegate to the provider's `openSignIn` / `openSignUp` when no explicit `signInUrl` / `signUpUrl` prop is supplied. Those callbacks await the runtime-config gate and read from `latestConfigRef` (BUG-201). Explicit prop URLs are still honored verbatim (build-time semantics preserved for callers being explicit). `AuthenticateWithRedirectCallback`'s `failed`/`expired` and `__clerk_created_session` paths got the same delegation treatment. `getSignInUrl` / `getSignUpUrl` import removed (no longer used).
+
+### BUG-204 (codex r59): First-factor success reset `failedSignInAttempts` BEFORE MFA verification — infinite TOTP brute-force budget (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — full MFA brute-force bypass. `attemptSignin` reset the persistent counter to 0 the moment the password verified, then routed MFA users to the second-factor flow. An attacker who knew the password could: submit 4 wrong TOTP codes (counter now 4 from BUG-189), start a fresh sign-in (`POST /v1/auth/signins`), submit the correct password (counter atomically reset to 0!), then 4 wrong TOTP again, repeat. The persistent BUG-137 / BUG-189 lockout (`failedSignInAttempts >= 5 → users.locked = true`) NEVER fired for MFA brute-force because the password-success reset always preceded the second wrong attempt.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Split the success path on `user.totpEnabled`. For MFA users, the first-factor success path only verifies `users.locked = false` (atomic, same `WHERE` clause as before) — it does NOT reset the counter. The reset is deferred to `attemptSecondFactor`'s success path (BUG-191), which already does the same atomic reset after a verified second factor. For non-MFA users the existing behavior is unchanged: reset on first-factor success, immediately followed by session creation (no MFA brute-force window to exploit).
+
+### BUG-205 (codex r59): Audit list filtered NULL `project_id` rows from secret-key admins — production audit API hid system/tenant events (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — companion to BUG-195. The BUG-161 project filter looked at `req.m2m.projectId` (set to the api*key's bound project for raw `sk*`callers per BUG-195) and applied`eq(auditLogs.projectId, X)`. System/tenant events like `user.created`, `session.created`have`project*id = NULL`(no project context) — so the filter hid them from EVERY production caller. The dev shim's`projectId: "dev-shim"`was special-cased to bypass, but a real production tenant admin reading audit logs via`sk*`saw a partial stream.
+**Files:**`apps/api/src/v1/controllers/audit.controller.ts`
+
+**Fix applied:** Added an `isTenantRootM2M()` predicate that returns true for the dev-shim (existing), the `api_key:<id>` clientId BUG-195 attaches for raw secret keys, OR any M2M holding a `*:admin` scope (mintable only via chain-of-trust per BUG-186 — so it's still tenant-root by construction). Tenant-root callers see the unfiltered stream, including NULL-project system events. Project-scoped non-admin M2M tokens keep the existing filter behavior.
+
+### BUG-206 (codex r59): Drizzle update builder for secret-key `lastUsedAt` was discarded — SQL never ran (FIXED)
+
+**Status:** Fixed
+**Severity:** P3 — metadata staleness. BUG-195's fire-and-forget `lastUsedAt` update used `void db.update().set().where()`. Drizzle's update builders are lazy/thenable — they're a query plan, not a Promise that runs on construction. `void` discards the builder without invoking `.execute()`, so the UPDATE never reached SQLite. `api_keys.last_used_at` for every newly-recognised secret-key request stayed NULL despite successful requests.
+**Files:** `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Appended `.execute().catch(...)` to actually run the SQL and swallow rejections (transient DB errors must not break the request lifecycle). Logged failures via the request-scoped `logger` so operators still see persistent issues.
