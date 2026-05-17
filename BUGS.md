@@ -2216,3 +2216,25 @@ Anything else (different host, `javascript:`, `data:`, malformed) returns false,
 **Files:** `apps/api/src/v1/routes/invitation.routes.ts`
 
 **Fix applied:** Added an invitation-lookup middleware BEFORE `authMiddleware` on the flat revoke route. When `req.params.organization_id` isn't already set by body/query, the middleware loads the invitation by id and threads its `organizationId` into `req.params`. `authMiddleware` then loads `req.membership` against the right org; `requirePermission` resolves the session-RBAC check correctly. Missing invitations fall through (controller surfaces 404). The BUG-199 project-binding check still fires in the controller for M2M callers.
+
+### BUG-211 (codex r62): Tenant admin could list users but couldn't read/edit individual users (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — half-finished BUG-209. The dashboard's User Management list worked after BUG-209, but clicking a user to view/edit hit `GET /v1/users/{user_id}` (and PATCH) which were gated by `requireSelfOrM2M`. A tenant admin viewing another user's row is neither self nor M2M, so 403. Net: list page loaded, every detail page broken.
+**Files:** `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Extended `requireSelfOrM2M` to also admit session tenant admins (same "owns a project in this tenant" definition as BUG-209's `requireScopeOrTenantAdmin`). The check is now: M2M with scope OR session-user-is-target OR session-tenant-admin. Same trade-off as BUG-209 — tenant admins are the dashboard's admin pattern; they already have project-owner authority and can mint tenant-root M2M tokens via chain-of-trust.
+
+### BUG-212 (codex r62): `<CreateOrganization>` hardcoded `project_id: "default"` — 403'd on every install whose seeded project wasn't literally named `default` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — shipped-component regression. The `@blerp/nextjs` `<CreateOrganization>` component posted `project_id: "default"`. The BUG-194 project-access gate then 403'd because no project literally named `default` existed in the tenant (seeded installs use `demo-project`, real deploys use whatever the customer named theirs). The component was effectively unusable.
+**Files:** `packages/nextjs/src/client/components/CreateOrganization.tsx`, `packages/nextjs/src/client/hooks.ts`, `apps/api/src/v1/routes/organization.routes.ts`, `openapi/blerp.v1.yaml`, `packages/shared/src/schema.ts` (regenerated)
+
+**Fix applied:** Three coordinated changes.
+
+1. **Client component**: dropped the `"default"` literal. Accepts an optional `projectId` prop. When omitted, sends no `project_id` in the request body. `useCreateOrganization` hook's mutationFn signature relaxed to `project_id?: string`.
+2. **OpenAPI**: `project_id` removed from the request body's `required` list; documented as optional with the derivation contract.
+3. **API route**: New middleware that runs after `authMiddleware` and before `requireProjectAccess` — when `project_id` is missing, derives it from the auth context: real M2M token's `projectId`, or session user's first owned project. If neither yields a project, `requireProjectAccess` still 400s with "project_id is required" so behavior degrades safely. Explicit `project_id` in the body still wins (caller chooses the destination project).
+
+Schema types regenerated; typecheck + lint + openapi:lint all green.

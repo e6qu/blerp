@@ -32,7 +32,11 @@ export function useCreateOrganization() {
   const client = useBlerpClient();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { name: string; slug?: string; project_id: string }) => {
+    // BUG-212 (codex r62): `project_id` is now optional. The API
+    // derives it from the auth context when omitted (session user's
+    // first owned project; M2M token's bound project — see
+    // organization.controller.ts createOrganization).
+    mutationFn: async (body: { name: string; slug?: string; project_id?: string }) => {
       const { data, error } = await client.POST("/v1/organizations", { body });
       if (error) throw error;
       return data as Organization;

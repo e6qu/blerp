@@ -1610,7 +1610,13 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          project_id: string;
+          /**
+           * @description Project the new organization belongs to. Optional
+           * — when omitted the API derives the project from
+           * the caller's auth context (session user's first
+           * owned project; M2M token's bound project).
+           */
+          project_id?: string;
           name: string;
           slug?: string;
         };

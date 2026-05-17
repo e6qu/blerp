@@ -480,8 +480,8 @@ export function requireScopeOrTenantAdmin(
 export function requireSelfOrM2M(
   requiredScope: string,
   userIdFrom: (req: Request) => string | undefined,
-): (req: Request, res: Response, next: NextFunction) => void {
-  return (req, res, next) => {
+): (req: Request, res: Response, next: NextFunction) => Promise<void> {
+  return async (req, res, next) => {
     const targetUserId = userIdFrom(req);
     if (!targetUserId) {
       res.status(400).json({ error: { message: "user_id is required" } });
@@ -503,10 +503,27 @@ export function requireSelfOrM2M(
       next();
       return;
     }
+    // BUG-211 (codex r62): also admit session tenant admins (project
+    // owners) — the dashboard's user-management edit flow (`useUser`,
+    // `useUpdateUser`) needs to GET / PATCH OTHER users' rows, not
+    // just self. BUG-209 admitted them on `/v1/users` but the
+    // per-user routes were still locked to self-or-M2M. Same "tenant
+    // admin" definition as `requireScopeOrTenantAdmin`: owns a
+    // project in this tenant.
+    if (req.user && req.tenantDb) {
+      const ownedProject = await req.tenantDb.query.projects.findFirst({
+        where: eq(schema.projects.ownerUserId, req.user.id),
+      });
+      if (ownedProject) {
+        next();
+        return;
+      }
+    }
     res.status(403).json({
       error: {
         message:
-          "Only the user themselves or an M2M token with the required scope can access this resource.",
+          "Only the user themselves, an M2M token with the required scope, or a session " +
+          "tenant admin (project owner) can access this resource.",
       },
     });
   };

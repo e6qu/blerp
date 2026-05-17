@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { eq } from "drizzle-orm";
 import * as organizationController from "../controllers/organization.controller";
 import * as membershipController from "../controllers/membership.controller";
 import * as invitationController from "../controllers/invitation.controller";
@@ -6,6 +7,7 @@ import * as domainController from "../controllers/domain.controller";
 import * as roleController from "../controllers/role.controller";
 import { authMiddleware, requireProjectAccess } from "../../middleware/auth";
 import { requirePermission } from "../../middleware/rbac";
+import * as schema from "../../db/schema";
 
 const router = Router();
 
@@ -25,9 +27,36 @@ const router = Router();
 // POST a new organization in its project because `requireProjectAccess`
 // only validated project match. Project-owner sessions still pass
 // through the user-owner branch.
+//
+// BUG-212 (codex r62): the shipped `<CreateOrganization>` SDK
+// component (and any caller that wants the API to pick the project)
+// can omit `project_id`. In that case derive the project BEFORE
+// `requireProjectAccess`: session user → their first owned project;
+// M2M → the token's bound project. If derivation fails, the gate
+// still 400s with "project_id is required" so behavior degrades
+// safely. Explicit `project_id` in the body still wins (caller
+// chooses the destination project).
 router.post(
   "/organizations",
   authMiddleware,
+  async (req, _res, next) => {
+    if (typeof req.body?.project_id === "string" && req.body.project_id.trim() !== "") {
+      return next();
+    }
+    if (req.m2m?.projectId && !req.m2m.clientId.startsWith("dev-shim")) {
+      req.body = { ...(req.body ?? {}), project_id: req.m2m.projectId };
+      return next();
+    }
+    if (req.user) {
+      const owned = await req.tenantDb!.query.projects.findFirst({
+        where: eq(schema.projects.ownerUserId, req.user.id),
+      });
+      if (owned) {
+        req.body = { ...(req.body ?? {}), project_id: owned.id };
+      }
+    }
+    return next();
+  },
   requireProjectAccess(
     (req) => (typeof req.body?.project_id === "string" ? req.body.project_id : undefined),
     "org:write",

@@ -1682,10 +1682,19 @@ paths:
           application/json:
             schema:
               type: object
-              required: [project_id, name]
+              # BUG-212 (codex r62): project_id is OPTIONAL. The API
+              # derives it from the auth context when omitted —
+              # session user's first owned project, or the M2M token's
+              # bound project. Explicit project_id still wins.
+              required: [name]
               properties:
                 project_id:
                   type: string
+                  description: |
+                    Project the new organization belongs to. Optional
+                    — when omitted the API derives the project from
+                    the caller's auth context (session user's first
+                    owned project; M2M token's bound project).
                 name:
                   type: string
                 slug:
