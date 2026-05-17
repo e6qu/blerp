@@ -355,7 +355,7 @@ export function requireProjectAccess(
     // already gated by NODE_ENV !== "production"; this just spares
     // tests from threading project_id into every request.
     if (!projectId) {
-      if (req.m2m?.clientId.startsWith("dev-shim:")) {
+      if (req.m2m?.clientId.startsWith("dev-shim")) {
         next();
         return;
       }
