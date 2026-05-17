@@ -1527,3 +1527,29 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 **Files:** `apps/api/src/db/schema.ts`, `apps/api/drizzle/0015_narrow_goliath.sql`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `openapi/blerp.v1.yaml`, `apps/api/src/__tests__/auth.integration.test.ts`
 
 **Fix applied:** Added `locked BOOLEAN DEFAULT false NOT NULL` + `failed_sign_in_attempts INTEGER DEFAULT 0 NOT NULL` to the `users` table (drizzle migration `0015_narrow_goliath.sql`). `attemptSignin` bumps `failedSignInAttempts` on wrong-credential AND, when it crosses `MAX_SIGNIN_ATTEMPTS`, also sets `locked: true`. Successful sign-in resets the counter to 0. `createSignin` and the post-lookup branch in `attemptSignin` both refuse when `user.locked === true`. New admin-only `POST /v1/users/:user_id/unlock` endpoint clears both fields. `mapUser` exposes `locked`. OpenAPI documents the new endpoint. Regression test exercises the full lock-and-unlock cycle: 5 wrong attempts → fresh createSignin 400s with "Account is locked" → direct DB unlock → createSignin succeeds again. (Per-attempt BUG-135 lockout still applies for fast-burn protection within a single attempt; per-user BUG-137 lockout layers on top for the persistent case.)
+
+### BUG-138 (codex r29): `unlockUser` accepted any user session JWT — locked users could self-unlock (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-137's new `POST /v1/users/:user_id/unlock` route was wired with bare `authMiddleware`, which accepts any user session JWT alongside M2M tokens. A locked user who still held a valid pre-lockout session could call the endpoint and clear their own `locked` flag, defeating the entire purpose. Any signed-in user could also unlock arbitrary other users — there was no role/scope check.
+**Files:** `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:** New `requireM2M` middleware runs AFTER `authMiddleware` and rejects (403) anything that isn't an M2M token (Clerk-style backend / secret-key auth). The unlock route now chains `authMiddleware → requireM2M → unlockUser`. Regression test asserts a session JWT gets 403 with "Admin-only" message.
+
+### BUG-139 (codex r29): `bumpUserFailures` had a read-modify-write race — concurrent wrong attempts never advanced the counter (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `bumpUserFailures` computed `nextCount = user.failedSignInAttempts + 1` from the snapshot read at the start of `attemptSignin`, then wrote that absolute value. Two concurrent wrong attempts both read `0`, both wrote `1`; the user never reached `locked: true`. The BUG-137 lockout was effectively defeated under any concurrency.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Switched to a SQL fragment that evaluates the increment + lock decision inside the `UPDATE`:
+
+```ts
+.set({
+  failedSignInAttempts: sql`${schema.users.failedSignInAttempts} + 1`,
+  locked: sql`(${schema.users.failedSignInAttempts} + 1) >= ${MAX_SIGNIN_ATTEMPTS}`,
+  updatedAt: new Date(),
+})
+```
+
+SQLite serialises writes so each call observes the row's freshest value. Even under heavy contention the counter advances correctly and the user locks on the 5th wrong attempt.

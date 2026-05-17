@@ -93,6 +93,35 @@ describe("Auth Integration", () => {
     expect(userRes.body.password_enabled).toBe(true);
   });
 
+  it("BUG-138 (codex r29): unlock endpoint rejects session JWTs and requires an M2M token", async () => {
+    // Provision a user + session.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "unlockauth@blerp.dev",
+        password: "supersecret999",
+        strategy: "password",
+      });
+    const signupAttempt = await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+    const userToken = signupAttempt.body.tokens?.access_token;
+    const userId = signupAttempt.body.user_id;
+    expect(userToken).toBeDefined();
+
+    // Call unlock with the user's own session JWT — should 403, not
+    // 200. Pre-BUG-138 a locked user could self-unlock with their
+    // existing session.
+    const sessionRes = await request(app)
+      .post(`/v1/users/${userId}/unlock`)
+      .set("X-Tenant-Id", tenantId)
+      .set("Authorization", `Bearer ${userToken}`);
+    expect(sessionRes.status).toBe(403);
+    expect(sessionRes.body.error?.message).toMatch(/Admin-only/);
+  });
+
   it("BUG-137 (codex r28): user-level lockout persists across createSignin calls and only an admin can unlock", async () => {
     const signupRes = await request(app)
       .post("/v1/auth/signups")

@@ -90,3 +90,25 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   res.status(401).json({ error: "Authorization header is required" });
 }
+
+/**
+ * BUG-138 (codex r29): admin-only gate. Run AFTER `authMiddleware` —
+ * accepts only M2M tokens (Clerk-style backend / secret-key auth) and
+ * rejects user session JWTs. Without this, any signed-in user could
+ * hit admin endpoints (BUG-137's unlock was the trigger).
+ *
+ * Future: this should also accept session tokens whose user holds a
+ * tenant-level "admin" role, but no such role exists today.
+ */
+export function requireM2M(req: Request, res: Response, next: NextFunction): void {
+  if (req.m2m) {
+    next();
+    return;
+  }
+  res.status(403).json({
+    error: {
+      message:
+        "Admin-only endpoint — requires an M2M / secret-key token (backend SDK), not a user session.",
+    },
+  });
+}

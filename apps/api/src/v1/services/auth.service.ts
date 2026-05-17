@@ -411,14 +411,18 @@ export class AuthService {
         failedAttempts: pending.failedAttempts + 1,
       });
     };
+    // BUG-139 (codex r29): atomic increment. Pre-fix, two concurrent
+    // wrong attempts both read `failedSignInAttempts = 0` and both
+    // wrote `1` (last-write-wins), so the counter never advanced past
+    // 1 under contention. Using a SQL fragment evaluates the increment
+    // and the lock decision inside the UPDATE — SQLite serialises the
+    // write so each call observes the row's freshest value.
     const bumpUserFailures = async () => {
-      const nextCount = user.failedSignInAttempts + 1;
-      const shouldLock = nextCount >= MAX_SIGNIN_ATTEMPTS;
       await this.db
         .update(schema.users)
         .set({
-          failedSignInAttempts: nextCount,
-          locked: shouldLock,
+          failedSignInAttempts: sql`${schema.users.failedSignInAttempts} + 1`,
+          locked: sql`(${schema.users.failedSignInAttempts} + 1) >= ${MAX_SIGNIN_ATTEMPTS}`,
           updatedAt: new Date(),
         })
         .where(eq(schema.users.id, user.id));

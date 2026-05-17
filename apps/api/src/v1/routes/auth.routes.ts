@@ -14,7 +14,7 @@ import * as restrictionController from "../controllers/restriction.controller";
 import * as magicLinkController from "../controllers/magic-link.controller";
 import * as redirectController from "../controllers/redirect.controller";
 import * as m2mController from "../controllers/m2m.controller";
-import { authMiddleware } from "../../middleware/auth";
+import { authMiddleware, requireM2M } from "../../middleware/auth";
 import { generateCsrfToken } from "../../middleware/csrf";
 
 const router = Router();
@@ -46,8 +46,11 @@ router.get("/users/:user_id", authMiddleware, userController.getUser);
 router.patch("/users/:user_id", authMiddleware, userController.updateUser);
 router.delete("/users/:user_id", authMiddleware, userController.deleteUser);
 router.post("/users/:user_id/restore", authMiddleware, userController.restoreUser);
-// BUG-137 (codex r28): admin-only persistent-lockout reset endpoint.
-router.post("/users/:user_id/unlock", authMiddleware, userController.unlockUser);
+// BUG-137 (codex r28) / BUG-138 (codex r29): admin-only persistent-
+// lockout reset. Requires an M2M token (Clerk-style backend secret key
+// auth), NOT a user session JWT — otherwise a locked user with an
+// existing session could self-unlock.
+router.post("/users/:user_id/unlock", authMiddleware, requireM2M, userController.unlockUser);
 
 // User Email Addresses
 router.get("/users/:user_id/email_addresses", authMiddleware, emailController.listEmails);
