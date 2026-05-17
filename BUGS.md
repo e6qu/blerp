@@ -1821,3 +1821,32 @@ The dev X-User-Id shim was extended to grant the full scope set (`webhooks:*`, `
 - `AuthService.attemptSignup` (sign-up) is genuinely tenant-system level (the new user isn't yet in any project), so it explicitly passes `null` — keeps the legacy "default" routing behavior and makes the contract obvious.
 
 Future emitters added by the audit worker / org-mgmt flows should follow the same pattern: pass the project_id when one is in scope, `null` for tenant-system events.
+
+### BUG-167 (codex r43): `GET / POST /v1/organizations` was completely unauthenticated (FIXED)
+
+**Status:** Fixed
+**Severity:** High — both endpoints had no `authMiddleware`. Any request with `X-Tenant-Id` could list every org in the tenant (including `private_metadata`) or create cross-project organizations. OpenAPI marked both `SecretKey`-required.
+**Files:** `apps/api/src/v1/routes/organization.routes.ts`, `apps/api/src/middleware/auth.ts`, `apps/api/src/__tests__/organization.integration.test.ts`
+
+**Fix applied:** Both routes now run `authMiddleware` → `requireProjectAccess`. POST takes `project_id` from body; GET takes it from query — EXCEPT for `?domain=` lookups, which stay open (the OAuth sign-in flow uses domain-discovery pre-session to resolve "which org owns this email domain"; the response is filtered to verified-domain orgs, no `private_metadata` enumeration). The dev shim short-circuits the `project_id required` check when no id is supplied — tenant-root access matches the dev-shim contract.
+
+### BUG-168 (codex r43): `GET /v1/projects/:id` missing `requireProjectAccess` (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — any signed-in tenant user could read any project's config / API key listing scope. OpenAPI marked it `SecretKey`.
+**Files:** `apps/api/src/v1/routes/project.routes.ts`
+
+**Fix applied:** Added the same `requireProjectAccess(fromParams)` gate the other project routes use.
+
+### BUG-169 (codex r43): `signup-restrictions` and `redirect-urls` routes bare `authMiddleware` — any user could mutate allow-lists and OAuth-redirect URLs (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `signup-restrictions` is the per-tenant allow/block list for who can sign up; letting any signed-in user mutate it enables account-takeover via altered ruleset (e.g., add the attacker's domain to the allowlist, then sign up). `redirect-urls` controls allowed OAuth callback destinations; letting any user add one opens an OAuth-redirect phishing path.
+**Files:** `apps/api/src/v1/routes/auth.routes.ts`, `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Both endpoint pairs now gated:
+
+- `signup-restrictions:read` for GET, `signup-restrictions:write` for POST/DELETE
+- `redirect_urls:read` for GET, `redirect_urls:write` for POST/DELETE
+
+Dev shim extended to grant the new scopes.

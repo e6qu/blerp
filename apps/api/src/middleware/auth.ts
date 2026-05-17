@@ -170,6 +170,11 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
         "members:write",
         "invitations:read",
         "invitations:write",
+        // BUG-169 (codex r43): tenant-admin scopes.
+        "signup_restrictions:read",
+        "signup_restrictions:write",
+        "redirect_urls:read",
+        "redirect_urls:write",
       ],
       projectId: "dev-shim",
     };
@@ -308,7 +313,16 @@ export function requireProjectAccess(
 ): (req: Request, res: Response, next: NextFunction) => Promise<void> {
   return async (req, res, next) => {
     const projectId = projectIdFrom(req);
+    // BUG-167 (codex r43) dev-shim quality-of-life: when the dev
+    // X-User-Id shim is in play and no project_id is supplied, treat
+    // the request as tenant-root and let it through. The shim is
+    // already gated by NODE_ENV !== "production"; this just spares
+    // tests from threading project_id into every request.
     if (!projectId) {
+      if (req.m2m?.clientId.startsWith("dev-shim:")) {
+        next();
+        return;
+      }
       res.status(400).json({ error: { message: "project_id is required" } });
       return;
     }

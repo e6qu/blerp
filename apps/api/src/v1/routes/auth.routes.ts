@@ -231,10 +231,28 @@ router.delete(
   totpController.disableTotp,
 );
 
-// Signup Restrictions (Allowlist/Blocklist)
-router.get("/signup-restrictions", authMiddleware, restrictionController.listRestrictions);
-router.post("/signup-restrictions", authMiddleware, restrictionController.createRestriction);
-router.delete("/signup-restrictions/:id", authMiddleware, restrictionController.deleteRestriction);
+// Signup Restrictions (Allowlist/Blocklist) — BUG-169 (codex r43):
+// admin-only. The allowlist controls who can sign up; letting any
+// signed-in user mutate it is account-takeover via altered ruleset.
+// `signup_restrictions:read` / `signup_restrictions:write` M2M scopes.
+router.get(
+  "/signup-restrictions",
+  authMiddleware,
+  requireM2M("signup_restrictions:read"),
+  restrictionController.listRestrictions,
+);
+router.post(
+  "/signup-restrictions",
+  authMiddleware,
+  requireM2M("signup_restrictions:write"),
+  restrictionController.createRestriction,
+);
+router.delete(
+  "/signup-restrictions/:id",
+  authMiddleware,
+  requireM2M("signup_restrictions:write"),
+  restrictionController.deleteRestriction,
+);
 
 // Magic Links
 router.post("/auth/magic-links", magicLinkController.createMagicLink);
@@ -243,10 +261,26 @@ router.post("/auth/magic-links/verify", magicLinkController.verifyMagicLink);
 // Testing Tokens (dev-only)
 router.post("/auth/testing-tokens", authController.createTestingToken);
 
-// Redirect URLs
-router.get("/redirect-urls", authMiddleware, redirectController.listRedirectUrls);
-router.post("/redirect-urls", authMiddleware, redirectController.createRedirectUrl);
-router.delete("/redirect-urls/:id", authMiddleware, redirectController.deleteRedirectUrl);
+// Redirect URLs — BUG-169 (codex r43): admin-only. Letting any user
+// add a redirect URL opens an OAuth-redirect phishing path.
+router.get(
+  "/redirect-urls",
+  authMiddleware,
+  requireM2M("redirect_urls:read"),
+  redirectController.listRedirectUrls,
+);
+router.post(
+  "/redirect-urls",
+  authMiddleware,
+  requireM2M("redirect_urls:write"),
+  redirectController.createRedirectUrl,
+);
+router.delete(
+  "/redirect-urls/:id",
+  authMiddleware,
+  requireM2M("redirect_urls:write"),
+  redirectController.deleteRedirectUrl,
+);
 
 // M2M Tokens
 router.post("/m2m-tokens", authMiddleware, m2mController.createM2MToken);

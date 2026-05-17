@@ -71,6 +71,7 @@ describe("Organization Integration", () => {
     const resA = await request(app)
       .post("/v1/organizations")
       .set("X-Tenant-Id", tenantA)
+      .set("X-User-Id", userId) // BUG-167: auth required
       .send({ name: "Tenant A Org", slug: "org-a", project_id: projectId });
 
     expect(resA.status).toBe(201);
@@ -89,12 +90,17 @@ describe("Organization Integration", () => {
     const resB = await request(app)
       .post("/v1/organizations")
       .set("X-Tenant-Id", tenantB)
+      .set("X-User-Id", userId) // BUG-167: auth required
       .send({ name: "Tenant B Org", slug: "org-b", project_id: projectId });
 
     expect(resB.status).toBe(201);
 
-    // 3. List Orgs in Tenant A
-    const listA = await request(app).get("/v1/organizations").set("X-Tenant-Id", tenantA);
+    // 3. List Orgs in Tenant A — BUG-167: auth + project_id required.
+    const listA = await request(app)
+      .get("/v1/organizations")
+      .query({ project_id: projectId })
+      .set("X-Tenant-Id", tenantA)
+      .set("X-User-Id", userId);
 
     expect(listA.body.data).toHaveLength(1);
 
@@ -115,8 +121,11 @@ describe("Organization Integration", () => {
 
     expect(deleteA.status).toBe(204);
 
-    // 6. Verify Org A is gone
-    const listA2 = await request(app).get("/v1/organizations").set("X-Tenant-Id", tenantA);
+    // 6. Verify Org A is gone — BUG-167: auth required.
+    const listA2 = await request(app)
+      .get("/v1/organizations")
+      .set("X-Tenant-Id", tenantA)
+      .set("X-User-Id", userId);
 
     expect(listA2.body.data).toHaveLength(0);
 

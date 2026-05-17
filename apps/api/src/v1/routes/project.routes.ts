@@ -12,7 +12,14 @@ const router = Router();
 const fromParams = (req: Request): string | undefined =>
   typeof req.params.project_id === "string" ? req.params.project_id : undefined;
 
-router.get("/projects/:project_id", authMiddleware, projectController.getProject);
+// BUG-168 (codex r43): GET also needs project access — pre-fix any
+// signed-in tenant user could read another project's config.
+router.get(
+  "/projects/:project_id",
+  authMiddleware,
+  requireProjectAccess(fromParams),
+  projectController.getProject,
+);
 router.put(
   "/projects/:project_id",
   authMiddleware,
