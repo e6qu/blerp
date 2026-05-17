@@ -2107,3 +2107,19 @@ Project-owner sessions pass through the user-owner branch unchanged. Dev-shim is
 **Files:** `apps/api/src/v1/controllers/organization.controller.ts`
 
 **Fix applied:** After `service.create()` succeeds and the caller is a session user (`req.user` set), `createOrganization` inserts an `owner` membership for `req.user.id` in the new org. M2M callers (no `req.user`) are skipped — there's no user identity to grant. The auto-insert uses a generated `mem_${nanoid()}` id and the `owner` role (full org-scope permissions). Test setups that explicitly seed their own membership still work (the index has no unique constraint, and lookups dedup).
+
+### BUG-198 (codex r56): `doubleCsrfProtection` ran before `authMiddleware`, blocking every backend-SDK mutation (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — companion regression to BUG-195. `app.ts` mounts `doubleCsrfProtection` on `/v1` BEFORE the per-route `authMiddleware`. The CSRF middleware expects a session cookie (`__blerp_csrf` double-submit pattern) and an `x-csrf-token` header — both impossible for a server-side `Bearer sk_…` caller that has no cookie jar. So every non-GET backend SDK call (POST/PATCH/DELETE) 403'd on CSRF before authMiddleware even got the chance to recognise the secret key. BUG-195 fixed the auth path; this fixes the gate that fired before it.
+**Files:** `apps/api/src/middleware/csrf.ts`
+
+**Fix applied:** Extended `skipCsrfProtection` from `() => NODE_ENV === "test"` to also skip when the request carries Bearer auth without any session cookie — the canonical signature of a server-to-server M2M / secret-key caller. Browser callers that DO have a session cookie still hit the CSRF gate (the threat model — a malicious cross-site fetch can read neither the cookie nor satisfy the double-submit — is unchanged). The CSRF / session-cookie pair is what we're protecting; an attacker who can already set `Authorization` headers from a victim's browser has bigger problems (and same-origin policy prevents cross-origin requests from setting that header anyway).
+
+### BUG-199 (codex r56): BUG-196's inferred-org fallback skipped the M2M project boundary — cross-project invitation revoke (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — security regression introduced by BUG-196. When the flat `POST /v1/invitations/:id/revoke` is called without `organization_id`, `requirePermission` has no org id to thread, so its M2M project-binding check (BUG-159 codex r39) never runs. The BUG-196 fallback then accepted the row's own `organizationId`, so a project-A M2M token with `invitations:write` could revoke project-B's invitations by guessing the invitation id (or scraping them via another vector). Sessions are unaffected — they go through membership-based authorization, and a session user without a membership in the invitation's org never reaches the controller.
+**Files:** `apps/api/src/v1/controllers/invitation.controller.ts`
+
+**Fix applied:** Track whether the caller supplied an `explicitOrgId` via path/body/query. When NOT supplied AND the caller is a real (non-dev-shim) M2M token, look up the invitation's org → project and refuse with 403 if the org's `projectId` doesn't match `req.m2m.projectId`. The explicit-org path is unchanged (the existing cross-org check + upstream `requirePermission` M2M binding still cover it). Sessions and dev-shim are unaffected.
