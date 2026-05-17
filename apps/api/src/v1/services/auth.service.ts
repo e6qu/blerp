@@ -603,9 +603,17 @@ export class AuthService {
     // user is still unlocked at write time. See BUG-146 note above
     // for why this isn't wrapped in db.transaction (better-sqlite3
     // tx callbacks must be synchronous).
+    //
+    // BUG-191 (codex r53): also reset `failedSignInAttempts` on
+    // successful MFA. Pre-r53 this UPDATE only touched `updatedAt`,
+    // so a user who typed e.g. 4 wrong codes then succeeded stayed
+    // at `failedSignInAttempts = 4`. Any later wrong attempt (first
+    // OR second factor) would lock the account at the very next
+    // mistake. The first-factor success path resets the counter
+    // (BUG-137) — mirror that here.
     const stillUnlocked = await this.db
       .update(schema.users)
-      .set({ updatedAt: new Date() })
+      .set({ failedSignInAttempts: 0, updatedAt: new Date() })
       .where(and(eq(schema.users.id, user.id), eq(schema.users.locked, false)))
       .returning({ id: schema.users.id });
     if (stillUnlocked.length === 0) {

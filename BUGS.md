@@ -2038,3 +2038,27 @@ Introduced the new scope strings `projects:read|write|admin` and `api_keys:read|
 2. On every wrong second-factor code, run `bumpUserFailures()` (same atomic SQL `failedSignInAttempts + 1` / `locked = (… + 1) >= MAX_SIGNIN_ATTEMPTS` pattern as first-factor) in addition to `restoreWithFailure()`. Now MFA brute-force trips the persistent lock at the same threshold as password brute-force, and restarting sign-in doesn't reset the counter.
 
 The successful-MFA path already runs the atomic `WHERE locked=false` reset (BUG-143), so a lockout that fires between code-check and session-create still blocks session creation.
+
+### BUG-190 (codex r53): `BlerpProvider` runtime-config gate released before `latestAuthRef` was refreshed — re-stamped headers were still stale (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — defeated the BUG-180 fix. BUG-180 added a `latestAuthRef` mirror so the request middleware could re-stamp Authorization + X-Tenant-Id after the runtime-config gate resolved. But the ref was updated inside a `useEffect([key, resolvedTenantId])` — which fires AFTER React commits `setConfig`. The gate (`markReady`) was called synchronously in the same effect that called `setConfig`, so by the time a waiting request resumed and read `latestAuthRef.current`, React hadn't committed yet, the effect hadn't run, and the ref still pointed at the build-time placeholder. The re-stamp restamped the same stale values. Same race could affect `openSignIn` / `openSignUp` calls made in the narrow [mount → /v1/public-config resolves] window.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** In the runtime-config success path, compute the next ref value (`resolvedKey` / `resolvedTenant` from the JSON + caller-supplied prop overrides) and assign `latestAuthRef.current` SYNCHRONOUSLY before calling `setConfig` and `markReady()`. By the time the middleware gate releases, the ref reflects the resolved values regardless of React's commit timing. The `[key, resolvedTenantId]` effect that updates the ref on later re-renders is unchanged (covers session-cookie changes after sign-in, etc.).
+
+### BUG-191 (codex r53): Successful second-factor didn't reset `failedSignInAttempts` — a user with prior typos was one wrong code from auto-lock (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — follow-up to BUG-189. BUG-189 made wrong second-factor codes bump the persistent `failedSignInAttempts` counter (so MFA brute-force can lock the account). But the successful-MFA path's `UPDATE users SET updated_at = …` didn't reset the counter to 0, while the first-factor-only success path DID reset (BUG-137 line 451-455). Net effect: a user who fat-fingered four MFA codes then typed the correct one would still have `failedSignInAttempts = 4` in the DB. On the very next wrong attempt (next session, even on a fresh sign-in) the counter would reach `MAX_SIGNIN_ATTEMPTS = 5` and `locked` would flip to true — surprising, opaque lockout.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Successful-MFA UPDATE now sets `failedSignInAttempts: 0, updatedAt: new Date()` instead of just `updatedAt`. Atomic check-and-reset is preserved (`WHERE locked = false` clause unchanged; BUG-143 lockout-at-write-time semantic intact).
+
+### BUG-192 (codex r53): Dashboard dev proxy skipped `CLERK_API_PORT` in its inline port chain (FIXED)
+
+**Status:** Fixed
+**Severity:** P3 — dev-experience regression. `apps/api/src/index.ts` honors `BLERP_API_PORT | CLERK_API_PORT | PORT` (BUG-82, codex r17), so a local-dev `.env` that only sets `CLERK_API_PORT` has the API listening on that port. But `apps/dashboard/vite.config.ts::resolveApiTarget` skipped `CLERK_API_PORT` and fell to `localhost:3000`, so the dashboard dev proxy pointed at nothing. Contributors using the Clerk-only env names had to set both.
+**Files:** `apps/dashboard/vite.config.ts`
+
+**Fix applied:** Added `CLERK_API_PORT` to the inline port chain — same dual-name precedence as every other env helper in this PR. Also added `CLERK_DASHBOARD_PORT` to the dashboard-port chain for consistency with the same naming convention.

@@ -285,11 +285,30 @@ export function BlerpProvider({
         const raw: unknown = await res.json();
         if (cancelled) return;
         if (isPublicConfig(raw)) {
+          // BUG-190 (codex r53): update `latestAuthRef` SYNCHRONOUSLY
+          // with the resolved values *before* `markReady()` releases
+          // the gate. Pre-r53 the ref was only updated by a follow-up
+          // useEffect on `[key, resolvedTenantId]`, which doesn't fire
+          // until React commits the `setConfig` below. The middleware
+          // released by `markReady` would then restamp from the STALE
+          // ref (still `pk_build_placeholder` / build-time tenant),
+          // defeating the BUG-180 re-stamp fix. Compute the next ref
+          // value from the resolved `raw` config directly + the
+          // caller-supplied prop overrides.
+          const resolvedKey = publishableKey ?? raw.publishable_key;
+          const resolvedTenant = tenantId ?? raw.tenant_id;
+          const sessionToken = readSessionCookie();
+          latestAuthRef.current = {
+            authHeader: sessionToken
+              ? `Bearer ${sessionToken}`
+              : `Bearer ${resolvedKey ?? "pk_build_placeholder"}`,
+            tenantId: resolvedTenant,
+          };
           setConfig((prev) => ({
             ...raw,
             // Respect caller-supplied props as overrides.
-            publishable_key: publishableKey ?? raw.publishable_key,
-            tenant_id: tenantId ?? raw.tenant_id,
+            publishable_key: resolvedKey,
+            tenant_id: resolvedTenant,
             // Keep prev value if /v1/public-config doesn't change it.
             proxy_url: raw.proxy_url ?? prev.proxy_url,
           }));
