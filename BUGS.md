@@ -1874,3 +1874,11 @@ Dev shim extended to grant the new scopes.
 **Files:** `apps/api/src/v1/controllers/organization.controller.ts`
 
 **Fix applied:** When the request is `?domain=` AND has neither `req.user` nor `req.m2m`, the response strips `private_metadata` from each org. Authenticated callers (M2M with read scope or session) get the full shape.
+
+### BUG-173 (codex r45): Org list cache bust used the old per-tenant key — stale per-project caches survived mutations for 300s (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-170 changed the list cache key from `blerp:orgs:${tenantId}` to `blerp:orgs:${tenantId}:${projectId ?? "_"}`. The create/update/delete handlers still `cache.del(`blerp:orgs:${tenantId}`)`, which doesn't match the new project-specific keys. Result: after a delete, the project's list still returned the deleted org (including stale `private_metadata`) for up to 300s. Same hazard for create/update.
+**Files:** `apps/api/src/v1/controllers/organization.controller.ts`
+
+**Fix applied:** New `bustOrgListCache(tenantId, projectId?)` helper busts (a) the legacy `:${tenantId}` key, (b) the `:${tenantId}:_` no-project fallback, and (c) the `:${tenantId}:${projectId}` specific project key when known. Create handler busts with the body's `project_id`. Update handler busts with the org's `projectId` (from the returned row). Delete handler reads the org BEFORE deleting so it can bust the right project key after.

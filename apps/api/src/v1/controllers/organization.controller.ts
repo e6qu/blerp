@@ -31,6 +31,20 @@ function mapOrganization(org: DBOrg): Organization {
   };
 }
 
+// BUG-173 (codex r45): bust both the tenant-wide list cache (legacy
+// pre-BUG-170 key) AND the affected project's per-project list cache.
+// Without busting the project key, stale list responses (including
+// stale private_metadata) survived for 300s after a create / update /
+// delete. The "_" suffix matches the listOrganizations cache key when
+// no project_id is supplied.
+async function bustOrgListCache(tenantId: string, projectId?: string) {
+  await cache.del(`blerp:orgs:${tenantId}`);
+  await cache.del(`blerp:orgs:${tenantId}:_`);
+  if (projectId) {
+    await cache.del(`blerp:orgs:${tenantId}:${projectId}`);
+  }
+}
+
 export async function createOrganization(req: Request, res: Response) {
   const { name, slug, project_id } = req.body as {
     name: string;
@@ -44,7 +58,7 @@ export async function createOrganization(req: Request, res: Response) {
     throw new BadRequestError("Failed to create organization");
   }
 
-  await cache.del(`blerp:orgs:${req.tenantId}`);
+  await bustOrgListCache(req.tenantId!, project_id);
   res.status(201).json(mapOrganization(org));
 }
 
@@ -142,7 +156,7 @@ export async function updateOrganization(req: Request, res: Response) {
     throw new BadRequestError("Failed to update organization");
   }
 
-  await cache.del(`blerp:orgs:${req.tenantId}`);
+  await bustOrgListCache(req.tenantId!, org.projectId);
   res.status(200).json(mapOrganization(org));
 }
 
@@ -155,7 +169,12 @@ export async function deleteOrganization(req: Request, res: Response) {
   // fires before the controller, so a missing org never reaches this
   // function — the user gets 403 instead. The OpenAPI contract therefore
   // documents 403 (not 404) for the missing/not-permitted case.
+  //
+  // BUG-173 (codex r45): look up the org BEFORE deleting so we know the
+  // project_id to bust. Cache bust after delete; missing org → no
+  // project-key bust (fallback to the tenant-wide ones).
+  const orgBeforeDelete = await service.get(id);
   await service.delete(id);
-  await cache.del(`blerp:orgs:${req.tenantId}`);
+  await bustOrgListCache(req.tenantId!, orgBeforeDelete?.projectId);
   res.status(204).send();
 }
