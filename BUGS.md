@@ -1391,3 +1391,35 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 **Files:** `apps/api/src/v1/services/auth.service.ts`
 
 **Fix applied:** Signup `users.values()` now sets `hasPassword: true` whenever `passwordDigest` is being installed. Regression test in `auth.integration.test.ts` does a full signup-then-signin round-trip — which would have failed silently before BUG-114, and would still report `hasPassword: false` in user reads without BUG-120.
+
+### BUG-121 (codex r22): My r21 fix repurposed `strategy` as step selector — but Clerk uses `strategy` for the factor NAME (FIXED)
+
+**Status:** Fixed
+**Severity:** High regression — my BUG-119 fix renamed the new step-routing field to `strategy`, breaking Clerk parity. In Clerk, `strategy` is the factor name (`password`, `email_code`, `totp`, `backup_code`, `passkey`). Hooks signing `strategy: "first_factor"` silently dropped the caller's actual factor name; generated SDK consumers now typed `strategy` as the step enum instead of the factor name.
+**Files:** `apps/api/src/v1/controllers/auth.controller.ts`, `packages/nextjs/src/client/hooks.ts`, `openapi/blerp.v1.yaml`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:** Step selector renamed `strategy` → `stage` everywhere (controller body parse, OpenAPI body schema, hook calls). `strategy` is restored to its Clerk-canonical meaning: the factor name. Hooks now pass `params.strategy` through (so a caller doing `attemptSecondFactor({ strategy: "totp", code })` gets the right body shape), and add `stage: "first_factor"` / `"second_factor"` alongside for explicit routing. Tests updated.
+
+### BUG-122 (codex r22): `useSignIn().supportedFirstFactors` advertised `email_code`, but the API only supports `password` first factor (FIXED)
+
+**Status:** Fixed (advertised surface trimmed)
+**Severity:** Medium — `attemptSignin` in the service only verifies `passwordDigest`; there is no code-based first-factor path. Hook consumers writing `attemptFirstFactor({ strategy: "email_code", code })` would always 400.
+**Files:** `packages/nextjs/src/client/hooks.ts`
+
+**Fix applied:** `supportedFirstFactors` is now `["password"]` only. Adding email-code as a first factor requires service-level work (issue OTP at `createSignin` time, store on the pending record, verify at `attemptSignin`) and is tracked here for a future PR. Until then, advertising a non-functional strategy was the bug — fixing the advertisement is correct per "don't promise what you can't deliver."
+
+### BUG-123 (codex r22): `users.hasPassword` set in storage (BUG-120), but `mapUser()` + OpenAPI `User` schema omitted `password_enabled` (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — Clerk's Backend User exposes `passwordEnabled` so dashboard / SDK UIs decide whether to render a "Set password" CTA. Blerp set the flag in the DB but never returned it on the wire, so every consumer saw `undefined` and rendered as if no user ever had a password.
+**Files:** `apps/api/src/v1/controllers/user.controller.ts`, `openapi/blerp.v1.yaml`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:** `mapUser()` now sets `password_enabled: user.hasPassword`. OpenAPI `User` schema adds the field with description pointing at Clerk parity. Regression test in `auth.integration.test.ts` now ends with a `GET /v1/users/:id` and asserts `body.password_enabled === true` after the password-at-signup flow.
+
+### BUG-124 (codex r22): Generated `packages/shared/src/schema.ts` had `T extends any[]` + `/* eslint-disable */` from my r21 workaround (FIXED)
+
+**Status:** Fixed
+**Severity:** Low (code quality / standards) — CLAUDE.md bans `any` and `eslint-disable`. My r21 patch prepended an eslint-disable to silence the pre-commit failure caused by openapi-typescript 6 emitting `any[]` in its `OneOf` helper after I added a `oneOf` response. The right fix isn't to suppress, it's to neutralise.
+**Files:** `packages/shared/package.json`
+
+**Fix applied:** The `generate` script now post-processes the file to replace `T extends any[]` with `T extends unknown[]` — functionally identical for the OneOf helper (it just constrains to a tuple), but eslint-clean. The `/* eslint-disable */` prepend is removed. Schema lints clean even when lint-staged invokes eslint directly on the path.

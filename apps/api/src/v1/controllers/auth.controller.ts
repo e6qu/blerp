@@ -47,21 +47,24 @@ export async function createSignin(req: Request, res: Response) {
 
 export async function attemptSignin(req: Request, res: Response) {
   const signinId = req.params.signin_id as string;
-  const { password, identifier, code, strategy } = req.body;
+  const { password, identifier, code, stage } = req.body;
   const authService = new AuthService(req.tenantDb!, req.tenantId!);
 
   try {
-    // BUG-119 (codex r21): explicit-strategy routing wins over the
-    // legacy code-vs-password heuristic. Before this, a caller using
-    // an email-code first factor (`{ strategy: "email_code", code,
-    // identifier }`) was misrouted to attemptSecondFactor and 400'd
-    // because no second factor was pending. Honor an explicit
-    // `strategy: "second_factor"` / `"first_factor"` flag, then fall
-    // back to: (a) password present → first factor; (b) bare code with
-    // no identifier → second factor; (c) code WITH identifier → first
-    // factor (email-code/magic-link).
-    const isExplicitSecondFactor = strategy === "second_factor";
-    const isExplicitFirstFactor = strategy === "first_factor";
+    // BUG-119 (codex r21) / BUG-121 (codex r22): explicit-stage routing
+    // wins over the legacy code-vs-password heuristic. Clerk reserves
+    // the `strategy` body field for the factor NAME (`password`,
+    // `email_code`, `totp`, `backup_code`); using it to mean "step
+    // selector" was a parity break. Step selection is now the separate
+    // `stage` field (`first_factor` / `second_factor`).
+    //
+    // Routing:
+    //   1. explicit stage=first_factor → first
+    //   2. explicit stage=second_factor → second
+    //   3. heuristic fallback: code only + no identifier → second
+    //                          else → first
+    const isExplicitSecondFactor = stage === "second_factor";
+    const isExplicitFirstFactor = stage === "first_factor";
     const looksLikeSecondFactor =
       !isExplicitFirstFactor && (isExplicitSecondFactor || (code && !password && !identifier));
 

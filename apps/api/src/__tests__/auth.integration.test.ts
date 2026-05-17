@@ -76,13 +76,23 @@ describe("Auth Integration", () => {
       .send({
         identifier: "pwsignup@blerp.dev",
         password: "supersecret123",
-        strategy: "first_factor",
+        strategy: "password", // factor name (Clerk convention — BUG-121)
+        stage: "first_factor", // step selector (BUG-121 split)
       });
     expect(signinAttemptRes.status).toBe(200);
     expect(signinAttemptRes.body.tokens?.access_token).toBeDefined();
+
+    // BUG-123: user GET surfaces password_enabled flag.
+    const userId = attemptRes.body.user_id;
+    const userRes = await request(app)
+      .get(`/v1/users/${userId}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("Authorization", `Bearer ${signinAttemptRes.body.tokens.access_token}`);
+    expect(userRes.status).toBe(200);
+    expect(userRes.body.password_enabled).toBe(true);
   });
 
-  it("BUG-119 (codex r21): explicit strategy:'first_factor' is honored even when only code is sent", async () => {
+  it("BUG-119 (codex r21) / BUG-121 (codex r22): explicit stage:'first_factor' is honored even when only code is sent", async () => {
     // Create a signup and complete it so we have a user.
     const signupRes = await request(app)
       .post("/v1/auth/signups")
@@ -104,15 +114,16 @@ describe("Auth Integration", () => {
       .send({ identifier: "strategy@blerp.dev", strategy: "password" });
     const signinId = signinRes.body.id;
 
-    // Code-only, NO identifier, but explicit first_factor strategy.
+    // Code-only, NO identifier, but explicit first_factor stage.
     // Pre-fix the controller would have routed this to attemptSecondFactor
     // and 400'd. Now it routes to first_factor and yields a different
-    // 400 (no password). Either way we shouldn't see "Signup attempt
-    // expired" — that would indicate misrouting.
+    // 400 (no identifier). Either way we shouldn't see "Signup attempt
+    // expired" — that would indicate misrouting. BUG-121: the stage
+    // field replaces the prior r21 mis-naming as `strategy`.
     const noIdentifierRes = await request(app)
       .post(`/v1/auth/signins/${signinId}/attempt`)
       .set("X-Tenant-Id", tenantId)
-      .send({ code: "123456", strategy: "first_factor" });
+      .send({ code: "123456", stage: "first_factor" });
     expect(noIdentifierRes.status).toBe(400);
     expect(noIdentifierRes.body.error?.message).toMatch(/identifier is required/);
   });

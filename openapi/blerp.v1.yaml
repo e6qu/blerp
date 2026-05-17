@@ -259,6 +259,13 @@ components:
           enum: [active, inactive, banned]
         locked:
           type: boolean
+        password_enabled:
+          type: boolean
+          description: |
+            Whether the user has a password set. Matches Clerk's
+            `passwordEnabled` field (BUG-123 codex r22). Dashboard /
+            SDK UIs use this to decide whether to render a "Set
+            password" CTA.
         totp_enabled:
           type: boolean
           description: Whether TOTP (authenticator app) is enabled for this user.
@@ -1143,9 +1150,17 @@ paths:
                 strategy:
                   type: string
                   description: |
-                    Optional explicit step selector — `first_factor` or
-                    `second_factor`. Disambiguates code-only attempts where
-                    `identifier` happens to be absent.
+                    Factor name (Clerk convention): the verification method being
+                    submitted, e.g. `password`, `email_code`, `totp`, `backup_code`,
+                    `passkey`. Echoed back on the response status. Not used for
+                    routing — see `stage` for that.
+                stage:
+                  type: string
+                  description: |
+                    Explicit step selector — `first_factor` or `second_factor`.
+                    Disambiguates code-only attempts where `identifier` happens
+                    to be absent. Honored over the legacy code-vs-password
+                    heuristic.
                   enum: [first_factor, second_factor]
                 webauthn_response:
                   type: object

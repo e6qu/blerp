@@ -25,6 +25,11 @@ function mapUser(user: UserWithRelations): User {
     public_metadata: (user.publicMetadata as Record<string, unknown>) || {},
     private_metadata: (user.privateMetadata as Record<string, unknown>) || {},
     unsafe_metadata: (user.unsafeMetadata as Record<string, unknown>) || {},
+    // BUG-123 (codex r22): expose the credential flag so dashboard
+    // and SDK UIs can render "Set a password" CTAs accurately.
+    // Matches Clerk's `passwordEnabled` field (snake_case on the wire
+    // to match the rest of the API).
+    password_enabled: user.hasPassword,
     totp_enabled: user.totpEnabled,
     email_addresses: (user.emailAddresses || []).map((e: DBEmailAddress) => ({
       id: e.id,

@@ -309,7 +309,12 @@ export function useSignIn() {
     id: null,
     status: "needs_identifier",
     identifier: null,
-    supportedFirstFactors: ["email_code", "password"],
+    // BUG-122 (codex r22): only `password` first-factor is wired
+    // end-to-end. `email_code` is documented as Clerk-style first
+    // factor, but the API's `attemptSignin` only handles password
+    // verification today — advertising it here would tempt callers
+    // into a path that 400s. Tracked in BUGS.md for future work.
+    supportedFirstFactors: ["password"],
     supportedSecondFactors: ["totp", "backup_code"],
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -335,7 +340,12 @@ export function useSignIn() {
         id: result.id,
         status: "needs_first_factor",
         identifier: params.identifier,
-        supportedFirstFactors: ["email_code", "password"],
+        // BUG-122 (codex r22): only `password` first-factor is wired
+        // end-to-end. `email_code` is documented as Clerk-style first
+        // factor, but the API's `attemptSignin` only handles password
+        // verification today — advertising it here would tempt callers
+        // into a path that 400s. Tracked in BUGS.md for future work.
+        supportedFirstFactors: ["password"],
         supportedSecondFactors: ["totp", "backup_code"],
       });
       return result;
@@ -356,17 +366,20 @@ export function useSignIn() {
       // first-factor path is `if (!identifier) → 400 identifier is
       // required`. The status object captures the identifier from
       // `create()`; pass it through verbatim.
-      // BUG-119 (codex r21): also send explicit `strategy:
-      // "first_factor"` so an email-code or magic-link first-factor
-      // (code-only, no password) isn't misrouted to attemptSecondFactor
-      // by the controller's legacy code-vs-password heuristic.
+      // BUG-119 (codex r21) / BUG-121 (codex r22): send explicit
+      // `stage: "first_factor"` so a code-only first factor isn't
+      // misrouted to attemptSecondFactor. Note: `strategy` is reserved
+      // for the factor NAME (Clerk convention — `password`,
+      // `email_code`, `totp`, etc.) — passed through to the API so
+      // future factor types route correctly without a hook change.
       const { data, error } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
         params: { path: { signin_id: status.id } },
         body: {
           password: params.password,
           code: params.code,
           identifier: status.identifier ?? undefined,
-          strategy: "first_factor",
+          strategy: params.strategy,
+          stage: "first_factor",
         },
       });
       if (error) {
@@ -403,12 +416,12 @@ export function useSignIn() {
     if (!status.id) throw new Error("No sign-in attempt in progress");
     setIsLoading(true);
     try {
-      // BUG-119 (codex r21): explicit `strategy: "second_factor"` so
-      // the controller routes correctly even when identifier happens
-      // to round-trip from the caller.
+      // BUG-119 (codex r21) / BUG-121 (codex r22): explicit
+      // `stage: "second_factor"` for routing; `strategy` carries the
+      // factor name (e.g. "totp", "backup_code") per Clerk convention.
       const { data, error } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
         params: { path: { signin_id: status.id } },
-        body: { code: params.code, strategy: "second_factor" },
+        body: { code: params.code, strategy: params.strategy, stage: "second_factor" },
       });
       if (error) {
         setStatus((prev) => ({ ...prev, status: "failed" }));
@@ -434,7 +447,12 @@ export function useSignIn() {
       id: null,
       status: "needs_identifier",
       identifier: null,
-      supportedFirstFactors: ["email_code", "password"],
+      // BUG-122 (codex r22): only `password` first-factor is wired
+      // end-to-end. `email_code` is documented as Clerk-style first
+      // factor, but the API's `attemptSignin` only handles password
+      // verification today — advertising it here would tempt callers
+      // into a path that 400s. Tracked in BUGS.md for future work.
+      supportedFirstFactors: ["password"],
       supportedSecondFactors: ["totp", "backup_code"],
     });
   };
