@@ -1916,3 +1916,11 @@ OpenAPI lint clean; types regenerated.
 **Fix applied:** Extended the dev shim (BUG-147 X-User-Id mechanism) to also attach a `req.m2m` context with tenant-root scopes to session JWTs in `NODE_ENV !== "production"`. Production behavior is unchanged — there the dashboard is expected to use a real SecretKey-minted M2M token instead. Tests that need to verify the production "session is NOT admin" semantics (BUG-138 unlock test) opt out via a new `X-No-Dev-Shim: true` request header.
 
 Updated all dev-shim prefix matchers from `"dev-shim:"` to `"dev-shim"` so both `dev-shim:<userId>` (X-User-Id shim) and `dev-shim-session:<userId>` (session shim) are recognized.
+
+### BUG-177 (CI break, BUG-176 follow-up): `requireProjectAccess` wildcard branch still used the narrow `dev-shim:` prefix (FIXED)
+
+**Status:** Fixed
+**Severity:** High (CI-blocking) — the BUG-176 sweep missed one prefix-matcher site. `requireProjectAccess`'s "no project_id supplied → dev-shim wildcard" branch checked `startsWith("dev-shim:")` (colon) instead of `startsWith("dev-shim")`. Session-shim clients (`dev-shim-session:<userId>`) didn't match, so dashboard hooks that call `/v1/organizations` without a `project_id` (`useOrganizations`, `useGlobalSearch`) returned 400.
+**Files:** `apps/api/src/middleware/auth.ts` (one line)
+
+**Fix applied:** Dropped the trailing colon so the matcher covers both `dev-shim:<userId>` and `dev-shim-session:<userId>`. Tests: 159/159 pass; lint + typecheck + openapi:lint clean across all 17 turbo tasks.
