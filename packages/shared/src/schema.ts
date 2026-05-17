@@ -2596,7 +2596,7 @@ export interface operations {
         content: never;
       };
       /** @description Passkey not found or not owned by the authenticated user */
-      400: {
+      404: {
         content: never;
       };
     };

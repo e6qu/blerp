@@ -1,51 +1,32 @@
 # Do Next
 
-### Current Status
+> **Snapshot (2026-05-17)** — All milestones M1–M8 + M12 complete. PR #52 (skills audit) in review with BUG-30..BUG-45 fixed (2 self-sweeps + 2 codex review rounds). Tests: 90/90 API · 152/152 E2E · 15/15 Storybook · lint + typecheck + openapi:lint clean. Only blocker: M9 needs AWS creds.
 
-88/88 API tests (was 49; +39 new in audit PR), 152/152 E2E tests, 15/15 Storybook tests (was 16; -1 for deleted orphan `SecurityPage.stories.tsx`), all passing. Skills audit PR (branch `chore/run-skills-audit-2026-05-17`) ran the full `.claude/skills/` suite against the post-PR-51 baseline and turned up 10 findings (BUG-30..BUG-39). All 10 fixed in the same PR per user direction — none deferred. Highlights: `WebAuthn passkey response no longer leaks credential material`, `2FA disable now reachable from the UI`, `23 icon-only buttons gained aria-label`, `OpenAPI now documents DELETE /v1/organizations/{id}`, `13 controllers gained their first integration tests`.
+## After PR #52 merges — pick one
 
-### Skills audit follow-ups (after this PR lands)
+1. **OpenAPI ↔ routes drift sweep** _(highest leverage, 1–2 sessions)_. Regenerating `packages/shared/src/schema.ts` during BUG-34 produced 87+/33− lines of change. BUG-39, BUG-41, and BUG-42 closed three concrete drifts; the magnitude implies more. Walk each `apps/api/src/v1/routes/*.routes.ts` against the spec, add missing path entries (or correct documented response codes), regen `schema.ts`, ensure `packages/backend` and `packages/nextjs` still typecheck. Add one integration assertion per controller for the failure code each route documents.
+2. **Capture WebAuthn `transports`** _(small, security-flavoured)_. `mapPasskey()` returns `transports: []` today. `@simplewebauthn/server` already surfaces transports during registration. Add a `transports` JSON column to the `passkeys` schema, populate from `verifyRegistration`, surface via the existing mapper, regen OpenAPI types.
+3. **C7 SAML connections** _(4–6 weeks, enterprise blocker for a real prospect only)_. Defer until a customer asks.
+4. **U3 theming / D13 appearance / U4 i18n / D15 notification center / C8 templates / U6 SMS MFA** _(P3 — UX/i18n polish)_. Pick when there's a UX owner; none gate v1.
 
-- **Full OpenAPI ↔ routes diff sweep.** Regenerating `packages/shared/src/schema.ts` during the BUG-34 fix produced 87+/33- lines of change vs the previously-committed file. BUG-39 closed the first concrete drift (org DELETE); the magnitude implies more endpoints in `apps/api/src/v1/routes/*.routes.ts` are missing from the spec. Sweep each route file against the spec, add the missing path entries, ensure SDK callers (`packages/backend`, `packages/nextjs`) still typecheck.
-- **Capture WebAuthn transports during registration.** `mapPasskey()` currently returns `transports: []`. `@simplewebauthn/server` already provides them — add a `transports` JSON column to `passkeys` schema, populate in `verifyRegistration`, surface in the mapper.
-- **Adopt design tokens beyond the initial seed.** BUG-36's fix adds the minimum (`@theme inline`); future PRs should migrate Tailwind utility usage to the named tokens where they reuse 3+ times (status pills, surface colors, focus ring color).
+## Blocked
 
-### Priority 1: Enterprise — 1 item
+| Item                         | Reason                    |
+| ---------------------------- | ------------------------- |
+| M9 Production Infrastructure | Requires AWS credentials. |
 
-- C7: SAML connections (enterprise SSO) — complex XML protocol, security-critical, 4-6 week effort. Deferred.
+## Skills/process backlog (not project features)
 
-### Priority 2: Future — 6 items
+- **Adopt design tokens for real.** BUG-36 added `font-sans`/`font-mono` (kept) and `brand-*`/`status-*` (removed in BUG-40 because no consumer migrated). Next PR that touches dashboard colour should declare the tokens **and** migrate ≥3 sites simultaneously, per `.claude/skills/design-system-check`.
+- **Periodic `hidden-rot-audit` cadence.** The 2026-05-17 sweep turned up 14 open findings against a "green" CI tree. Run the full audit before every milestone close-out.
 
-**Internationalization & UX:**
+## Maintenance protocol
 
-- U3: Theming / appearance API — CSS variable customization for white-labeling
-- U4: i18n / localization — multi-language UI support
-- D13: Appearance customization — theme preset beyond dark/light
-- D15: Notification center — in-app notification feed
+When you finish a chunk of work:
 
-**Auth channels:**
+1. Append a row to `STATUS.md` "Recent activity" (date + one-line note).
+2. Add a short entry under the right date in `WHAT_WE_DID.md`.
+3. If you opened/closed a bug, update `BUGS.md` (keep entries terse; move long fix narratives to the PR description).
+4. If priorities shifted, edit the "After PR #52 merges" section above so the _next_ thing is unambiguous.
 
-- C8: Email/SMS templates — customizable transactional email content
-- U6: SMS MFA — SMS-based second factor (TOTP already covers MFA)
-
-### Blocked
-
-| Item                         | Reason                   |
-| ---------------------------- | ------------------------ |
-| M9 Production Infrastructure | Requires AWS credentials |
-
-### Completed (recent)
-
-| Item                                                      | Status              |
-| --------------------------------------------------------- | ------------------- |
-| Next.js auth overhaul (JWT middleware, CSRF, org context) | ✅ Done 2026-03-21  |
-| Dashboard UX (single auth form, edit users)               | ✅ Done 2026-03-21  |
-| Monite SDK demo fully functional                          | ✅ Done 2026-03-21  |
-| Pre-commit lint alignment with CI                         | ✅ Done 2026-03-21  |
-| Systemic auth redesign (JWT sessions)                     | ✅ Done 2026-03-20  |
-| Q1-Q7: Production Quality Fixes                           | ✅ Fixed 2026-03-20 |
-| S3: M2M JWT verification                                  | ✅ Fixed 2026-03-20 |
-| S4: Persistent JWKS key pair                              | ✅ Fixed 2026-03-20 |
-| S1+S2: Real useSignIn/useSignUp hooks                     | ✅ Fixed 2026-03-20 |
-| S5: Real OAuth token exchange                             | ✅ Fixed 2026-03-20 |
-| Custom Roles (C13) + M2M Tokens (C5)                      | ✅ Fixed 2026-03-20 |
+Out-of-date docs are worse than missing docs — strip stale rows aggressively.

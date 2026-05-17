@@ -2875,7 +2875,7 @@ paths:
       responses:
         "204":
           description: Passkey deleted
-        "400":
+        "404":
           description: Passkey not found or not owned by the authenticated user
 
   /v1/auth/webauthn/registration/options:

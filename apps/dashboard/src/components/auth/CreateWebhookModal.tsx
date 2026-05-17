@@ -116,15 +116,16 @@ export function CreateWebhookModal({ isOpen, onClose }: CreateWebhookModalProps)
                   {createdSecret}
                 </code>
                 <button
-                  aria-label="Close"
+                  type="button"
+                  aria-label={copied ? "Copied" : "Copy signing secret to clipboard"}
                   onClick={handleCopySecret}
                   className="rounded p-2 hover:bg-gray-200 dark:hover:bg-gray-600"
                   title="Copy to clipboard"
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
                   ) : (
-                    <Copy className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    <Copy className="h-4 w-4 text-gray-500 dark:text-gray-400" aria-hidden="true" />
                   )}
                 </button>
               </div>
