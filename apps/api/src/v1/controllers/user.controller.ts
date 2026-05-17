@@ -28,6 +28,9 @@ export function mapUser(user: UserWithRelations): User {
     image_url: user.imageUrl ?? undefined,
     primary_email_id: user.primaryEmailAddressId ?? undefined,
     status: user.status as "active" | "inactive" | "banned",
+    // BUG-137 (codex r28): persistent per-user lockout flag (set after
+    // MAX_SIGNIN_ATTEMPTS failed sign-ins; cleared via admin unlock).
+    locked: user.locked,
     public_metadata: (user.publicMetadata as Record<string, unknown>) || {},
     private_metadata: (user.privateMetadata as Record<string, unknown>) || {},
     unsafe_metadata: (user.unsafeMetadata as Record<string, unknown>) || {},
@@ -162,6 +165,35 @@ export async function restoreUser(req: Request, res: Response) {
       return;
     }
     res.status(200).json(mapUser(restored));
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}
+
+// BUG-137 (codex r28): admin unlock endpoint. After MAX_SIGNIN_ATTEMPTS
+// failed sign-ins the user is `locked: true`; createSignin then refuses
+// to issue new attempts. An admin clears the flag + counter via
+// `POST /v1/users/:user_id/unlock`. No public endpoint exists for a
+// user to self-unlock (matches Clerk's behavior).
+export async function unlockUser(req: Request, res: Response) {
+  const id = (req.params.user_id || req.params.id) as string;
+  const service = new AuthService(req.tenantDb!, req.tenantId!);
+  try {
+    const user = await service.getUser(id);
+    if (!user) {
+      res.status(404).json({ error: { message: "User not found" } });
+      return;
+    }
+    await req
+      .tenantDb!.update(schema.users)
+      .set({ locked: false, failedSignInAttempts: 0, updatedAt: new Date() })
+      .where(eq(schema.users.id, id));
+    const refreshed = await service.getUser(id);
+    if (!refreshed) {
+      res.status(404).json({ error: { message: "User not found after unlock" } });
+      return;
+    }
+    res.status(200).json(mapUser(refreshed));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }

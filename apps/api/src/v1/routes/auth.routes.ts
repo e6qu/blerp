@@ -46,6 +46,8 @@ router.get("/users/:user_id", authMiddleware, userController.getUser);
 router.patch("/users/:user_id", authMiddleware, userController.updateUser);
 router.delete("/users/:user_id", authMiddleware, userController.deleteUser);
 router.post("/users/:user_id/restore", authMiddleware, userController.restoreUser);
+// BUG-137 (codex r28): admin-only persistent-lockout reset endpoint.
+router.post("/users/:user_id/unlock", authMiddleware, userController.unlockUser);
 
 // User Email Addresses
 router.get("/users/:user_id/email_addresses", authMiddleware, emailController.listEmails);

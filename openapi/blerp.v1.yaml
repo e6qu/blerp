@@ -1607,6 +1607,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+  /v1/users/{user_id}/unlock:
+    post:
+      tags: [Users]
+      summary: Unlock a locked user account
+      description: |
+        Clears `User.locked` and resets the failed sign-in attempt counter
+        on a user that has been auto-locked after `MAX_SIGNIN_ATTEMPTS`
+        (5) consecutive failed sign-ins (BUG-137 codex r28). Admin-only;
+        there is no public self-unlock — matches Clerk's behavior.
+      operationId: unlockUser
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Unlocked user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/users/{user_id}/identities/oauth:
     post:
       tags: [Users]

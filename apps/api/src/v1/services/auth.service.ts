@@ -292,6 +292,16 @@ export class AuthService {
       throw new Error("Account is not active");
     }
 
+    // BUG-137 (codex r28): per-user lockout persists across
+    // createSignin calls so 5 wrong-password attempts can't be "reset"
+    // by starting fresh sign-ins. An admin must explicitly unlock
+    // (PATCH /v1/users/:user_id/unlock).
+    if (user.locked) {
+      throw new Error(
+        "Account is locked after too many failed sign-in attempts. Contact an administrator.",
+      );
+    }
+
     const signinId = `sin_${nanoid()}`;
     const mfaRequired = user.totpEnabled ?? false;
 
@@ -370,18 +380,11 @@ export class AuthService {
       throw new Error(`Unsupported first-factor strategy: "${strategy}". Expected "password".`);
     }
 
-    // BUG-134 (codex r27): wrap credential verification so a wrong-
-    // password restores the pending entry with an incremented failure
-    // counter (until the lockout threshold). Anything else terminal
-    // (no such user, no password set, infra error) does NOT restore —
-    // these aren't credential typos.
-    const restoreWithFailure = () => {
-      pendingSignins.set(signinId, {
-        ...pending,
-        failedAttempts: pending.failedAttempts + 1,
-      });
-    };
-
+    // BUG-134 (codex r27) / BUG-137 (codex r28): on a wrong-credential,
+    // (a) restore the pending entry with an incremented per-attempt
+    // counter (BUG-135), and (b) bump the persistent per-user counter
+    // and lock the account if it crosses MAX_SIGNIN_ATTEMPTS. Anything
+    // else terminal does NOT restore.
     const emailRecord = await this.db.query.emailAddresses.findFirst({
       where: eq(schema.emailAddresses.emailAddress, identifier),
     });
@@ -392,13 +395,47 @@ export class AuthService {
     if (!user) {
       throw new Error("Invalid email or password");
     }
+    // Re-check lockout after the user lookup — a parallel attempt may
+    // have locked the account between createSignin and this call.
+    if (user.locked) {
+      throw new Error(
+        "Account is locked after too many failed sign-in attempts. Contact an administrator.",
+      );
+    }
     if (!user.passwordDigest) {
       throw new Error("No password set for this account");
     }
+    const restoreWithFailure = () => {
+      pendingSignins.set(signinId, {
+        ...pending,
+        failedAttempts: pending.failedAttempts + 1,
+      });
+    };
+    const bumpUserFailures = async () => {
+      const nextCount = user.failedSignInAttempts + 1;
+      const shouldLock = nextCount >= MAX_SIGNIN_ATTEMPTS;
+      await this.db
+        .update(schema.users)
+        .set({
+          failedSignInAttempts: nextCount,
+          locked: shouldLock,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, user.id));
+    };
+
     const valid = await crypto.verifyPassword(user.passwordDigest, password);
     if (!valid) {
       restoreWithFailure();
+      await bumpUserFailures();
       throw new Error("Invalid email or password");
+    }
+    // BUG-137: successful password verify resets the per-user counter.
+    if (user.failedSignInAttempts > 0) {
+      await this.db
+        .update(schema.users)
+        .set({ failedSignInAttempts: 0, updatedAt: new Date() })
+        .where(eq(schema.users.id, user.id));
     }
 
     // First-factor done — pending entry already consumed via pop().
@@ -464,17 +501,31 @@ export class AuthService {
       const result = await totp.verify(code, { secret: user.totpSecret });
       return result.valid;
     };
+    // BUG-136 (codex r28): atomic backup-code consumption. The prior
+    // read-modify-write against `user.backupCodes` raced across two
+    // pending sign-ins for the SAME user — both reads saw the code
+    // present, both verified, both wrote the post-consumption array.
+    // BUG-134's TransientStore.pop() only serialized per signin_id;
+    // this is per-user. Wrap in a transaction with a fresh read so
+    // SQLite's BEGIN IMMEDIATE locks the row and exactly one caller
+    // observes the code.
     const tryBackupCode = async (): Promise<boolean> => {
-      const backupCodes = (user.backupCodes ?? []) as string[];
-      const codeIndex = backupCodes.indexOf(code);
-      if (codeIndex < 0) return false;
-      const updatedCodes = [...backupCodes];
-      updatedCodes.splice(codeIndex, 1);
-      await this.db
-        .update(schema.users)
-        .set({ backupCodes: updatedCodes, updatedAt: new Date() })
-        .where(eq(schema.users.id, user.id));
-      return true;
+      return await this.db.transaction(async (tx) => {
+        const fresh = await tx.query.users.findFirst({
+          where: eq(schema.users.id, user.id),
+        });
+        if (!fresh) return false;
+        const backupCodes = (fresh.backupCodes ?? []) as string[];
+        const codeIndex = backupCodes.indexOf(code);
+        if (codeIndex < 0) return false;
+        const updatedCodes = [...backupCodes];
+        updatedCodes.splice(codeIndex, 1);
+        await tx
+          .update(schema.users)
+          .set({ backupCodes: updatedCodes, updatedAt: new Date() })
+          .where(eq(schema.users.id, user.id));
+        return true;
+      });
     };
 
     let verified: boolean;

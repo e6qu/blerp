@@ -177,6 +177,16 @@ export interface paths {
      */
     post: operations["restoreUser"];
   };
+  "/v1/users/{user_id}/unlock": {
+    /**
+     * Unlock a locked user account
+     * @description Clears `User.locked` and resets the failed sign-in attempt counter
+     * on a user that has been auto-locked after `MAX_SIGNIN_ATTEMPTS`
+     * (5) consecutive failed sign-ins (BUG-137 codex r28). Admin-only;
+     * there is no public self-unlock — matches Clerk's behavior.
+     */
+    post: operations["unlockUser"];
+  };
   "/v1/users/{user_id}/identities/oauth": {
     /**
      * Link OAuth identity
@@ -1194,7 +1204,18 @@ export interface operations {
       content: {
         "application/json": {
           identifier: string;
-          /** @enum {string} */
+          /**
+           * @description First-factor strategy. Currently only `password` is
+           * implemented end-to-end (BUG-127 codex r23). The other
+           * enum values are reserved for future implementation;
+           * sending them today produces a sign-in attempt whose
+           * `available_strategies` is `["password"]`, so the
+           * caller knows the service won't honour the requested
+           * factor. Strategy support is gated server-side, not by
+           * the spec, to keep the enum forward-compatible.
+           *
+           * @enum {string}
+           */
           strategy: "password" | "magic_link" | "otp" | "passkey" | "oauth";
         };
       };
@@ -1591,6 +1612,34 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["User"];
+        };
+      };
+    };
+  };
+  /**
+   * Unlock a locked user account
+   * @description Clears `User.locked` and resets the failed sign-in attempt counter
+   * on a user that has been auto-locked after `MAX_SIGNIN_ATTEMPTS`
+   * (5) consecutive failed sign-ins (BUG-137 codex r28). Admin-only;
+   * there is no public self-unlock — matches Clerk's behavior.
+   */
+  unlockUser: {
+    parameters: {
+      path: {
+        user_id: string;
+      };
+    };
+    responses: {
+      /** @description Unlocked user */
+      200: {
+        content: {
+          "application/json": components["schemas"]["User"];
+        };
+      };
+      /** @description User not found */
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };

@@ -31,6 +31,15 @@ export const users = sqliteTable("users", {
   totpSecret: text("totp_secret"),
   totpEnabled: integer("totp_enabled", { mode: "boolean" }).notNull().default(false),
   backupCodes: text("backup_codes", { mode: "json" }).notNull().default("[]"),
+  // BUG-137 (codex r28): persistent per-user lockout. OpenAPI's
+  // `User.locked` field implied this for a long time; without it,
+  // BUG-135's per-attempt lockout could be reset just by issuing a
+  // fresh createSignin. `failedSignInAttempts` accumulates across
+  // attempts and resets to 0 on a successful sign-in. `locked` is set
+  // when the threshold is hit; admin must unlock to allow further
+  // sign-ins.
+  locked: integer("locked", { mode: "boolean" }).notNull().default(false),
+  failedSignInAttempts: integer("failed_sign_in_attempts").notNull().default(0),
   publicMetadata: text("public_metadata", { mode: "json" }).notNull().default("{}"),
   privateMetadata: text("private_metadata", { mode: "json" }).notNull().default("{}"),
   unsafeMetadata: text("unsafe_metadata", { mode: "json" }).notNull().default("{}"),

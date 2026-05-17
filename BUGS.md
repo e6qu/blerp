@@ -1511,3 +1511,19 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 **Files:** `apps/api/src/v1/services/auth.service.ts`
 
 **Fix applied:** Added `failedAttempts` field to both `PendingFirstFactor` and `PendingSecondFactor`, plus `MAX_SIGNIN_ATTEMPTS = 5` constant. On every wrong-credential / wrong-code, the restored entry's `failedAttempts` is incremented. Once `failedAttempts >= MAX_SIGNIN_ATTEMPTS`, the attempt is rejected with "locked after too many failed attempts" — even if the next submitted credential is correct. The only remedy is a fresh `createSignin` (which gets a new `signin_id`). Terminal errors (forged id, mismatched identifier, unsupported strategy) do NOT restore — those aren't credential typos and shouldn't reset the lockout clock either. Regression test exercises 5 wrong passwords followed by the correct one and asserts the 400 lockout.
+
+### BUG-136 (codex r28): Backup-code consumption raced across two pending `signin_id`s for the same user (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-134's `TransientStore.pop()` serialised per-attempt-id, but `tryBackupCode()` did a stale-read + unconditional write against `user.backupCodes`. Two MFA attempts for the same user (different signin_ids — e.g. user accidentally clicked sign-in twice) could both: read codes including the typed one, both verify, both write a different "consumed" array. Net effect: one backup code authenticated two sessions.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Wrapped `tryBackupCode` in `db.transaction()`. The fresh user row is re-read inside the tx (`BEGIN IMMEDIATE` locks the row on SQLite), the code is checked against the FRESH array, and the splice + write happen atomically. Only one concurrent caller observes the code as present.
+
+### BUG-137 (codex r28): Lockout was per-attempt only — fresh `createSignin` reset the counter, no persistent `User.locked` (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — BUG-135's lockout only restricted further attempts on a single transient `signin_id`. A bad actor could keep starting fresh sign-ins to evade it. OpenAPI's `User.locked` field had implied persistent lockout for ages; the column didn't exist.
+**Files:** `apps/api/src/db/schema.ts`, `apps/api/drizzle/0015_narrow_goliath.sql`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `openapi/blerp.v1.yaml`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:** Added `locked BOOLEAN DEFAULT false NOT NULL` + `failed_sign_in_attempts INTEGER DEFAULT 0 NOT NULL` to the `users` table (drizzle migration `0015_narrow_goliath.sql`). `attemptSignin` bumps `failedSignInAttempts` on wrong-credential AND, when it crosses `MAX_SIGNIN_ATTEMPTS`, also sets `locked: true`. Successful sign-in resets the counter to 0. `createSignin` and the post-lookup branch in `attemptSignin` both refuse when `user.locked === true`. New admin-only `POST /v1/users/:user_id/unlock` endpoint clears both fields. `mapUser` exposes `locked`. OpenAPI documents the new endpoint. Regression test exercises the full lock-and-unlock cycle: 5 wrong attempts → fresh createSignin 400s with "Account is locked" → direct DB unlock → createSignin succeeds again. (Per-attempt BUG-135 lockout still applies for fast-burn protection within a single attempt; per-user BUG-137 lockout layers on top for the persistent case.)
