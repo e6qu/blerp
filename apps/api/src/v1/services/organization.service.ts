@@ -22,7 +22,16 @@ export class OrganizationService {
       slug,
     });
 
-    await eventBus.emit("organization.created", this.tenantId, { organizationId: id });
+    // BUG-166 (codex r41+r42): pass project_id so the webhook worker
+    // can route this event only to endpoints in this project. Without
+    // it the worker fell through to the "default" bucket and the
+    // event went to the wrong project's endpoints.
+    await eventBus.emit(
+      "organization.created",
+      this.tenantId,
+      { organizationId: id },
+      data.projectId,
+    );
     return this.get(id);
   }
 

@@ -176,7 +176,12 @@ export class AuthService {
       }
     }
 
-    await eventBus.emit("user.created", this.tenantId, { userId });
+    // BUG-166 (codex r42): sign-up is genuinely tenant-system level —
+    // the new user isn't yet enrolled in any project. Pass `null`
+    // explicitly so the worker's project filter routes this to the
+    // legacy "default" bucket (matches pre-r41 behaviour) rather
+    // than silently dropping it.
+    await eventBus.emit("user.created", this.tenantId, { userId }, null);
 
     // BUG-114 (codex r20): always return snake_case `user_id` to match
     // OpenAPI + the Clerk-shaped convention used everywhere else.

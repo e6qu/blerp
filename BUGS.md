@@ -1800,3 +1800,24 @@ The dev X-User-Id shim was extended to grant the full scope set (`webhooks:*`, `
 **Files:** `apps/api/src/v1/controllers/webhook.controller.ts`
 
 **Fix applied:** Controller now extracts a fixed allow-list (`url`, `enabled`, `events`/`event_types` → `eventTypes`) into a `safe` object and passes that to `service.update`. Any other body field is silently dropped. `projectId` cannot be supplied through the update path; reassigning an endpoint to another project requires create + delete by the new project owner.
+
+### BUG-165 (codex r42): SCIM routes had no auth — `X-Tenant-Id` alone let anyone list / create / read / delete SCIM users (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `scim.routes.ts` only mounted `tenantMiddleware`, no `authMiddleware`, no scope gate. Any request with `X-Tenant-Id` could list/create/delete SCIM users in that tenant. Total auth bypass on the SCIM 2.0 endpoints, which per the RFCs and Clerk parity are SecretKey-only.
+**Files:** `apps/api/src/v1/routes/scim.routes.ts`, `apps/api/src/__tests__/scim.integration.test.ts`
+
+**Fix applied:** Each route gated with `authMiddleware` → `requireM2M("users:read"|"users:write")` (same scope split as `/v1/users`). Tests updated to use X-User-Id (dev shim auto-grants the scopes). New regression test asserts unauthenticated SCIM calls return 401.
+
+### BUG-166 (codex r42): BUG-163 emitters didn't pass `project_id` — webhook delivery fell through to the "default" bucket (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-163 added the project filter on the worker side but the emitters (`organization.created` in `OrganizationService.create`, `user.created` in `AuthService.attemptSignup`) didn't pass `projectId`. The worker mapped `null` → `"default"`, so org events went to the default-project endpoints rather than the org's actual project endpoints.
+**Files:** `apps/api/src/v1/services/organization.service.ts`, `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:**
+
+- `OrganizationService.create` passes `data.projectId` (already available) as the event's project — org events now route correctly to the project's endpoints.
+- `AuthService.attemptSignup` (sign-up) is genuinely tenant-system level (the new user isn't yet in any project), so it explicitly passes `null` — keeps the legacy "default" routing behavior and makes the contract obvious.
+
+Future emitters added by the audit worker / org-mgmt flows should follow the same pattern: pass the project_id when one is in scope, `null` for tenant-system events.
