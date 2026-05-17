@@ -39,13 +39,25 @@ interface ReadOptions {
   defaultValue?: string;
 }
 
+/**
+ * Treat blank strings as unset. BUG-79 (codex r15): a deployment that
+ * ships an .env template with `BLERP_API_URL=` (intentionally blank)
+ * plus `CLERK_API_URL=https://api.example/v1` would otherwise short-
+ * circuit to the empty string instead of falling back to the CLERK_*
+ * alias, producing relative-URL bugs downstream.
+ */
+function readNonBlank(key: string): string | undefined {
+  const value = process.env[key];
+  return value && value.trim() !== "" ? value : undefined;
+}
+
 function readEither(
   blerpKey: string,
   clerkKey: string,
   options: ReadOptions = {},
 ): string | undefined {
-  const blerpValue = process.env[blerpKey];
-  const clerkValue = process.env[clerkKey];
+  const blerpValue = readNonBlank(blerpKey);
+  const clerkValue = readNonBlank(clerkKey);
 
   if (blerpValue && clerkValue && blerpValue !== clerkValue) {
     warnOnce(
@@ -89,7 +101,10 @@ export function getSecretKeyOrThrow(): string {
  * without re-implementing it.
  */
 export function normalizeApiUrl(rawUrl: string): string {
-  return rawUrl.replace(/\/v1\/?$/i, "");
+  // BUG-80 (codex r15): strip a trailing `/v1` AND any trailing slashes
+  // so `BLERP_API_URL=https://api.example.com/` doesn't produce
+  // `//v1/jwks` after the join. Idempotent.
+  return rawUrl.replace(/\/v1\/?$/i, "").replace(/\/+$/, "");
 }
 
 export function getApiUrl(defaultValue = "http://localhost:3000"): string {
