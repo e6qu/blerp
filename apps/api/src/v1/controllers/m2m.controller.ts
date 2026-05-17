@@ -77,6 +77,37 @@ export async function createM2MToken(req: Request, res: Response) {
     throw err;
   }
 
+  // BUG-145 (codex r32): chain-of-trust on admin scopes. A plain
+  // project-owner session cannot mint an admin-scoped M2M token —
+  // only an existing M2M token that ALREADY holds the requested
+  // admin scope can. This prevents a project owner from minting a
+  // `users:admin` token that would let them unlock other projects'
+  // users in the same tenant. The first admin token bootstraps via
+  // the install/seed path (direct DB).
+  const requestedScopes = scopes ?? [];
+  const adminScopes = requestedScopes.filter((s) => s.endsWith(":admin"));
+  if (adminScopes.length > 0) {
+    if (!req.m2m) {
+      res.status(403).json({
+        error: {
+          message:
+            "Admin scopes can only be granted by an existing M2M token that already holds them. " +
+            `Requested admin scopes: ${adminScopes.join(", ")}.`,
+        },
+      });
+      return;
+    }
+    const missing = adminScopes.filter((s) => !req.m2m!.scopes.includes(s));
+    if (missing.length > 0) {
+      res.status(403).json({
+        error: {
+          message: `Cannot grant admin scopes the caller does not hold: ${missing.join(", ")}.`,
+        },
+      });
+      return;
+    }
+  }
+
   const m2mService = new M2MService(req.tenantDb!);
   try {
     const token = await m2mService.create(project_id, { name, scopes });

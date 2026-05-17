@@ -435,11 +435,23 @@ export class AuthService {
       throw new Error("Invalid email or password");
     }
     // BUG-137: reset the per-user counter on success.
-    // BUG-141 (codex r30): atomic check-and-reset. A parallel wrong
-    // attempt could have flipped `locked: true` between the post-
-    // lookup check above and now; the UPDATE's `WHERE locked = false`
-    // makes the reset+session-mint conditional on the user still being
-    // unlocked at write time. If 0 rows updated, refuse to mint.
+    // BUG-141 (codex r30): atomic check-and-reset on success.
+    // BUG-146 (codex r32) revisited: better-sqlite3 transactions don't
+    // accept async callbacks (drizzle wraps it strictly synchronously),
+    // so wrapping reset + session-INSERT in `db.transaction(async)` is
+    // not viable in this stack. Fortunately SQLite + better-sqlite3
+    // already serialise writes per connection: the atomic
+    // `UPDATE … WHERE locked=false … RETURNING` either matches (we're
+    // unlocked at write time and the reset succeeded) or returns 0 rows
+    // (someone else just locked us). Two concurrent wrong attempts
+    // can't both push the counter to 5 simultaneously because the
+    // SQL-side `failed_sign_in_attempts + 1` evaluates at write time
+    // against the row's freshest value. The only remaining window —
+    // between the reset RETURNING and the session INSERT — would
+    // require the concurrent attempts to advance the counter by 5 in
+    // that span, but each wrong attempt only +1's. Net: the race codex
+    // r32 worried about isn't reachable in this storage model. We
+    // re-evaluate when (if) we swap SQLite for a multi-connection store.
     const resetRows = await this.db
       .update(schema.users)
       .set({ failedSignInAttempts: 0, updatedAt: new Date() })
@@ -514,31 +526,32 @@ export class AuthService {
       const result = await totp.verify(code, { secret: user.totpSecret });
       return result.valid;
     };
-    // BUG-136 (codex r28): atomic backup-code consumption. The prior
-    // read-modify-write against `user.backupCodes` raced across two
-    // pending sign-ins for the SAME user — both reads saw the code
-    // present, both verified, both wrote the post-consumption array.
-    // BUG-134's TransientStore.pop() only serialized per signin_id;
-    // this is per-user. Wrap in a transaction with a fresh read so
-    // SQLite's BEGIN IMMEDIATE locks the row and exactly one caller
-    // observes the code.
+    // BUG-136 (codex r28) revisited: atomic backup-code consumption.
+    // The prior read-modify-write raced across two pending sign-ins
+    // for the SAME user. better-sqlite3 transactions don't support
+    // async callbacks (see BUG-146 note), so wrap the consume in a
+    // single UPDATE that does the array-filter at SQL time via
+    // `json_each`. The `returning()` tells us whether the code was
+    // present at write time — concurrent callers see the row in
+    // exactly one ordering (SQLite serialises writes per connection),
+    // so exactly one observes the code present.
     const tryBackupCode = async (): Promise<boolean> => {
-      return await this.db.transaction(async (tx) => {
-        const fresh = await tx.query.users.findFirst({
-          where: eq(schema.users.id, user.id),
-        });
-        if (!fresh) return false;
-        const backupCodes = (fresh.backupCodes ?? []) as string[];
-        const codeIndex = backupCodes.indexOf(code);
-        if (codeIndex < 0) return false;
-        const updatedCodes = [...backupCodes];
-        updatedCodes.splice(codeIndex, 1);
-        await tx
-          .update(schema.users)
-          .set({ backupCodes: updatedCodes, updatedAt: new Date() })
-          .where(eq(schema.users.id, user.id));
-        return true;
-      });
+      const result = await this.db
+        .update(schema.users)
+        .set({
+          backupCodes: sql`(SELECT json_group_array(value) FROM json_each(${schema.users.backupCodes}) WHERE value != ${code})`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(schema.users.id, user.id),
+            // EXISTS clause runs against the row's current backup_codes
+            // — atomic with the UPDATE on the same row.
+            sql`EXISTS (SELECT 1 FROM json_each(${schema.users.backupCodes}) WHERE value = ${code})`,
+          ),
+        )
+        .returning({ id: schema.users.id });
+      return result.length > 0;
     };
 
     let verified: boolean;
@@ -560,12 +573,10 @@ export class AuthService {
       throw new Error("Invalid verification code");
     }
 
-    // BUG-143 (codex r31): second-factor success path must also
-    // re-check the per-user lock. A parallel wrong attempt (e.g. a
-    // concurrent first-factor brute force on this same user) could
-    // have flipped `locked: true` between the post-pop user lookup
-    // and now. Atomic check-and-touch: only succeed if user is still
-    // unlocked at write time.
+    // BUG-143 (codex r31): atomic check-and-touch — only succeed if
+    // user is still unlocked at write time. See BUG-146 note above
+    // for why this isn't wrapped in db.transaction (better-sqlite3
+    // tx callbacks must be synchronous).
     const stillUnlocked = await this.db
       .update(schema.users)
       .set({ updatedAt: new Date() })
@@ -577,12 +588,10 @@ export class AuthService {
       );
     }
 
-    // No delete needed — pop() above already consumed.
     const mergedMetadata = {
       ipAddress: metadata?.ipAddress ?? pending.ipAddress,
       userAgent: metadata?.userAgent ?? pending.userAgent,
     };
-
     return this.createSessionForUser(user.id, mergedMetadata);
   }
 
@@ -590,10 +599,11 @@ export class AuthService {
     userId: string,
     metadata?: { ipAddress?: string; userAgent?: string },
   ) {
+    const db = this.db;
     const sessionId = `ses_${nanoid()}`;
     const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const abandonAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    await this.db.insert(schema.sessions).values({
+    await db.insert(schema.sessions).values({
       id: sessionId,
       userId,
       status: "active",
@@ -604,7 +614,7 @@ export class AuthService {
     });
 
     // Update last sign in
-    await this.db
+    await db
       .update(schema.users)
       .set({ lastSignInAt: new Date(), updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
@@ -617,7 +627,7 @@ export class AuthService {
     // take effect server-side (because the JWT claim takes precedence in
     // @blerp/nextjs `auth()` for permissions resolution). Users in zero
     // organizations never get the org claims (matches Clerk).
-    const memberships = await this.db.query.memberships.findMany({
+    const memberships = await db.query.memberships.findMany({
       where: eq(schema.memberships.userId, userId),
       with: { organization: true },
     });

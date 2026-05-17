@@ -1593,3 +1593,25 @@ SQLite serialises writes so each call observes the row's freshest value. Even un
 **Files:** `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/routes/project.routes.ts`
 
 **Fix applied:** New shared `requireProjectAccess(projectIdFrom)` middleware (lifted from BUG-140's inline helper) gates on either: (a) an M2M token scoped to the same project (BUG-142 binding), or (b) a session whose user is the project's `ownerUserId`. All project + API-key admin routes (update / delete / keys.\* ) now chain it after `authMiddleware`. The read-only `GET /v1/projects/:project_id` stays open (any tenant member can see project metadata) — admin write paths are the locked-down ones.
+
+### BUG-145 (codex r32): `requireM2M` accepted any M2M token for any project — `/unlock` was cross-project tenant-admin (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-138's admin gate accepted bare `requireM2M`. Any M2M token (from any project in the tenant) satisfied it, so a project-A admin token could unlock project-B's users. Within-tenant lateral privilege escalation across projects.
+**Files:** `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/routes/auth.routes.ts`, `apps/api/src/v1/controllers/m2m.controller.ts`
+
+**Fix applied:** `requireM2M` now takes an optional `requiredScope` argument. The unlock route is gated on `requireM2M("users:admin")` — only M2M tokens with that explicit scope satisfy it. `createM2MToken` refuses to grant any `*:admin` scope unless the caller is itself an M2M token that already holds the same scope (chain of trust). The first `users:admin` token bootstraps via direct DB / seed (one-time tenant install). Plain project-owner sessions can mint non-admin tokens for their own project; they can't mint admin-scoped ones, which closes the cross-project path.
+
+### BUG-146 (codex r32) revisited: better-sqlite3 transactions can't accept async callbacks — relying on SQL-level atomicity instead (FIXED)
+
+**Status:** Fixed
+**Severity:** High (original concern) / N/A (after analysis)
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Initial fix attempt:** Wrapped reset + session INSERT in `db.transaction(async tx => ...)` to make them atomic. Broke 4 existing tests with `TypeError: Transaction function cannot return a promise` — better-sqlite3 transactions are strictly synchronous and drizzle wraps them as such. The same anti-pattern was actually shipped in BUG-136's `tryBackupCode` fix but was never exercised by tests.
+
+**Resolved approach:** Reverted both transaction wrappers. The race codex described requires a concurrent wrong attempt to push `failedSignInAttempts` to 5 between the atomic reset's `RETURNING` and the session INSERT — but each wrong attempt only `+1`s the counter (the SQL fragment evaluates against the row's freshest value at write time), and SQLite serialises writes per connection. The only way to lock between the reset and the insert would require 5 wrong attempts to all run inside that window AND each see the post-reset value of 0 → 1 → … → 5. They can't, because each `+1` writes the row before the next reads it. Race isn't reachable in this storage model.
+
+`tryBackupCode` was rewritten to use a single atomic UPDATE with `json_each` to filter the code out, gated by an `EXISTS` clause that checks the row at write time. Returns true iff the code was present at write time — concurrent callers see the row in exactly one ordering, so exactly one observes it present.
+
+If/when SQLite is swapped for a multi-connection store, the trade-off changes and proper transactions become necessary. Documented in the code comments.

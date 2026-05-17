@@ -109,15 +109,52 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 }
 
 /**
- * BUG-138 (codex r29): admin-only gate. Run AFTER `authMiddleware` —
- * accepts only M2M tokens (Clerk-style backend / secret-key auth) and
- * rejects user session JWTs. Without this, any signed-in user could
- * hit admin endpoints (BUG-137's unlock was the trigger).
+ * BUG-138 (codex r29) / BUG-145 (codex r32): admin-only gate. Run
+ * AFTER `authMiddleware`. Accepts only M2M tokens (Clerk-style backend
+ * / secret-key auth) and, when `requiredScope` is passed, only those
+ * carrying that scope.
  *
- * Future: this should also accept session tokens whose user holds a
- * tenant-level "admin" role, but no such role exists today.
+ * The scope check is the answer to BUG-145: bare `requireM2M` accepted
+ * any M2M token from any project, so a project-A admin token could
+ * unlock project-B's users (tenant-wide privilege escalation). With
+ * a required scope like `users:admin`, the caller must have been
+ * explicitly granted that scope at M2M-token creation. createM2MToken
+ * refuses to grant `*:admin` scopes to plain project-owner sessions —
+ * only an existing M2M token can mint another with admin scopes
+ * (chain of trust). The first admin token bootstraps via seed / direct
+ * DB access (one-time, tenant install).
  */
-export function requireM2M(req: Request, res: Response, next: NextFunction): void {
+export function requireM2M(req: Request, res: Response, next: NextFunction): void;
+export function requireM2M(
+  requiredScope: string,
+): (req: Request, res: Response, next: NextFunction) => void;
+export function requireM2M(
+  ...args: [string] | [Request, Response, NextFunction]
+): void | ((req: Request, res: Response, next: NextFunction) => void) {
+  if (args.length === 1) {
+    const requiredScope = args[0];
+    return (req, res, next) => {
+      if (!req.m2m) {
+        res.status(403).json({
+          error: {
+            message:
+              "Admin-only endpoint — requires an M2M / secret-key token, not a user session.",
+          },
+        });
+        return;
+      }
+      if (!req.m2m.scopes.includes(requiredScope)) {
+        res.status(403).json({
+          error: {
+            message: `M2M token is missing the required scope "${requiredScope}".`,
+          },
+        });
+        return;
+      }
+      next();
+    };
+  }
+  const [req, res, next] = args;
   if (req.m2m) {
     next();
     return;

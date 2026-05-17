@@ -46,11 +46,18 @@ router.get("/users/:user_id", authMiddleware, userController.getUser);
 router.patch("/users/:user_id", authMiddleware, userController.updateUser);
 router.delete("/users/:user_id", authMiddleware, userController.deleteUser);
 router.post("/users/:user_id/restore", authMiddleware, userController.restoreUser);
-// BUG-137 (codex r28) / BUG-138 (codex r29): admin-only persistent-
-// lockout reset. Requires an M2M token (Clerk-style backend secret key
-// auth), NOT a user session JWT — otherwise a locked user with an
-// existing session could self-unlock.
-router.post("/users/:user_id/unlock", authMiddleware, requireM2M, userController.unlockUser);
+// BUG-137 / BUG-138 / BUG-145: admin-only persistent-lockout reset.
+// Requires an M2M token with the `users:admin` scope. Bare M2M (any
+// project) is NOT enough — that would let a project-A admin unlock
+// project-B's users (cross-project tenant-wide escalation). The
+// scope is only mintable by an existing users:admin token (chain of
+// trust); the first one bootstraps via the seed/install path.
+router.post(
+  "/users/:user_id/unlock",
+  authMiddleware,
+  requireM2M("users:admin"),
+  userController.unlockUser,
+);
 
 // User Email Addresses
 router.get("/users/:user_id/email_addresses", authMiddleware, emailController.listEmails);
