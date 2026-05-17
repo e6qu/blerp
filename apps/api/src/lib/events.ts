@@ -17,16 +17,29 @@ export interface BlerpEvent {
   id: string;
   type: EventType;
   tenantId: string;
+  // BUG-163 (codex r41): project_id is required for fan-out. Webhook
+  // delivery filters by it so a Project-B endpoint never sees a
+  // Project-A event. Emitters that don't have a project context (rare
+  // — most events are about a project-scoped resource) pass `null`,
+  // which the worker treats as "tenant system event — only delivered
+  // to endpoints with no project_id, i.e. legacy tenant-wide ones."
+  projectId: string | null;
   timestamp: number;
   data: Metadata;
 }
 
 export const eventBus = {
-  emit: async (type: EventType, tenantId: string, data: Metadata): Promise<string | null> => {
+  emit: async (
+    type: EventType,
+    tenantId: string,
+    data: Metadata,
+    projectId: string | null = null,
+  ): Promise<string | null> => {
     const event: BlerpEvent = {
       id: `evt_${nanoid()}`,
       type,
       tenantId,
+      projectId,
       timestamp: Date.now(),
       data,
     };
@@ -39,6 +52,7 @@ export const eventBus = {
         id: event.id,
         type: event.type,
         tenantId: event.tenantId,
+        projectId: event.projectId ?? "",
         timestamp: event.timestamp.toString(),
         data: JSON.stringify(event.data),
       };

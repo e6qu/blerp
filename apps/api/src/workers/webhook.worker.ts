@@ -2,7 +2,7 @@ import { redis } from "../lib/redis";
 import { logger } from "../lib/logger";
 import { getTenantDb } from "../db/router";
 import * as schema from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import crypto from "node:crypto";
 import { nanoid } from "nanoid";
 
@@ -79,6 +79,10 @@ function parseEvent(fields: string[]) {
     id: data.id,
     type: data.type,
     tenantId: data.tenantId,
+    // BUG-163 (codex r41): projectId may be absent on events emitted
+    // before this change — default to "" which the delivery branch
+    // treats as the legacy "default" project bucket.
+    projectId: data.projectId ?? "",
     timestamp: parseInt(data.timestamp),
     payload: JSON.parse(data.data) as Record<string, unknown>,
   };
@@ -88,6 +92,9 @@ interface WorkerEvent {
   id: string;
   type: string;
   tenantId: string;
+  // BUG-163 (codex r41): events now carry project_id (empty string =
+  // tenant system event). Webhook delivery filters by it.
+  projectId: string;
   timestamp: number;
   payload: Record<string, unknown>;
 }
@@ -96,10 +103,21 @@ type DBWebhookEndpoint = typeof schema.webhookEndpoints.$inferSelect;
 
 async function deliverEvent(event: WorkerEvent) {
   const db = await getTenantDb(event.tenantId);
+  // BUG-163 (codex r41): match endpoints to the event's project. An
+  // empty event.projectId means the event has no project context
+  // (rare — system-level emissions); in that case we deliver only to
+  // legacy "default" project endpoints (the back-compat bucket from
+  // BUG-162's default value).
+  const endpointProjectId = event.projectId !== "" ? event.projectId : "default";
   const endpoints = await db
     .select()
     .from(schema.webhookEndpoints)
-    .where(eq(schema.webhookEndpoints.enabled, true));
+    .where(
+      and(
+        eq(schema.webhookEndpoints.enabled, true),
+        eq(schema.webhookEndpoints.projectId, endpointProjectId),
+      ),
+    );
 
   for (const endpoint of endpoints) {
     const eventTypes = endpoint.eventTypes as string[];

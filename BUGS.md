@@ -1784,3 +1784,19 @@ The dev X-User-Id shim was extended to grant the full scope set (`webhooks:*`, `
 **Files:** `apps/api/src/db/schema.ts`, `apps/api/drizzle/0016_harsh_sersi.sql`, `apps/api/src/v1/services/webhook.service.ts`, `apps/api/src/v1/controllers/webhook.controller.ts`
 
 **Fix applied:** Added `project_id` (NOT NULL, default `"default"` so existing rows remain accessible to the bootstrap project) to `webhook_endpoints`. Every service method takes `projectId` and filters/binds against it. Controllers derive the project from `req.m2m.projectId` (or "default" for the dev shim / unscoped callers). Reads return only the project's endpoints; updates/deletes verify the endpoint belongs to the project before mutating (404 otherwise).
+
+### BUG-163 (codex r41): Webhook delivery worker delivered all tenant events to all enabled endpoints — Project-B endpoints received Project-A payloads (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-162 scoped webhook ADMIN ops (create/list/update/delete) by project, but the delivery worker still filtered only on `enabled`. Events carried `tenantId` only, so any enabled endpoint in the tenant — regardless of which project it belonged to — received every other project's event payload. Cross-project data exfiltration via webhook subscriptions.
+**Files:** `apps/api/src/lib/events.ts`, `apps/api/src/workers/webhook.worker.ts`
+
+**Fix applied:** Added `projectId: string | null` to the `BlerpEvent` interface and `eventBus.emit` accepts a 4th `projectId` parameter (defaults to `null` for back-compat). The Redis stream message carries `projectId` (empty string for null). The worker's `deliverEvent` filters endpoints by both `enabled` AND `project_id`. Events with no project context route to the legacy `"default"` project bucket (matches BUG-162's default value for endpoints created before project_id existed). Future work: emitters of project-scoped events (org.created, etc.) should pass the project_id derived from the org's owning project — this commit lays the wiring; the per-event population is a separate sweep.
+
+### BUG-164 (codex r41): Webhook controller spread raw `req.body` into `.set(…)` — caller could move endpoint to another project (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `updateWebhook` did `const data = req.body` and the service did `.set({...data, updatedAt: new Date()})`. A caller could include `projectId` in the body. The scoped pre-check (`get(projectId, id)`) confirmed the endpoint belonged to them, then the UPDATE wrote the new project_id — effectively moving their endpoint into someone else's project in a single request. Self-induced cross-project escalation.
+**Files:** `apps/api/src/v1/controllers/webhook.controller.ts`
+
+**Fix applied:** Controller now extracts a fixed allow-list (`url`, `enabled`, `events`/`event_types` → `eventTypes`) into a `safe` object and passes that to `service.update`. Any other body field is silently dropped. `projectId` cannot be supplied through the update path; reassigning an endpoint to another project requires create + delete by the new project owner.

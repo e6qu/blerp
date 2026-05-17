@@ -82,12 +82,29 @@ export async function getWebhook(req: Request, res: Response) {
 
 export async function updateWebhook(req: Request, res: Response) {
   const id = (req.params.endpoint_id || req.params.id) as string;
-  const data = req.body;
   const service = new WebhookService(req.tenantDb!);
   const projectId = projectIdForOp(req);
 
+  // BUG-164 (codex r41): only allow updates to the documented fields.
+  // Spreading raw req.body into service.update let a caller include
+  // `projectId` in the body and move their endpoint into a different
+  // project (the scoped pre-check still found it in their project,
+  // then the .set({...data}) overwrote project_id during the same SQL
+  // statement). Now we extract a fixed allow-list.
+  const body = req.body as Partial<{
+    url?: string;
+    enabled?: boolean;
+    events?: string[];
+    event_types?: string[];
+  }>;
+  const safe: Partial<{ url: string; enabled: boolean; eventTypes: string[] }> = {};
+  if (typeof body.url === "string") safe.url = body.url;
+  if (typeof body.enabled === "boolean") safe.enabled = body.enabled;
+  const eventTypes = body.events ?? body.event_types;
+  if (Array.isArray(eventTypes)) safe.eventTypes = eventTypes;
+
   try {
-    const webhook = await service.update(projectId, id, data);
+    const webhook = await service.update(projectId, id, safe);
     if (!webhook) {
       res.status(404).json({ error: { message: "Webhook not found" } });
       return;
