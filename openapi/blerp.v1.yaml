@@ -900,9 +900,11 @@ paths:
                   - sign_up_fallback_redirect_url
                   - telemetry_disabled
                 properties:
+                  # OpenAPI 3.1 dropped `nullable: true`; the spec is
+                  # `type: [string, "null"]`. Redocly's struct rule
+                  # flags the 3.0 form (CI lint catch).
                   publishable_key:
-                    type: string
-                    nullable: true
+                    type: [string, "null"]
                   tenant_id:
                     type: string
                   sign_in_url:
@@ -910,18 +912,15 @@ paths:
                   sign_up_url:
                     type: string
                   sign_in_force_redirect_url:
-                    type: string
-                    nullable: true
+                    type: [string, "null"]
                   sign_in_fallback_redirect_url:
                     type: string
                   sign_up_force_redirect_url:
-                    type: string
-                    nullable: true
+                    type: [string, "null"]
                   sign_up_fallback_redirect_url:
                     type: string
                   proxy_url:
-                    type: string
-                    nullable: true
+                    type: [string, "null"]
                   telemetry_disabled:
                     type: boolean
   /v1/auth/signups:
