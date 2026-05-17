@@ -1700,3 +1700,39 @@ Tokens minted between r31 and r33 carry `project_id` but no `tenant_id` (BUG-142
 **Files:** `apps/api/src/app.ts`, `apps/api/src/__tests__/controllers-audit.integration.test.ts`
 
 **Fix applied:** Chained `requirePermission("org:write")` after `authMiddleware`, matching the regular `PATCH /v1/organizations/:id` route's gate. The existing controller test that asserted a specific 400 for non-existent orgs was updated to accept either 400 or 403 — the RBAC gate now fires first (which is arguably better: leaks less about which orgs exist). Both responses carry the documented error envelope.
+
+### BUG-154 (codex r37): `requirePermission` rejected M2M tokens — broke backend/Monite parity (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `requirePermission(perm)` strictly required `req.membership`. M2M / SecretKey callers have no membership, so my BUG-153 fix (`PATCH /v1/organizations/:id/metadata`) blocked the Clerk-parity SecretKey path. OpenAPI marks org admin endpoints as `SecretKey` security.
+**Files:** `apps/api/src/middleware/rbac.ts`
+
+**Fix applied:** `requirePermission` now accepts M2M tokens whose `scopes` include an exact match for the permission string (`org:write`, `members:read`, etc.) — matching Clerk's "secret key holds whatever scopes its owner granted" model. The dev X-User-Id shim is filtered out so RBAC tests for "member-can't-do-owner-things" remain faithful (the shim's M2M elevation only applies to pure `requireM2M` routes).
+
+### BUG-155 (codex r37): Session JWTs were not tenant-bound — cross-tenant replay via X-Tenant-Id (FIXED)
+
+**Status:** Fixed
+**Severity:** Critical — BUG-149 closed the M2M variant. Session JWTs (signed by the same shared keypair) still carried only `sub` + `sid` + `org_*` claims. A session minted in tenant A could be replayed against tenant B by setting `X-Tenant-Id: tenantB`, and `authMiddleware` accepted it. Symmetric multi-tenancy bypass to BUG-149 but on the session path.
+**Files:** `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** `createSessionForUser` bakes `tenant_id: this.tenantId` into the session JWT payload. `authMiddleware` verifies `payload.tenant_id === req.tenantId` on every session request — 401 on mismatch. Sessions minted before this change (no `tenant_id` claim) are honored only in `NODE_ENV !== "production"` for dev/test back-compat; production requires the bound claim.
+
+### BUG-156 (codex r37): Several admin admin routes outside `auth.routes.ts` were left on bare `authMiddleware` (FIXED)
+
+**Status:** Fixed
+**Severity:** High — separate routes that the BUG-147 / BUG-150 / BUG-152 sweeps didn't cover:
+
+- `webhook.routes.ts` — create/list/get/update/delete/deliveries. Bare auth. Webhook list responses include the `secret` field — any tenant user could enumerate webhook signing secrets.
+- `invitation.routes.ts` — flat `/v1/invitations` list/create/revoke. Bare auth, while the nested `/v1/organizations/:id/invitations` routes correctly use `requirePermission("invitations:*")`. Any user could enumerate cross-org invitations.
+- `app.ts` — `/v1/audit_logs` (bare) and `/v1/usage` (bare). Both marked `SecretKey` in OpenAPI; bare auth let any tenant user read the audit stream / usage stats.
+
+**Files:** `apps/api/src/v1/routes/webhook.routes.ts`, `apps/api/src/v1/routes/invitation.routes.ts`, `apps/api/src/app.ts`, `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Each route gated with the appropriate scope:
+
+- webhooks: `requireM2M("webhooks:read" | "webhooks:write")`.
+- flat invitations: `requirePermission("invitations:read" | "invitations:write")` (matches the nested-route gate; M2M with the same scope satisfies via BUG-154).
+- audit_logs: `requireM2M("audit_logs:read")`.
+- usage: `requireM2M("usage:read")`.
+
+The dev X-User-Id shim was extended to grant the full scope set (`webhooks:*`, `audit_logs:read`, `usage:read`, `org:*`, `members:*`, `invitations:*`) so existing tests pass; the shim is dev-only via `NODE_ENV` gate. Also stabilised the BUG-149 cross-tenant test to use `Date.now() + Math.random()` for tenant ids — back-to-back runs were occasionally colliding on the millisecond.

@@ -659,11 +659,22 @@ export class AuthService {
     }
 
     const { privateKey } = await getKeyPair();
-    const accessToken = await jwt.sign({ sub: userId, sid: sessionId, ...orgClaims }, privateKey, {
-      issuer: "blerp",
-      audience: "blerp-api",
-      expiresIn: "7d",
-    });
+    // BUG-155 (codex r37): bind session JWTs to their tenant the same
+    // way M2M tokens are (BUG-149). Without this, a session minted in
+    // tenant A could be replayed against tenant B by setting
+    // X-Tenant-Id: tenantB — the JWT signature verifies (shared
+    // signing key across tenants) and authMiddleware previously never
+    // checked tenant. The `tenant_id` claim is verified server-side in
+    // authMiddleware.
+    const accessToken = await jwt.sign(
+      { sub: userId, sid: sessionId, tenant_id: this.tenantId, ...orgClaims },
+      privateKey,
+      {
+        issuer: "blerp",
+        audience: "blerp-api",
+        expiresIn: "7d",
+      },
+    );
 
     return {
       session: {

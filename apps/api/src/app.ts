@@ -20,7 +20,7 @@ import * as discoveryController from "./v1/controllers/discovery.controller";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
-import { authMiddleware, requireSelfOrM2M } from "./middleware/auth";
+import { authMiddleware, requireM2M, requireSelfOrM2M } from "./middleware/auth";
 import { requirePermission } from "./middleware/rbac";
 import { errorHandler } from "./middleware/error-handler";
 
@@ -100,14 +100,21 @@ app.patch(
   organizationMetadataController.updateMetadata,
 );
 
-// Audit Logs
-app.get("/v1/audit_logs", authMiddleware, auditController.listAuditLogs);
+// Audit Logs — BUG-156 (codex r37): admin-only per OpenAPI's SecretKey
+// security. Pre-fix any tenant user could read the full audit log
+// stream.
+app.get(
+  "/v1/audit_logs",
+  authMiddleware,
+  requireM2M("audit_logs:read"),
+  auditController.listAuditLogs,
+);
 
-// Uploads
+// Uploads — user-scoped, self-management context.
 app.post("/v1/uploads/avatar", authMiddleware, uploadController.uploadAvatar);
 
-// Quotas & Usage
-app.get("/v1/usage", authMiddleware, quotaController.getUsage);
+// Quotas & Usage — admin-only (BUG-156).
+app.get("/v1/usage", authMiddleware, requireM2M("usage:read"), quotaController.getUsage);
 
 // SCIM v2
 app.use("/scim/v2", scimRoutes);

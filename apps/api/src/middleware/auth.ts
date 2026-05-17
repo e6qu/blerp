@@ -78,6 +78,23 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
         // User session token: has sub (user ID)
         if (payload.sub) {
+          // BUG-155 (codex r37): session JWTs are tenant-bound at sign
+          // time. authMiddleware verifies the tenant matches. Pre-fix
+          // a session from tenant A could be replayed against tenant B
+          // via X-Tenant-Id. Sessions minted before this change have
+          // no tenant_id; honor them in dev (NODE_ENV !== "production")
+          // for back-compat but reject in production.
+          const jwtTenantId = payload.tenant_id as string | undefined;
+          const reqTenantId = req.tenantId;
+          if (jwtTenantId) {
+            if (reqTenantId && jwtTenantId !== reqTenantId) {
+              res.status(401).json({ error: "Session is scoped to a different tenant" });
+              return;
+            }
+          } else if (process.env.NODE_ENV === "production") {
+            res.status(401).json({ error: "Session token is missing tenant binding" });
+            return;
+          }
           req.user = { id: payload.sub };
           if (organizationId) {
             const db = req.tenantDb!;
@@ -129,19 +146,31 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       }
     }
 
-    // BUG-147 (codex r33): in dev mode, X-User-Id was the established
-    // shim that tests and local tooling have used since day one. With
-    // the new M2M-scope gates on /v1/users/*, tests using X-User-Id
-    // would 403 on listUsers / bulk / delete / restore. Auto-grant all
-    // admin scopes when X-User-Id is used so the dev shim keeps
-    // working. NODE_ENV !== "production" already gates this above; the
-    // grant is therefore impossible in production. The auto-grant
-    // intentionally elevates dev session callers to "tenant root",
-    // matching the spirit of "X-User-Id is dev only and trusts the
-    // caller absolutely."
+    // BUG-147 (codex r33) / BUG-156 (codex r37): in dev mode the
+    // X-User-Id shim auto-grants tenant-root scopes so tests pass
+    // every M2M-scope and RBAC gate. NODE_ENV !== "production"
+    // already gates this above; the grant is therefore impossible in
+    // production. New scopes added by future hardening should be
+    // appended here so the dev contract stays "X-User-Id = tenant
+    // root."
     req.m2m = {
       clientId: `dev-shim:${userId}`,
-      scopes: ["users:read", "users:write", "users:admin"],
+      scopes: [
+        "users:read",
+        "users:write",
+        "users:admin",
+        "webhooks:read",
+        "webhooks:write",
+        "audit_logs:read",
+        "usage:read",
+        "org:read",
+        "org:write",
+        "org:admin",
+        "members:read",
+        "members:write",
+        "invitations:read",
+        "invitations:write",
+      ],
       projectId: "dev-shim",
     };
 

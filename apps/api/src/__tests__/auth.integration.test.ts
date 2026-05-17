@@ -95,8 +95,11 @@ describe("Auth Integration", () => {
 
   it("BUG-149 (codex r34): an M2M token minted in tenant A cannot be replayed against tenant B", async () => {
     // Create a project + admin M2M token in tenant A via the dev-shim.
-    const tenantA = `bug149_${Date.now()}_a`;
-    const tenantB = `bug149_${Date.now()}_b`;
+    // Use Math.random() to avoid Date.now() collisions when this test
+    // re-runs back-to-back with cached SQLite files.
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const tenantA = `bug149_${suffix}_a`;
+    const tenantB = `bug149_${suffix}_b`;
     const dbA = await getTenantDb(tenantA);
     await dbA.insert(schema.projects).values({
       id: `proj_${tenantA}`,
