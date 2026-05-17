@@ -12,6 +12,7 @@ import { TransientStore } from "../../lib/transient-store";
 import { RestrictionService } from "./restriction.service";
 import { getKeyPair } from "../../lib/keys";
 import { jwt } from "../../lib/jwt";
+import { resolvePermissions } from "../../lib/rbac";
 
 interface PendingSignin {
   userId: string;
@@ -357,8 +358,32 @@ export class AuthService {
       .set({ lastSignInAt: new Date(), updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
 
+    // BUG-49: include the user's active org context as JWT claims when one
+    // exists. Clerk's session JWT carries org_id / org_role / org_slug /
+    // org_permissions whenever a user has an active organization, so
+    // server-rendered consumers (our @blerp/nextjs auth()) can read the
+    // role without a network round-trip. Without an active org, omit the
+    // org_* claims entirely (matches Clerk's behaviour for users in zero
+    // organizations).
+    const activeMembership = await this.db.query.memberships.findFirst({
+      where: eq(schema.memberships.userId, userId),
+      with: { organization: true },
+    });
+    const orgClaims: Record<string, unknown> = {};
+    if (activeMembership) {
+      const permissions = await resolvePermissions(
+        this.db,
+        activeMembership.organizationId,
+        activeMembership.role,
+      );
+      orgClaims.org_id = activeMembership.organizationId;
+      orgClaims.org_role = activeMembership.role;
+      orgClaims.org_slug = activeMembership.organization?.slug ?? null;
+      orgClaims.org_permissions = permissions;
+    }
+
     const { privateKey } = await getKeyPair();
-    const accessToken = await jwt.sign({ sub: userId, sid: sessionId }, privateKey, {
+    const accessToken = await jwt.sign({ sub: userId, sid: sessionId, ...orgClaims }, privateKey, {
       issuer: "blerp",
       audience: "blerp-api",
       expiresIn: "7d",

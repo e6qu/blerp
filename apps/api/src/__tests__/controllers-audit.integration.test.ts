@@ -102,12 +102,14 @@ describe("quota controller", () => {
 // audit.controller — GET /v1/audit_logs
 // -----------------------------------------------------------------------------
 describe("audit controller", () => {
-  it("GET /v1/audit_logs returns { data, meta: { total } }", async () => {
+  it("GET /v1/audit_logs returns Clerk-shaped { data, total_count } plus legacy meta.total alias", async () => {
     const res = await request(app).get("/v1/audit_logs").set(headers());
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.meta).toBeDefined();
-    expect(typeof res.body.meta.total).toBe("number");
+    // BUG-48: total_count is the canonical Clerk-compat field; meta.total
+    // is the legacy alias kept for one release.
+    expect(typeof res.body.total_count).toBe("number");
+    expect(res.body.total_count).toBe(res.body.meta.total);
   });
 
   it("honours limit + offset query params", async () => {
@@ -352,6 +354,30 @@ describe("role controller", () => {
       .delete(`/v1/organizations/${orgId}/roles/${createdRoleId}`)
       .set(headers());
     expect(res.status).toBe(204);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Clerk-compat error envelope (BUG-47) — verify both `error` (legacy) AND
+// `errors: [{ ... }]` (Clerk-shape) come back on BlerpError throws.
+// -----------------------------------------------------------------------------
+describe("error envelope (BUG-47)", () => {
+  it("GET /v1/organizations/:missing emits both `error` (legacy) and `errors[0]` (Clerk-shape)", async () => {
+    const res = await request(app)
+      .get("/v1/organizations/org_nonexistent_for_envelope_test")
+      .set(headers());
+    expect(res.status).toBe(403);
+    // BUG-47: dual envelope. SDK clients reading body.errors[0].message
+    // (Clerk-shape) work; existing dashboard code reading
+    // body.error.message also works through one more release.
+    expect(res.body.error).toBeDefined();
+    expect(typeof res.body.error.code).toBe("string");
+    expect(typeof res.body.error.message).toBe("string");
+    expect(Array.isArray(res.body.errors)).toBe(true);
+    expect(res.body.errors).toHaveLength(1);
+    expect(res.body.errors[0].code).toBe(res.body.error.code);
+    expect(res.body.errors[0].message).toBe(res.body.error.message);
+    expect(typeof res.body.errors[0].long_message).toBe("string");
   });
 });
 

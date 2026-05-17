@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import request from "supertest";
 import { app } from "../app";
-import { clearDbCache } from "../db/router";
+import { clearDbCache, getTenantDb } from "../db/router";
+import * as schema from "../db/schema";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -162,6 +163,77 @@ describe("Auth Integration", () => {
     expect(userinfoRes.status).toBe(200);
     expect(userinfoRes.body.sub).toBe(userId);
     expect(userinfoRes.body.email).toBe(email);
+  });
+
+  it("BUG-49: session JWT carries org_id / org_role / org_slug / org_permissions when the user has an active membership", async () => {
+    const email = "jwt-orgclaims@blerp.dev";
+    const password = "SecurePass123!";
+
+    // 1. Sign up
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({ email, strategy: "password" });
+    expect(signupRes.status).toBe(201);
+    const attemptRes = await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+    expect(attemptRes.status).toBe(200);
+    const userId = attemptRes.body.userId;
+    await request(app)
+      .patch(`/v1/users/${userId}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId)
+      .send({ password });
+
+    // 2. Seed an organization + owner membership for this user.
+    const db = await getTenantDb(tenantId);
+    await db.insert(schema.projects).values({
+      id: `proj_orgclaims`,
+      ownerUserId: userId,
+      name: "OrgClaims Project",
+      slug: "orgclaims-project",
+    });
+    const orgId = `org_jwt_${Date.now()}`;
+    await db.insert(schema.organizations).values({
+      id: orgId,
+      projectId: "proj_orgclaims",
+      name: "JWT Claims Org",
+      slug: "jwt-claims-org",
+    });
+    await db.insert(schema.memberships).values({
+      id: `mem_jwt_${Date.now()}`,
+      organizationId: orgId,
+      userId,
+      role: "owner",
+    });
+
+    // 3. Sign in
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: email, strategy: "password" });
+    const signinAttempt = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: email, password });
+    expect(signinAttempt.status).toBe(200);
+
+    // 4. Decode the JWT payload (no verification needed — we trust the
+    //    issuance path; verification covered by other tests).
+    const accessToken = signinAttempt.body.tokens.access_token as string;
+    const [, payloadB64] = accessToken.split(".");
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf-8"));
+
+    expect(payload.sub).toBe(userId);
+    expect(payload.sid).toBeTruthy();
+    expect(payload.org_id).toBe(orgId);
+    expect(payload.org_role).toBe("owner");
+    expect(payload.org_slug).toBe("jwt-claims-org");
+    expect(Array.isArray(payload.org_permissions)).toBe(true);
+    expect(payload.org_permissions).toContain("org:write");
+    expect(payload.org_permissions).toContain("members:write");
   });
 
   it("should reject invalid JWT with 401", async () => {

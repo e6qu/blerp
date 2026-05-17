@@ -72,7 +72,15 @@ export async function listOrganizations(req: Request, res: Response) {
 
   const result = await service.list({ domain, query, limit: parsedLimit, offset: parsedOffset });
   const mappedOrgs = result.data.map(mapOrganization);
-  const response = { data: mappedOrgs, meta: { total: result.totalCount } };
+  // BUG-48: Clerk's paginated list shape is { data, total_count }.
+  // Keep `meta.total` as a legacy alias for one release so existing
+  // dashboard / SDK code continues to work; new code should read
+  // `total_count`.
+  const response = {
+    data: mappedOrgs,
+    total_count: result.totalCount,
+    meta: { total: result.totalCount },
+  };
   if (!domain && !parsedLimit && !parsedOffset && !query) {
     await cache.set(cacheKey, response, 300);
   }

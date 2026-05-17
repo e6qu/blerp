@@ -111,6 +111,45 @@ async function deliverEvent(event: WorkerEvent) {
   }
 }
 
+/**
+ * Build webhook signature headers (BUG-50). Returns both:
+ *  - `X-Blerp-Signature`: legacy HMAC-SHA256 of the payload, hex-encoded.
+ *  - Svix triple (`svix-id`, `svix-timestamp`, `svix-signature`):
+ *    Clerk-compat. The signed string is `${svix-id}.${svix-timestamp}.${payload}`
+ *    and the signature header value is `v1,<base64-hmac-sha256>`. Multiple
+ *    signatures can be space-separated for key rotation (we emit one).
+ *
+ * The Svix secret format is `whsec_<base64-encoded-secret>`. We decode the
+ * base64 portion when the secret is in that shape; otherwise we use the raw
+ * bytes (covers tests + dev-mode where secrets may not be prefixed).
+ */
+export function buildWebhookSignatureHeaders(args: {
+  secret: string;
+  payload: string;
+  svixId?: string;
+  svixTimestamp?: number;
+}): {
+  legacySignature: string;
+  svixId: string;
+  svixTimestamp: string;
+  svixSignature: string;
+} {
+  const { secret, payload } = args;
+  const legacySignature = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+
+  const svixId = args.svixId ?? `msg_${nanoid()}`;
+  const svixTimestamp = String(args.svixTimestamp ?? Math.floor(Date.now() / 1000));
+  const svixSecret = secret.startsWith("whsec_")
+    ? Buffer.from(secret.replace(/^whsec_/, ""), "base64")
+    : Buffer.from(secret);
+  const svixSignature = crypto
+    .createHmac("sha256", svixSecret)
+    .update(`${svixId}.${svixTimestamp}.${payload}`)
+    .digest("base64");
+
+  return { legacySignature, svixId, svixTimestamp, svixSignature: `v1,${svixSignature}` };
+}
+
 async function attemptDelivery(endpoint: DBWebhookEndpoint, event: WorkerEvent) {
   const payload = JSON.stringify({
     id: event.id,
@@ -119,16 +158,23 @@ async function attemptDelivery(endpoint: DBWebhookEndpoint, event: WorkerEvent) 
     data: event.payload,
   });
 
-  const signature = crypto.createHmac("sha256", endpoint.secret).update(payload).digest("hex");
   const db = await getTenantDb(event.tenantId);
   const deliveryId = `whd_${nanoid()}`;
+
+  const { legacySignature, svixId, svixTimestamp, svixSignature } = buildWebhookSignatureHeaders({
+    secret: endpoint.secret,
+    payload,
+  });
 
   try {
     const response = await fetch(endpoint.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Blerp-Signature": signature,
+        "X-Blerp-Signature": legacySignature,
+        "svix-id": svixId,
+        "svix-timestamp": svixTimestamp,
+        "svix-signature": svixSignature,
         "X-Tenant-Id": event.tenantId,
       },
       body: payload,

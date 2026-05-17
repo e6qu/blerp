@@ -14,7 +14,13 @@ export async function listAuditLogs(req: Request, res: Response) {
       limit: limit ? parseInt(limit as string, 10) : undefined,
       offset: offset ? parseInt(offset as string, 10) : undefined,
     });
-    res.json({ data: result.data, meta: { total: result.totalCount } });
+    // BUG-48: Clerk's paginated shape is { data, total_count }; keep
+    // `meta.total` as a legacy alias for one release.
+    res.json({
+      data: result.data,
+      total_count: result.totalCount,
+      meta: { total: result.totalCount },
+    });
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }
