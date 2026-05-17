@@ -1978,3 +1978,19 @@ Cross-tenant enumeration is still impossible (auth is required outside the `?dom
 **Files:** `apps/api/src/v1/services/audit.service.ts`, `apps/api/src/workers/audit.worker.ts`
 
 **Fix applied:** Added optional `projectId` to `AuditLogService.create()`'s argument shape; persisted to `schema.auditLogs.projectId`. `parseEvent()` now extracts `projectId` from the redis-stream fields (empty string → `undefined` → stored as NULL for system-level events). `persistAuditLog()` forwards `event.projectId` to `create()`. Emitters that already pass `projectId` to `eventBus.emit()` (BUG-166) now produce audit rows that the project-scoped filter actually returns.
+
+### BUG-184 (codex r50): Migration 0016's `'default'` webhook endpoints were undeliverable AND unmanageable from admin paths (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — companion to BUG-182. BUG-182 fixed delivery (the worker now treats `'default'` as a wildcard bucket so legacy endpoints still receive events). But the admin paths (`list / get / update / delete` on `webhook.service.ts`) still strict-filter by `projectId == token.projectId`. Production M2M tokens are minted for real projects (`demo-project`, `proj_xyz`, ...) and there is no way to mint one for the synthetic `'default'` project, so legacy endpoints became invisible to the dashboard, backend SDK, and any other admin caller. Customers saw their endpoints "disappear" right after the migration even though events were still flowing to them.
+**Files:** `apps/api/src/v1/services/webhook.service.ts`
+
+**Fix applied:** Centralised the where-clause in a `projectIdMatch(projectId)` helper that returns `projectId == X OR projectId == 'default'` for any real project, and just `projectId == 'default'` when the caller IS scoped to `'default'`. Applied to `list()`, `get()`, and the existence-check inside `update()` / `delete()` / `listDeliveries()` (`get()` is shared). Customers migrate by editing each endpoint to its real `project_id` once; leaving it on `'default'` is now the explicit opt-in for tenant-wide delivery. Per-tenant DB scoping (BUG-163) still prevents cross-tenant leakage. Same wildcard semantic the worker already adopted in BUG-182.
+
+### BUG-185 (codex r50): Embedded `<SignIn>` / `<SignUp>` / `<AuthenticateWithRedirectCallback>` ignored runtime-config redirect overrides (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — BUG-96 / BUG-98 / BUG-99 (codex r18) wired `/v1/public-config` runtime overrides into `BlerpProvider`'s `config` state so single-image multi-env Docker deploys could change `CLERK_SIGN_*_FORCE_REDIRECT_URL` / fallback URLs without rebuilding the bundle. The imperative `openSignIn()` / `openSignUp()` in BlerpProvider already honored the hydrated values. But the embedded `<SignIn>` (`packages/nextjs/src/client/components/Auth.tsx`), `<SignUp>` (`SignUp.tsx`), and `<AuthenticateWithRedirectCallback>` (`Control.tsx`) all imported `resolveSignInRedirect` / `resolveSignUpRedirect` from `@blerp/shared`, which read the **build-time** env. So a user landing directly on the rendered form had their successful auth redirect to the build-time value, ignoring the customer's runtime override. Same regression class as BUG-101.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/nextjs/src/client/components/Auth.tsx`, `packages/nextjs/src/client/components/SignUp.tsx`, `packages/nextjs/src/client/components/Control.tsx`
+
+**Fix applied:** Exposed `resolveSignInRedirect(callerSupplied?)` and `resolveSignUpRedirect(callerSupplied?)` on the `BlerpContextType` (consumed via `useAuth()`). Both read from the runtime-hydrated `config.sign_*_force_redirect_url` / `config.sign_*_fallback_redirect_url`, applying the same `force > callerSupplied > fallback` precedence as the imperative `openSignIn` / `openSignUp` callbacks above them. All three embedded components dropped the `@blerp/shared` build-time helpers in favour of the context resolvers.

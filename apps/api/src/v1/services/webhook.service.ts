@@ -1,6 +1,6 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 // BUG-162 (codex r40): every webhook admin op is project-scoped. The
@@ -8,6 +8,27 @@ import { nanoid } from "nanoid";
 // from the authenticated M2M token (or dev-shim wildcard). Reads
 // filter by it; writes set it on insert; updates/deletes verify the
 // endpoint belongs to the project before mutating.
+//
+// BUG-184 (codex r50): migration 0016 stamps every pre-existing
+// endpoint with `project_id = 'default'`. Production M2M tokens are
+// minted for real projects (`demo-project`, `proj_xyz`, ...), never
+// for `'default'`, so after the migration legacy endpoints become
+// unmanageable — admins can't list/get/update/delete them even
+// though the worker (BUG-182) still delivers events. Mirror BUG-182's
+// wildcard pattern in the admin paths: any project-scoped admin
+// caller can also see/manage `'default'`-bucket endpoints. The
+// expected migration path is "list, identify, edit each to its real
+// project_id once, leave the rest on `'default'` only if you actually
+// want tenant-wide delivery". Per-tenant DB scoping is unaffected.
+function projectIdMatch(projectId: string) {
+  if (projectId === "default") {
+    return eq(schema.webhookEndpoints.projectId, "default");
+  }
+  return or(
+    eq(schema.webhookEndpoints.projectId, projectId),
+    eq(schema.webhookEndpoints.projectId, "default"),
+  );
+}
 
 export class WebhookService {
   constructor(private db: BetterSQLite3Database<typeof schema>) {}
@@ -28,18 +49,12 @@ export class WebhookService {
   }
 
   async list(projectId: string) {
-    return this.db
-      .select()
-      .from(schema.webhookEndpoints)
-      .where(eq(schema.webhookEndpoints.projectId, projectId));
+    return this.db.select().from(schema.webhookEndpoints).where(projectIdMatch(projectId));
   }
 
   async get(projectId: string, id: string) {
     return this.db.query.webhookEndpoints.findFirst({
-      where: and(
-        eq(schema.webhookEndpoints.id, id),
-        eq(schema.webhookEndpoints.projectId, projectId),
-      ),
+      where: and(eq(schema.webhookEndpoints.id, id), projectIdMatch(projectId)),
     });
   }
 

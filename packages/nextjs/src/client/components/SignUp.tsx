@@ -2,8 +2,8 @@
 
 import { useState, type SyntheticEvent } from "react";
 import { setSessionCookies } from "../session-cookies";
-import { useBlerpClient } from "../BlerpProvider";
-import { getSignInUrl, resolveSignUpRedirect } from "@blerp/shared";
+import { useAuth, useBlerpClient } from "../BlerpProvider";
+import { getSignInUrl } from "@blerp/shared";
 
 // BUG-114 (codex r20): real three-step flow — email → password → verify.
 // Previously the "password" step sent the password as the verification
@@ -30,6 +30,9 @@ function readRedirectQueryParam(): string | undefined {
 
 export function SignUp({ afterSignUpUrl, signInUrl = SIGN_IN_URL }: SignUpProps) {
   const client = useBlerpClient();
+  // BUG-185 (codex r50): runtime-resolver from BlerpProvider — see
+  // BlerpProvider.tsx for rationale.
+  const { resolveSignUpRedirect } = useAuth();
   const [step, setStep] = useState<SignUpStep>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

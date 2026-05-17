@@ -2,8 +2,8 @@
 
 import { useState, type SyntheticEvent } from "react";
 import { setSessionCookies } from "../session-cookies";
-import { useBlerpClient } from "../BlerpProvider";
-import { getSignUpUrl, resolveSignInRedirect } from "@blerp/shared";
+import { useAuth, useBlerpClient } from "../BlerpProvider";
+import { getSignUpUrl } from "@blerp/shared";
 
 // BUG-116 (codex r20): add a "totp" second-factor step. The API
 // returns `needs_second_factor` for users with TOTP enabled; without
@@ -34,6 +34,9 @@ function readRedirectQueryParam(): string | undefined {
 
 export function SignIn({ afterSignInUrl, signUpUrl = SIGN_UP_URL }: SignInProps) {
   const client = useBlerpClient();
+  // BUG-185 (codex r50): runtime-resolver from BlerpProvider — see
+  // session-verify / runtime-config rationale in BlerpProvider.tsx.
+  const { resolveSignInRedirect } = useAuth();
   const [step, setStep] = useState<SignInStep>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

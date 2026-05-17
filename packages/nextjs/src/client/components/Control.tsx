@@ -3,13 +3,7 @@
 import React from "react";
 import { useAuth } from "../BlerpProvider";
 import { useUser } from "../hooks";
-import {
-  appendRedirectUrl,
-  getSignInFallbackRedirectUrl,
-  getSignInUrl,
-  getSignUpUrl,
-  resolveSignInRedirect,
-} from "@blerp/shared";
+import { appendRedirectUrl, getSignInUrl, getSignUpUrl } from "@blerp/shared";
 
 export interface SignedInProps {
   children: React.ReactNode;
@@ -167,7 +161,10 @@ export function AuthenticateWithRedirectCallback({
   signInUrl = SIGN_IN_URL_DEFAULT,
   signUpUrl = SIGN_UP_URL_DEFAULT,
 }: AuthenticateWithRedirectCallbackProps) {
-  const { isSignedIn } = useAuth();
+  // BUG-185 (codex r50): use the runtime-config resolver from the
+  // provider instead of `resolveSignInRedirect` from `@blerp/shared`.
+  // Build-time env reads would ignore /v1/public-config overrides.
+  const { isSignedIn, resolveSignInRedirect } = useAuth();
 
   React.useEffect(() => {
     if (isSignedIn) return;
@@ -179,10 +176,7 @@ export function AuthenticateWithRedirectCallback({
     if (status === "verified") {
       // BUG-102 (codex r18): apply Clerk's force > query > fallback
       // precedence (matches resolveSignInRedirect).
-      window.location.href = resolveSignInRedirect(
-        redirectUrl ?? undefined,
-        getSignInFallbackRedirectUrl(),
-      );
+      window.location.href = resolveSignInRedirect(redirectUrl ?? undefined);
       return;
     }
 
@@ -196,7 +190,7 @@ export function AuthenticateWithRedirectCallback({
       window.location.href = signUpUrl;
       return;
     }
-  }, [isSignedIn, signInUrl, signUpUrl]);
+  }, [isSignedIn, signInUrl, signUpUrl, resolveSignInRedirect]);
 
   return null;
 }

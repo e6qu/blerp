@@ -126,6 +126,14 @@ interface BlerpContextType {
   openSignUp: (options?: { afterSignUpUrl?: string }) => Promise<void>;
   openUserProfile: () => void;
   openOrganizationProfile: () => void;
+  // BUG-185 (codex r50): embedded <SignIn>/<SignUp>/<Control> must
+  // resolve redirects against the runtime-hydrated config (BUG-96),
+  // not the build-time `resolveSignInRedirect` from `@blerp/shared`.
+  // Pre-r50 the imperative `openSignIn()` honored runtime overrides
+  // (`CLERK_SIGN_IN_FORCE_REDIRECT_URL` set via /v1/public-config)
+  // while the rendered form silently ignored them on submit.
+  resolveSignInRedirect: (callerSupplied?: string) => string;
+  resolveSignUpRedirect: (callerSupplied?: string) => string;
 }
 
 const BlerpContext = createContext<BlerpContextType | undefined>(undefined);
@@ -453,6 +461,27 @@ export function BlerpProvider({
     [config.sign_up_url, config.sign_up_force_redirect_url, config.sign_up_fallback_redirect_url],
   );
 
+  // BUG-185 (codex r50): resolve embedded-form redirects against the
+  // runtime-hydrated `config` rather than the build-time
+  // `resolveSignInRedirect` / `resolveSignUpRedirect` from
+  // `@blerp/shared`. Same `force > callerSupplied > fallback`
+  // precedence as the imperative `openSignIn` / `openSignUp` above —
+  // single-image multi-env deploys that override
+  // CLERK_SIGN_*_FORCE_REDIRECT_URL via /v1/public-config now see
+  // their override honored from the rendered <SignIn>/<SignUp> submit
+  // handler as well.
+  const resolveSignInRedirect = useCallback(
+    (callerSupplied?: string): string =>
+      config.sign_in_force_redirect_url ?? callerSupplied ?? config.sign_in_fallback_redirect_url,
+    [config.sign_in_force_redirect_url, config.sign_in_fallback_redirect_url],
+  );
+
+  const resolveSignUpRedirect = useCallback(
+    (callerSupplied?: string): string =>
+      config.sign_up_force_redirect_url ?? callerSupplied ?? config.sign_up_fallback_redirect_url,
+    [config.sign_up_force_redirect_url, config.sign_up_fallback_redirect_url],
+  );
+
   const openUserProfile = useCallback(() => {
     window.location.href = "/user-profile";
   }, []);
@@ -477,6 +506,8 @@ export function BlerpProvider({
       openSignUp,
       openUserProfile,
       openOrganizationProfile,
+      resolveSignInRedirect,
+      resolveSignUpRedirect,
     }),
     [
       apiClient,
@@ -492,6 +523,8 @@ export function BlerpProvider({
       openSignUp,
       openUserProfile,
       openOrganizationProfile,
+      resolveSignInRedirect,
+      resolveSignUpRedirect,
     ],
   );
 
