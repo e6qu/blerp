@@ -381,12 +381,13 @@ export class AuthService {
       verified = await tryTotp();
     } else if (strategy === "backup_code") {
       verified = await tryBackupCode();
-    } else if (strategy === undefined || strategy === null) {
-      // BUG-129 (codex r24): permissive fallback ONLY when strategy is
-      // genuinely absent — older callers may not send it. An explicit
-      // strategy that's not a recognized second-factor name (e.g.
-      // `"password"`, `"email_code"`, a typo) should fail loudly rather
-      // than allow TOTP/backup_code to be silently consumed.
+    } else if (strategy === undefined) {
+      // BUG-129 (codex r24) / BUG-131 (codex r25): permissive fallback
+      // ONLY when strategy is genuinely absent — older callers may not
+      // send it. An explicit `strategy: null` (a JSON value, not an
+      // absent field) or any unrecognized value (`"password"`,
+      // `"email_code"`, typos) fails loudly rather than allow TOTP /
+      // backup_code to be silently consumed.
       verified = (await tryTotp()) || (await tryBackupCode());
     } else {
       throw new Error(

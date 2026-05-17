@@ -1471,3 +1471,11 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 **Files:** `packages/nextjs/src/client/components/Auth.tsx`, `apps/dashboard/src/components/auth/SignIn.tsx`
 
 **Fix applied:** Both TOTP submit handlers now send `{ code, strategy: "totp", stage: "second_factor" }`. The UI is exclusively for authenticator-app codes; a user wanting to use a backup code goes through a separate "Use a backup code" flow (future PR). Also cleaned up deprecated `React.FormEvent<HTMLFormElement>` type usages in the dashboard SignIn — replaced with `SyntheticEvent<HTMLFormElement>` (BUG-86 lineage; `@types/react` 19 marks FormEvent deprecated).
+
+### BUG-131 (codex r25): `attemptSecondFactor` treated explicit `strategy: null` as absent — permissive fallback could still consume backup codes through TOTP-labeled UIs (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — BUG-129 narrowed the permissive fallback to `strategy === undefined || strategy === null`, but `null` is an explicit JSON value a caller can supply, not an absent field. So a caller sending `{ stage: "second_factor", strategy: null, code: <backup_code> }` would still slip through the silent-consumption path BUG-126 was meant to close.
+**Files:** `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:** Branch tightened to `strategy === undefined` only. Explicit `null` (and any other unrecognized value) now throws `"Unsupported second-factor strategy: ..."`. Regression test provisions a TOTP-enabled user via the full signup → first-factor flow and submits `strategy: null` at the second-factor step, asserting the 400 error rather than a silent verify.

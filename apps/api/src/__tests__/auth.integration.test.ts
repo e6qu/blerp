@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { eq } from "drizzle-orm";
 import request from "supertest";
 import { app } from "../app";
 import { clearDbCache, getTenantDb } from "../db/router";
@@ -90,6 +91,65 @@ describe("Auth Integration", () => {
       .set("Authorization", `Bearer ${signinAttemptRes.body.tokens.access_token}`);
     expect(userRes.status).toBe(200);
     expect(userRes.body.password_enabled).toBe(true);
+  });
+
+  it("BUG-129 / BUG-131 (codex r24 / r25): explicit strategy:null at the second-factor step is rejected, not silently fallback-verified", async () => {
+    // Provision a user with TOTP enabled by going through signup +
+    // sign-in to exercise the second-factor route.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "nullstrat@blerp.dev",
+        password: "supersecret123",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    const userId = signupRes.body.id; // not actually used; signup returned a session
+
+    // Enable TOTP directly in the DB so the second-factor branch fires.
+    const db = await getTenantDb(tenantId);
+    const emailRow = await db.query.emailAddresses.findFirst({
+      where: eq(schema.emailAddresses.emailAddress, "nullstrat@blerp.dev"),
+    });
+    if (!emailRow) throw new Error("test setup: user not found");
+    await db
+      .update(schema.users)
+      .set({ totpEnabled: true, totpSecret: "JBSWY3DPEHPK3PXP" })
+      .where(eq(schema.users.id, emailRow.userId));
+
+    void userId;
+
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "nullstrat@blerp.dev", strategy: "password" });
+
+    // Complete the first factor → server returns needs_second_factor.
+    const firstFactorRes = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "nullstrat@blerp.dev",
+        password: "supersecret123",
+        strategy: "password",
+        stage: "first_factor",
+      });
+    expect(firstFactorRes.body.status).toBe("needs_second_factor");
+
+    // Now submit a second-factor attempt with strategy:null — the
+    // explicit-null case BUG-131 added. Should error, not run the
+    // permissive fallback.
+    const explicitNullRes = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: "000000", stage: "second_factor", strategy: null });
+    expect(explicitNullRes.status).toBe(400);
+    expect(explicitNullRes.body.error?.message).toMatch(/Unsupported second-factor strategy/);
   });
 
   it("BUG-119 (codex r21) / BUG-121 (codex r22): explicit stage:'first_factor' is honored even when only code is sent", async () => {
