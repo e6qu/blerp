@@ -9,7 +9,11 @@ export async function getCurrentUserEntity() {
   if (!userId || !orgId || !user) return null;
 
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("__blerp_session")?.value;
+  // BUG-54: accept either cookie name so Clerk-compat callers setting only
+  // `__session` still get a working entity helper (matches the dual-cookie
+  // fix in BUG-51 on the @blerp/nextjs server side).
+  const sessionToken =
+    cookieStore.get("__blerp_session")?.value ?? cookieStore.get("__session")?.value;
   if (!sessionToken) return null;
 
   const blerp = createBlerpClient({

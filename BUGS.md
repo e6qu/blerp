@@ -640,6 +640,26 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-54 (codex round 2): Monite-example entity helper still reads only `__blerp_session` — Clerk-cookie-only callers regress (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — completes the BUG-51 dual-cookie story; without this fix the example always returned null for `__session`-only callers
+**Files:** `examples/monite-sdk-parity/src/lib/blerp-api/get-current-user-entity.ts`
+
+Codex round 2 caught that BUG-51's dual-cookie fix wired `auth()` + `currentUser()` + middleware + CSRF to read either cookie name, but missed this Monite example helper which independently reads the session cookie to forward as a Bearer token. With only `__session` set, `auth()` and `currentUser()` succeeded, then this helper returned null and broke the entity lookup.
+
+**Fix applied:** Read either `__blerp_session` or `__session` (BLERP-preferred, Clerk alias). Mirrors the read pattern already in `@blerp/nextjs/server/auth.ts`.
+
+### BUG-55 (codex round 2): `mapOAuthAccount` read nonexistent `avatarUrl`, dropping all stored profile images (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — silent data loss on every linked-identity response
+**Files:** `apps/api/src/v1/controllers/identity.controller.ts`
+
+BUG-52's `mapOAuthAccount` projection invented an `avatarUrl` field. The Drizzle column is `imageUrl` (DB `image_url`), so the mapper always emitted null for the image regardless of what was stored. Every linked OAuth account had its profile picture silently dropped.
+
+**Fix applied:** Use `row.imageUrl`; rename the response field to `image_url` (matches the column and Clerk's `User.image_url` convention). Updated the row interface.
+
 ### BUG-53 (codex): BUG-49 fix regressed multi-org users — arbitrary membership stamped into JWT broke org switching (FIXED)
 
 **Status:** Fixed

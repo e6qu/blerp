@@ -9,7 +9,7 @@ interface OAuthAccountRow {
   emailAddress: string;
   firstName?: string | null;
   lastName?: string | null;
-  avatarUrl?: string | null;
+  imageUrl?: string | null;
   createdAt?: Date | null;
 }
 
@@ -24,6 +24,9 @@ interface EmailAddressRow {
 
 // snake_case projection for the OAuthAccount wire shape — without it the
 // dashboard would read `account.provider_user_id` as undefined (BUG-52).
+// The Drizzle column is `imageUrl` (DB `image_url`); the previous version
+// of this mapper read a nonexistent `avatarUrl` and always emitted null,
+// dropping every stored profile image (codex BUG-55).
 function mapOAuthAccount(row: OAuthAccountRow) {
   return {
     id: row.id,
@@ -33,7 +36,7 @@ function mapOAuthAccount(row: OAuthAccountRow) {
     email_address: row.emailAddress,
     first_name: row.firstName ?? null,
     last_name: row.lastName ?? null,
-    avatar_url: row.avatarUrl ?? null,
+    image_url: row.imageUrl ?? null,
     created_at: row.createdAt ? row.createdAt.toISOString() : null,
   };
 }
