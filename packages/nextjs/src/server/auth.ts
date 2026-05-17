@@ -45,64 +45,68 @@ export async function auth() {
     const sessionPayload = payload as BlerpSessionPayload;
     const userId = (sessionPayload.sub as string) || null;
 
-    // Active-org resolution order (BUG-49 + codex r1/r5 followups):
-    //   1. `__blerp_org` cookie if set — reflects the user's explicit
-    //      OrganizationSwitcher choice and must win over any stale JWT
-    //      claim. Otherwise switching orgs mid-session would never take
-    //      effect server-side.
-    //   2. JWT claim if present — issued by AuthService only when the
-    //      user has exactly one membership at sign-in (unambiguous
-    //      active org). Treated as a hint, not authoritative data.
-    //   3. null — no active org.
-    const orgIdFromCookie = cookieStore.get("__blerp_org")?.value;
+    // Active-org resolution (BUG-49 → BUG-77 [codex r1/r5/r13]):
+    //
+    //   1. Try the `__blerp_org` cookie first (reflects the user's
+    //      explicit OrganizationSwitcher choice). The cookie is
+    //      client-writable — never trust it as an `orgId` for server
+    //      code without verifying the user actually has a membership
+    //      there. Validate via /memberships/me; only commit the cookie
+    //      org if validation succeeds.
+    //   2. If cookie validation fails OR no cookie, fall back to the
+    //      signed JWT `org_id` claim. Validate that one too (a
+    //      membership might have been deleted since sign-in).
+    //   3. Otherwise null — no active org.
+    //
+    // BUG-77 (codex r13): the previous version returned the cookie
+    // value to callers even when /memberships/me 404'd, letting a
+    // forged or stale cookie hijack `auth().orgId`. Now `orgId` is
+    // only set after a successful membership lookup. Same applies to
+    // `orgRole` / `orgPermissions`: they only return for the verified
+    // org (BUG-61 — never trust JWT claims for authorization).
+    const orgIdFromCookie = cookieStore.get("__blerp_org")?.value || null;
     const orgIdFromClaim = (sessionPayload.org_id as string) || null;
-    const orgId = orgIdFromCookie || orgIdFromClaim || null;
 
-    // BUG-61 (codex r5): never trust `org_role` / `org_permissions` from
-    // the JWT for authorization. Our session JWTs are 7-day; a demoted
-    // or deleted membership would otherwise grant revoked permissions
-    // for the rest of the token's lifetime because `has()` reads from
-    // claims. ALWAYS re-resolve role + permissions from the API for
-    // the active org. The JWT claims are still useful as a fast-path
-    // hint that the user has SOME active membership, but the
-    // authoritative permissions check goes back to the membership
-    // table on every request. (Clerk emits the same claims because
-    // Clerk's session JWTs are short-lived ~60s; ours are not.)
+    let orgId: string | null = null;
     let orgRole: string | null = null;
     let orgPermissions: string[] = [];
 
-    if (orgId && userId && token) {
+    async function tryResolveMembership(candidateOrgId: string): Promise<boolean> {
+      if (!userId || !token) return false;
       try {
         const apiUrl = getApiUrl();
         const tenantId = getTenantId();
-        // BUG-67 (codex r7): use the /me sub-route instead of the LIST
-        // endpoint. LIST is gated by `members:read`, which a custom
-        // role with only `org:read` doesn't have — so the previous
-        // call 403'd for those users and left `orgPermissions` empty,
-        // breaking `auth().has({ permission: "org:read" })`. /me is
-        // gated only by authMiddleware so every authenticated member
-        // can resolve their own permission set.
-        const res = await fetch(`${apiUrl}/v1/organizations/${orgId}/memberships/me`, {
+        const res = await fetch(`${apiUrl}/v1/organizations/${candidateOrgId}/memberships/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "X-Tenant-Id": tenantId,
           },
           cache: "no-store",
         });
-        if (res.ok) {
-          const membership = (await res.json()) as {
-            role?: string;
-            permissions?: string[];
-          };
-          orgRole = membership.role ?? null;
-          // BUG-63 (codex r6): consume API-returned `permissions`
-          // verbatim — the membership controller resolves the canonical
-          // permission set server-side (defaults + custom roles).
-          orgPermissions = Array.isArray(membership.permissions) ? membership.permissions : [];
-        }
+        if (!res.ok) return false;
+        const membership = (await res.json()) as {
+          role?: string;
+          permissions?: string[];
+        };
+        orgId = candidateOrgId;
+        orgRole = membership.role ?? null;
+        // BUG-63 (codex r6): consume API-returned `permissions`
+        // verbatim — the membership controller resolves the canonical
+        // permission set server-side (defaults + custom roles).
+        orgPermissions = Array.isArray(membership.permissions) ? membership.permissions : [];
+        return true;
       } catch {
-        // Membership lookup failed — continue without role
+        return false;
       }
+    }
+
+    if (orgIdFromCookie) {
+      const ok = await tryResolveMembership(orgIdFromCookie);
+      if (!ok && orgIdFromClaim && orgIdFromClaim !== orgIdFromCookie) {
+        await tryResolveMembership(orgIdFromClaim);
+      }
+    } else if (orgIdFromClaim) {
+      await tryResolveMembership(orgIdFromClaim);
     }
 
     return {
