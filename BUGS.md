@@ -1692,3 +1692,11 @@ Tokens minted between r31 and r33 carry `project_id` but no `tenant_id` (BUG-142
 **Files:** `apps/api/src/app.ts`
 
 **Fix applied:** Chained `requireSelfOrM2M("users:write", ...)` after `authMiddleware`. Self can edit their own metadata; arbitrary cross-user edits require an `users:write` M2M token.
+
+### BUG-153 (codex r36): `PATCH /v1/organizations/:org_id/metadata` left on bare `authMiddleware` — any tenant member could mutate any org's metadata (FIXED)
+
+**Status:** Fixed
+**Severity:** High — sibling to BUG-152 for org metadata. The route is wired in `app.ts` (not `organization.routes.ts`), so it was missed when the rest of the org admin surface got `requirePermission("org:write")` gating. Any authenticated user in the tenant could overwrite any organization's `public_metadata` / `private_metadata` (which includes Monite entity mappings and other integration glue).
+**Files:** `apps/api/src/app.ts`, `apps/api/src/__tests__/controllers-audit.integration.test.ts`
+
+**Fix applied:** Chained `requirePermission("org:write")` after `authMiddleware`, matching the regular `PATCH /v1/organizations/:id` route's gate. The existing controller test that asserted a specific 400 for non-existent orgs was updated to accept either 400 or 403 — the RBAC gate now fires first (which is arguably better: leaks less about which orgs exist). Both responses carry the documented error envelope.

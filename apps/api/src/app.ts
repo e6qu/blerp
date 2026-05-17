@@ -21,6 +21,7 @@ import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
 import { authMiddleware, requireSelfOrM2M } from "./middleware/auth";
+import { requirePermission } from "./middleware/rbac";
 import { errorHandler } from "./middleware/error-handler";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -88,9 +89,14 @@ app.patch(
   ),
   userMetadataController.updateMetadata,
 );
+// BUG-153 (codex r36): same class as BUG-152 but for organization
+// metadata. Pre-fix bare authMiddleware let ANY tenant user mutate
+// ANY org's public/private metadata (including Monite entity mappings).
+// Matches the existing PATCH /v1/organizations/:id route's RBAC.
 app.patch(
   "/v1/organizations/:organization_id/metadata",
   authMiddleware,
+  requirePermission("org:write"),
   organizationMetadataController.updateMetadata,
 );
 
