@@ -1362,3 +1362,32 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 - Middleware: `searchParams.set("redirect_url", pathname + search + hash)` so query + fragment round-trip.
 - `BlerpProvider.openSignIn/openSignUp`, `Control.RedirectToSignIn/RedirectToSignUp` all routed through `appendRedirectUrl()` — no more string-concat.
 - Regression tests in `env-clerk-compat.test.ts`: base with query, base with no query, absolute URL, overwriting an existing redirect_url.
+
+### BUG-118 (codex r21): OpenAPI for `/v1/auth/signins/{signin_id}/attempt` didn't document the MFA branch (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — the endpoint can return EITHER `{ session, tokens }` OR `{ status: "needs_second_factor", signin_id }`, but the spec declared `required: [session, tokens]`. Generated SDK consumers (anything code-gen'd off `openapi-typescript`) would throw on the MFA response shape because the runtime didn't match the contract.
+**Files:** `openapi/blerp.v1.yaml`
+
+**Fix applied:** Response is now `oneOf`: the session+tokens form OR the `{ status, signin_id }` MFA-required form. Also documented `identifier` and `strategy` on the request body so consumers know to send them (BUG-115 / BUG-119 lineage). `bun run openapi:lint` clean; types regenerated.
+
+### BUG-119 (codex r21): Controller routed code-only first-factor attempts to attemptSecondFactor — broke email-code / magic-link first factors (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — the controller heuristic was `if (code && !password) → second_factor`. A caller doing email-code first-factor sign-in (`{ identifier, code, strategy: "email_code" }`, no password) was misrouted to second-factor, where attemptSecondFactor couldn't find a pending entry and 400'd. `useSignIn()`'s advertised `email_code` first factor was effectively unreachable.
+**Files:** `apps/api/src/v1/controllers/auth.controller.ts`, `packages/nextjs/src/client/hooks.ts`, `openapi/blerp.v1.yaml`
+
+**Fix applied:**
+
+- Controller honors an explicit `strategy: "first_factor"` / `"second_factor"` field before falling back to the heuristic. New heuristic: `(explicit first_factor) → first; (explicit second_factor OR (code && !password && !identifier)) → second; else → first`.
+- `useSignIn().attemptFirstFactor` now sends `strategy: "first_factor"`; `attemptSecondFactor` sends `strategy: "second_factor"`. No ambiguity at the wire.
+- OpenAPI documents the new `strategy` field.
+- Regression test asserts that a code-only attempt with explicit `strategy: "first_factor"` is routed to first-factor (rejected with the documented "identifier is required" error rather than misrouted to second-factor's "Signup attempt expired").
+
+### BUG-120 (codex r21): Sign-up password path set `passwordDigest` but not `hasPassword` flag — list/get responses lied about credential presence (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — the user could sign in (signin reads `passwordDigest` directly), but every API response that includes the user object showed `hasPassword: false`, breaking dashboard UI that decides whether to render a "Set password" CTA based on it. The `updateUser` flow at auth.service.ts ~201 already set both fields; BUG-114's signup path only set one.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Signup `users.values()` now sets `hasPassword: true` whenever `passwordDigest` is being installed. Regression test in `auth.integration.test.ts` does a full signup-then-signin round-trip — which would have failed silently before BUG-114, and would still report `hasPassword: false` in user reads without BUG-120.

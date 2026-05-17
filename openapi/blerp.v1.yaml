@@ -1131,26 +1131,56 @@ paths:
             schema:
               type: object
               properties:
+                identifier:
+                  type: string
+                  description: |
+                    Required for first-factor attempts (the email/username used to
+                    initiate the sign-in). Omitted for second-factor attempts.
                 password:
                   type: string
                 code:
                   type: string
+                strategy:
+                  type: string
+                  description: |
+                    Optional explicit step selector — `first_factor` or
+                    `second_factor`. Disambiguates code-only attempts where
+                    `identifier` happens to be absent.
+                  enum: [first_factor, second_factor]
                 webauthn_response:
                   type: object
                   additionalProperties: true
       responses:
         "200":
-          description: Sign-in completed
+          description: |
+            Sign-in completed OR MFA required. When the user has TOTP enabled
+            and only the first factor has been verified, the response is
+            `{ status: "needs_second_factor", signin_id }` and the caller must
+            submit the second-factor code via the same endpoint. On final
+            success the response includes `session` + `tokens`.
           content:
             application/json:
               schema:
-                type: object
-                required: [session, tokens]
-                properties:
-                  session:
-                    $ref: "#/components/schemas/Session"
-                  tokens:
-                    $ref: "#/components/schemas/TokenResponse"
+                # BUG-118 (codex r21): document the MFA branch. Was
+                # `required: [session, tokens]` which made generated SDK
+                # consumers throw on the perfectly valid
+                # `needs_second_factor` response.
+                oneOf:
+                  - type: object
+                    required: [session, tokens]
+                    properties:
+                      session:
+                        $ref: "#/components/schemas/Session"
+                      tokens:
+                        $ref: "#/components/schemas/TokenResponse"
+                  - type: object
+                    required: [status, signin_id]
+                    properties:
+                      status:
+                        type: string
+                        enum: [needs_second_factor]
+                      signin_id:
+                        type: string
         "400":
           $ref: "#/components/responses/BadRequest"
   /v1/sessions/{session_id}/revoke:

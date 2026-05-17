@@ -40,6 +40,83 @@ describe("Auth Integration", () => {
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   });
 
+  it("BUG-114 / BUG-120 (codex r20/r21): password-at-signup installs both passwordDigest and hasPassword flag", async () => {
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "pwsignup@blerp.dev",
+        password: "supersecret123",
+        strategy: "password",
+      });
+    expect(signupRes.status).toBe(201);
+    const code = signupRes.body.verification_code;
+
+    const attemptRes = await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code });
+    expect(attemptRes.status).toBe(200);
+    expect(attemptRes.body.user_id).toBeDefined();
+    expect(attemptRes.body.session).toBeDefined();
+    expect(attemptRes.body.tokens).toBeDefined();
+
+    // Subsequent sign-in with the password must succeed — proves
+    // passwordDigest was installed (BUG-114) AND hasPassword was set
+    // (BUG-120, otherwise list/get responses would lie about it).
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "pwsignup@blerp.dev", strategy: "password" });
+    expect(signinRes.status).toBe(201);
+
+    const signinAttemptRes = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "pwsignup@blerp.dev",
+        password: "supersecret123",
+        strategy: "first_factor",
+      });
+    expect(signinAttemptRes.status).toBe(200);
+    expect(signinAttemptRes.body.tokens?.access_token).toBeDefined();
+  });
+
+  it("BUG-119 (codex r21): explicit strategy:'first_factor' is honored even when only code is sent", async () => {
+    // Create a signup and complete it so we have a user.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "strategy@blerp.dev",
+        password: "supersecret456",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    // Create a sign-in.
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "strategy@blerp.dev", strategy: "password" });
+    const signinId = signinRes.body.id;
+
+    // Code-only, NO identifier, but explicit first_factor strategy.
+    // Pre-fix the controller would have routed this to attemptSecondFactor
+    // and 400'd. Now it routes to first_factor and yields a different
+    // 400 (no password). Either way we shouldn't see "Signup attempt
+    // expired" — that would indicate misrouting.
+    const noIdentifierRes = await request(app)
+      .post(`/v1/auth/signins/${signinId}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: "123456", strategy: "first_factor" });
+    expect(noIdentifierRes.status).toBe(400);
+    expect(noIdentifierRes.body.error?.message).toMatch(/identifier is required/);
+  });
+
   it("should handle full signup flow", async () => {
     // 1. Create Signup
     const signupRes = await request(app)

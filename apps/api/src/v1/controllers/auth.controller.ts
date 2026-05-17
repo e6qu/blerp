@@ -47,12 +47,25 @@ export async function createSignin(req: Request, res: Response) {
 
 export async function attemptSignin(req: Request, res: Response) {
   const signinId = req.params.signin_id as string;
-  const { password, identifier, code } = req.body;
+  const { password, identifier, code, strategy } = req.body;
   const authService = new AuthService(req.tenantDb!, req.tenantId!);
 
   try {
-    // If code is present and password is absent, this is a second-factor attempt
-    if (code && !password) {
+    // BUG-119 (codex r21): explicit-strategy routing wins over the
+    // legacy code-vs-password heuristic. Before this, a caller using
+    // an email-code first factor (`{ strategy: "email_code", code,
+    // identifier }`) was misrouted to attemptSecondFactor and 400'd
+    // because no second factor was pending. Honor an explicit
+    // `strategy: "second_factor"` / `"first_factor"` flag, then fall
+    // back to: (a) password present → first factor; (b) bare code with
+    // no identifier → second factor; (c) code WITH identifier → first
+    // factor (email-code/magic-link).
+    const isExplicitSecondFactor = strategy === "second_factor";
+    const isExplicitFirstFactor = strategy === "first_factor";
+    const looksLikeSecondFactor =
+      !isExplicitFirstFactor && (isExplicitSecondFactor || (code && !password && !identifier));
+
+    if (looksLikeSecondFactor) {
       const result = await authService.attemptSecondFactor(signinId, String(code), {
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"],

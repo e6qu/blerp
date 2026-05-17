@@ -115,10 +115,15 @@ export class AuthService {
     // BUG-114 (codex r20): install passwordDigest if the create step
     // captured one. Without this, password sign-up succeeds but the
     // user has no credential to sign in with.
+    // BUG-120 (codex r21): also set `hasPassword` — the public-facing
+    // flag the dashboard / SDK consult to decide whether to offer
+    // "set a password" UI. The updateUser flow at line ~201 sets both;
+    // signup must match or the user shows up as password-less in
+    // every list/get response.
     await this.db.insert(schema.users).values({
       id: userId,
       status: "active",
-      ...(passwordDigest ? { passwordDigest } : {}),
+      ...(passwordDigest ? { passwordDigest, hasPassword: true } : {}),
     });
     await this.db.insert(schema.emailAddresses).values({
       id: `email_${nanoid()}`,

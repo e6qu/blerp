@@ -354,16 +354,19 @@ export function useSignIn() {
     try {
       // BUG-115 (codex r20): include `identifier` — the controller's
       // first-factor path is `if (!identifier) → 400 identifier is
-      // required`. Without this, `useSignIn().attemptFirstFactor()` for
-      // a password sign-in always 400'd, breaking the entire hook-based
-      // Clerk sign-in flow. The status object captures the identifier
-      // from `create()`; pass it through verbatim.
+      // required`. The status object captures the identifier from
+      // `create()`; pass it through verbatim.
+      // BUG-119 (codex r21): also send explicit `strategy:
+      // "first_factor"` so an email-code or magic-link first-factor
+      // (code-only, no password) isn't misrouted to attemptSecondFactor
+      // by the controller's legacy code-vs-password heuristic.
       const { data, error } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
         params: { path: { signin_id: status.id } },
         body: {
           password: params.password,
           code: params.code,
           identifier: status.identifier ?? undefined,
+          strategy: "first_factor",
         },
       });
       if (error) {
@@ -400,9 +403,12 @@ export function useSignIn() {
     if (!status.id) throw new Error("No sign-in attempt in progress");
     setIsLoading(true);
     try {
+      // BUG-119 (codex r21): explicit `strategy: "second_factor"` so
+      // the controller routes correctly even when identifier happens
+      // to round-trip from the caller.
       const { data, error } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
         params: { path: { signin_id: status.id } },
-        body: { code: params.code },
+        body: { code: params.code, strategy: "second_factor" },
       });
       if (error) {
         setStatus((prev) => ({ ...prev, status: "failed" }));
