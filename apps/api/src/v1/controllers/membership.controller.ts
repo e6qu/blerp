@@ -137,13 +137,17 @@ export async function getOwnMembership(req: Request, res: Response) {
   const service = new MembershipService(req.tenantDb!);
 
   try {
-    const memberships = await service.list(organization_id);
-    const own = (memberships as DBMembership[]).find((m) => m.userId === userId);
+    // BUG-71 (codex r9): O(1) point lookup by (org, user). The
+    // previous list-and-filter was O(membership-count) and hydrated
+    // every member profile on every auth check — a real perf
+    // regression on large orgs because @blerp/nextjs auth() hits
+    // this endpoint on every server-rendered request.
+    const own = await service.getByOrgAndUser(organization_id, userId);
     if (!own) {
       res.status(404).json({ error: { message: "Membership not found" } });
       return;
     }
-    res.status(200).json(await mapMembershipWithPermissions(req.tenantDb!, own));
+    res.status(200).json(await mapMembershipWithPermissions(req.tenantDb!, own as DBMembership));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }

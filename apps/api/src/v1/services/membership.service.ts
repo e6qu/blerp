@@ -35,6 +35,22 @@ export class MembershipService {
     });
   }
 
+  // Point lookup by (organizationId, userId). Used by getOwnMembership
+  // so /memberships/me is O(1) instead of O(membership-count) — BUG-71
+  // (codex r9) caught the previous list-and-filter pattern as a real
+  // per-request perf regression for large orgs.
+  async getByOrgAndUser(organizationId: string, userId: string) {
+    return this.db.query.memberships.findFirst({
+      where: and(
+        eq(schema.memberships.organizationId, organizationId),
+        eq(schema.memberships.userId, userId),
+      ),
+      with: {
+        user: true,
+      },
+    });
+  }
+
   async update(id: string, data: { role: string }) {
     await this.db
       .update(schema.memberships)
