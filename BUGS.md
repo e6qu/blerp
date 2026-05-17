@@ -640,6 +640,14 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-71 (codex round 9): `/memberships/me` did an O(n) list-and-filter scan per request (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — concrete per-request perf regression introduced by BUG-67. `@blerp/nextjs auth()` hits this endpoint on every server-rendered request; the previous implementation loaded every membership row + joined user profile in the org and filtered in memory. O(membership-count) for what should be an O(1) point lookup.
+**Files:** `apps/api/src/v1/services/membership.service.ts`, `apps/api/src/v1/controllers/membership.controller.ts`
+
+**Fix applied:** New `MembershipService.getByOrgAndUser(orgId, userId)` — single `findFirst` with the `(organizationId AND userId)` where clause and the `user` relation only loaded for the one matched row. `getOwnMembership` controller now uses it instead of `service.list(...).find(...)`. Same wire response shape; same integration tests still pass (2/2 membership /me block).
+
 ### BUG-68 (codex round 8): Monite example `dev-setup.ts` imports `@blerp/nextjs/server` — fails when `packages/nextjs/dist` is missing (FIXED)
 
 **Status:** Fixed
