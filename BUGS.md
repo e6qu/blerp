@@ -2062,3 +2062,24 @@ The successful-MFA path already runs the atomic `WHERE locked=false` reset (BUG-
 **Files:** `apps/dashboard/vite.config.ts`
 
 **Fix applied:** Added `CLERK_API_PORT` to the inline port chain — same dual-name precedence as every other env helper in this PR. Also added `CLERK_DASHBOARD_PORT` to the dashboard-port chain for consistency with the same naming convention.
+
+### BUG-193 (codex r54): `GET /v1/organizations` skipped the `org:read` scope check on the M2M branch — any project-scoped token could enumerate org `private_metadata` (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — sensitive-field exposure. Both list paths (explicit `?project_id=` and the BUG-178 derived branch) ran `requireProjectAccess` / nothing without a `requiredScope`, so a project-scoped M2M token with an unrelated scope (e.g. `webhooks:read`) could call `GET /v1/organizations` and the controller returned full org rows including `private_metadata`. The per-org `GET /v1/organizations/:id` route DOES gate `org:read` via `requirePermission`, so the collection route was the only leak path.
+**Files:** `apps/api/src/v1/routes/organization.routes.ts`
+
+**Fix applied:** Both list branches now require `org:read` on the M2M branch:
+
+- Explicit `?project_id=`: pass `"org:read"` as the new BUG-188 `requiredScope` arg to `requireProjectAccess`.
+- Derived (no `project_id`): inline check after `authMiddleware` — if `req.m2m` is a real (non-dev-shim) M2M token, verify it carries `org:read`; otherwise the controller's accessibleToUserId path takes over for session callers.
+
+Project-owner sessions pass through the user-owner branch unchanged. Dev-shim is unaffected (it grants `org:read`/`org:write`/`org:admin` already).
+
+### BUG-194 (codex r54): `POST /v1/organizations` accepted any project-matching M2M token without `org:write` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same class as BUG-188 / BUG-193 but for create. A `webhooks:read` token could create organizations in its project.
+**Files:** `apps/api/src/v1/routes/organization.routes.ts`
+
+**Fix applied:** Pass `"org:write"` as the new `requiredScope` arg to `requireProjectAccess` on the create route. Project-owner sessions still pass via the user-owner branch.

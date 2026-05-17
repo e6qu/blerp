@@ -20,11 +20,17 @@ const router = Router();
 // pre-auth-session so it can't supply project_id, but it also only
 // returns the matching org (filtered by verified domain), not
 // arbitrary tenant data.
+// BUG-194 (codex r54): create-org also needs an M2M scope check.
+// Pre-r54 any project-scoped M2M token (even `webhooks:read`) could
+// POST a new organization in its project because `requireProjectAccess`
+// only validated project match. Project-owner sessions still pass
+// through the user-owner branch.
 router.post(
   "/organizations",
   authMiddleware,
-  requireProjectAccess((req) =>
-    typeof req.body?.project_id === "string" ? req.body.project_id : undefined,
+  requireProjectAccess(
+    (req) => (typeof req.body?.project_id === "string" ? req.body.project_id : undefined),
+    "org:write",
   ),
   organizationController.createOrganization,
 );
@@ -51,11 +57,40 @@ router.get(
   // impossible. When `?project_id=` is supplied we additionally run
   // `requireProjectAccess` so the caller can't request a project they
   // don't own.
+  //
+  // BUG-193 (codex r54): LIST also leaks private_metadata to any
+  // authenticated caller, so an M2M with an unrelated scope (e.g.
+  // `webhooks:read`) could enumerate org private metadata via either
+  // branch. Add an `org:read` scope check on both branches when the
+  // caller is an M2M token; project-owner sessions still pass via
+  // the user-owner / membership-derived path.
   (req, res, next) => {
     if (typeof req.query?.domain === "string") return next();
     return authMiddleware(req, res, () => {
       if (typeof req.query?.project_id === "string") {
-        return requireProjectAccess((r) => r.query.project_id as string)(req, res, next);
+        return requireProjectAccess((r) => r.query.project_id as string, "org:read")(
+          req,
+          res,
+          next,
+        );
+      }
+      // BUG-193 (codex r54): no explicit project_id supplied. The
+      // controller will scope by `req.m2m.projectId` or
+      // `req.user.id`'s memberships, but we still need to gate the
+      // M2M branch by scope — otherwise a `webhooks:read` token can
+      // read orgs in its own project here. Sessions (and dev-shim)
+      // pass through.
+      const m2m = req.m2m;
+      if (m2m && !m2m.clientId.startsWith("dev-shim")) {
+        if (!m2m.scopes.includes("org:read")) {
+          res.status(403).json({
+            error: {
+              message:
+                "M2M token lacks the required scope: org:read. Mint a token with this scope.",
+            },
+          });
+          return;
+        }
       }
       return next();
     });
