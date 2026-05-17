@@ -867,6 +867,63 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JWKS"
+  /v1/public-config:
+    get:
+      tags: [Discovery]
+      summary: Public runtime configuration
+      description: |
+        Returns the **public** runtime configuration values that the
+        client SDK (`@blerp/nextjs`, `@blerp/react`) needs to bootstrap.
+        This is the runtime escape-hatch for Next.js's build-time
+        `NEXT_PUBLIC_*` env inlining and Vite's `VITE_*` equivalent —
+        per Next.js docs, NEXT_PUBLIC_* vars are frozen at `next build`,
+        so a single-image multi-env Docker deploy cannot change them at
+        runtime. This endpoint reads `process.env` on every request, so
+        the same image picks up environment-specific values.
+
+        Never returns secrets. The publishable key is public by design;
+        the secret key, webhook secret, and encryption key are not
+        exposed here.
+      operationId: getPublicConfig
+      responses:
+        "200":
+          description: Public config
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - tenant_id
+                  - sign_in_url
+                  - sign_up_url
+                  - sign_in_fallback_redirect_url
+                  - sign_up_fallback_redirect_url
+                  - telemetry_disabled
+                properties:
+                  publishable_key:
+                    type: string
+                    nullable: true
+                  tenant_id:
+                    type: string
+                  sign_in_url:
+                    type: string
+                  sign_up_url:
+                    type: string
+                  sign_in_force_redirect_url:
+                    type: string
+                    nullable: true
+                  sign_in_fallback_redirect_url:
+                    type: string
+                  sign_up_force_redirect_url:
+                    type: string
+                    nullable: true
+                  sign_up_fallback_redirect_url:
+                    type: string
+                  proxy_url:
+                    type: string
+                    nullable: true
+                  telemetry_disabled:
+                    type: boolean
   /v1/auth/signups:
     post:
       tags: [Auth]

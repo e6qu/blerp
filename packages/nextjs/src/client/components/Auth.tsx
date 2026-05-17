@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { setSessionCookies } from "../session-cookies";
 import { useBlerpClient } from "../BlerpProvider";
+import { getSignInFallbackRedirectUrl, getSignUpUrl } from "@blerp/shared";
 
 type SignInStep = "email" | "password";
 
@@ -15,7 +16,17 @@ interface SignInProps {
   appearance?: Record<string, unknown>;
 }
 
-export function SignIn({ afterSignInUrl = "/", signUpUrl = "/sign-up" }: SignInProps) {
+// BUG-86 (round-2 sweep): resolve URL defaults once at module load.
+// `getX()` reads process.env, which Next.js inlines at build time for
+// NEXT_PUBLIC_* vars; reading inside the component body would create a
+// new string per render with no behavioural benefit.
+const SIGN_IN_DEFAULT_AFTER = getSignInFallbackRedirectUrl();
+const SIGN_UP_URL = getSignUpUrl();
+
+export function SignIn({
+  afterSignInUrl = SIGN_IN_DEFAULT_AFTER,
+  signUpUrl = SIGN_UP_URL,
+}: SignInProps) {
   const client = useBlerpClient();
   const [step, setStep] = useState<SignInStep>("email");
   const [email, setEmail] = useState("");
@@ -24,7 +35,7 @@ export function SignIn({ afterSignInUrl = "/", signUpUrl = "/sign-up" }: SignInP
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
@@ -46,7 +57,7 @@ export function SignIn({ afterSignInUrl = "/", signUpUrl = "/sign-up" }: SignInP
     }
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePasswordSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);

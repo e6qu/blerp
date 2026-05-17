@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { useBlerpClient } from "../BlerpProvider";
+import { getSignInUrl, getSignUpFallbackRedirectUrl } from "@blerp/shared";
 
 type SignUpStep = "email" | "password";
 
@@ -14,7 +15,14 @@ interface SignUpProps {
   appearance?: Record<string, unknown>;
 }
 
-export function SignUp({ afterSignUpUrl = "/", signInUrl = "/sign-in" }: SignUpProps) {
+// BUG-86 (round-2 sweep): see Auth.tsx for the rationale.
+const SIGN_UP_DEFAULT_AFTER = getSignUpFallbackRedirectUrl();
+const SIGN_IN_URL = getSignInUrl();
+
+export function SignUp({
+  afterSignUpUrl = SIGN_UP_DEFAULT_AFTER,
+  signInUrl = SIGN_IN_URL,
+}: SignUpProps) {
   const client = useBlerpClient();
   const [step, setStep] = useState<SignUpStep>("email");
   const [email, setEmail] = useState("");
@@ -23,7 +31,7 @@ export function SignUp({ afterSignUpUrl = "/", signInUrl = "/sign-in" }: SignUpP
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
@@ -45,7 +53,7 @@ export function SignUp({ afterSignUpUrl = "/", signInUrl = "/sign-in" }: SignUpP
     }
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePasswordSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);

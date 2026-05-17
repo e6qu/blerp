@@ -1065,3 +1065,115 @@ New unit-test file `apps/api/src/workers/__tests__/webhook-signatures.test.ts` (
 **Files:** `apps/dashboard/vite.config.ts`, `packages/shared/src/env.ts`
 
 **Fix applied:** `dashboardPort` now goes through the local `nonBlank()` helper before `parseInt`. `getDashboardPort()` shared helper now also honors `CLERK_DASHBOARD_PORT` for naming parity (BUG-82 family).
+
+### BUG-84 (round-2 Clerk parity sweep): Next.js middleware hard-coded `/sign-in` and `/sign-up`, ignoring `CLERK_SIGN_IN_URL` (FIXED)
+
+**Status:** Fixed
+**Severity:** High — drop-in Clerk customers configure `CLERK_SIGN_IN_URL=/auth/login` (etc.) and expect their `clerkMiddleware()` to redirect there. Blerp's `blerpMiddleware()` always pointed to `/sign-in`, breaking the redirect for every customer that customised the path.
+**Files:** `packages/nextjs/src/server/middleware.ts`, `packages/shared/src/env.ts`
+
+**Fix applied:** `packages/shared/src/env.ts` exposes `getSignInUrl()` / `getSignUpUrl()` reading the full alias chain `BLERP_SIGN_*_URL > CLERK_SIGN_*_URL > NEXT_PUBLIC_*_BLERP_SIGN_*_URL > NEXT_PUBLIC_*_CLERK_SIGN_*_URL > VITE_*_BLERP_SIGN_*_URL > VITE_*_CLERK_SIGN_*_URL > "/sign-in"`. Middleware reads them once at module load (`SIGN_IN_PATH` / `SIGN_UP_PATH`) and uses them both for the redirect target and for the bypass check (`!pathname.startsWith(SIGN_IN_PATH)`). Without the bypass-check update, a customer using `/auth/login` would have ended up in an infinite redirect loop (login page would redirect to itself for being "unauthenticated").
+
+### BUG-85 (round-2 Clerk parity sweep): Client `BlerpProvider.openSignIn/openSignUp` hard-coded `/sign-in` and `/sign-up` (FIXED)
+
+**Status:** Fixed
+**Severity:** High — same class as BUG-84 but on the client. Mirrors the server fix so `<UserButton onClick={openSignIn}>` etc. go to the configured URL.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** `openSignIn` / `openSignUp` now derive the base URL from `getSignInUrl()` / `getSignUpUrl()`, and the redirect target uses the precedence `force redirect > caller-supplied afterSign*Url > fallback redirect`, matching Clerk's documented semantics. Skipping `redirect_url=` when the target is the default `/` keeps URLs clean.
+
+### BUG-86 (round-2 Clerk parity sweep): `<SignIn>`, `<SignUp>`, `<RedirectToSignIn>` defaulted to hard-coded URLs (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — same class as BUG-85, surfaces on the rendered components when callers don't pass props.
+**Files:** `packages/nextjs/src/client/components/Auth.tsx`, `SignUp.tsx`, `Control.tsx`
+
+**Fix applied:** Defaults are computed once at module load via the new env helpers (no per-render env reads since NEXT*PUBLIC*\* values are inlined at build time anyway). Removed unused `React` default import where the components became hookless. Also replaced the deprecated `React.FormEvent` / `FormEvent` types with `SyntheticEvent<HTMLFormElement>` — `@types/react` 19 marks `FormEvent` deprecated in favor of more specific event types or `SyntheticEvent`. The submit-event use case (`e.preventDefault()`) only needs the base SyntheticEvent contract.
+
+### BUG-87 (round-2 Clerk parity sweep): `getWebhookSecret()` only honored the legacy `CLERK_WEBHOOK_SECRET`, not the current `CLERK_WEBHOOK_SIGNING_SECRET` (FIXED)
+
+**Status:** Fixed
+**Severity:** High — Clerk renamed the env var; customers copying current Clerk `.env.example` files would have webhooks fail signature verification because the new name wasn't read.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** Precedence is now `BLERP_WEBHOOK_SECRET > BLERP_WEBHOOK_SIGNING_SECRET > CLERK_WEBHOOK_SIGNING_SECRET > CLERK_WEBHOOK_SECRET`. Both Clerk names are accepted; the current name wins over the legacy one when both are set (matches Clerk's own deprecation behavior). Throw message updated to name both Clerk variants.
+
+### BUG-88 (round-2 Clerk parity sweep): `getApiUrl()` didn't read `NEXT_PUBLIC_CLERK_API_URL` or `VITE_CLERK_API_URL` (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — Clerk publishes `NEXT_PUBLIC_CLERK_API_URL` as the client-side override; the Vite-built dashboard requires `VITE_` prefix or env values are invisible to client code.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** Chain extended to read both prefixed forms after the bare ones. Bare `BLERP_API_URL` / `CLERK_API_URL` keep precedence so server `.env` overrides any stale `NEXT_PUBLIC_*` value baked into a prior Next.js build.
+
+### BUG-89 (round-2 Clerk parity sweep): `CLERK_TELEMETRY_DISABLED` / `_DEBUG` envs caused no observable effect (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — blerp doesn't currently emit telemetry, so accepting the env is mostly cosmetic. The bug is that a drop-in customer setting `CLERK_TELEMETRY_DISABLED=true` had no way to verify it was accepted — the runtime silently ignored it. After this fix the value is available to any future telemetry path and shows up in `/v1/public-config`.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** `getTelemetryDisabled()` / `getTelemetryDebug()` parse truthy strings (`"1" | "true" | "yes"` case-insensitive) from the full alias chain.
+
+### BUG-90 (round-2 Clerk parity sweep): `CLERK_JWT_KEY` / `NEXT_PUBLIC_CLERK_JWT_KEY` not honored (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — Clerk uses these for "networkless" session token verification (verifying without a JWKS fetch). Blerp's middleware fetches JWKS, so the env is accepted but currently unused. Recording the read so a future networkless-verify implementation doesn't relitigate the alias list.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** `getJwtKey()` exposed from the central helper with the standard alias chain.
+
+### BUG-91 (round-2 Clerk parity sweep): Satellite-domain envs (`CLERK_IS_SATELLITE`, `CLERK_DOMAIN`) silently ignored (FIXED)
+
+**Status:** Fixed
+**Severity:** High — silent ignore is worse than no support here. A customer setting `CLERK_IS_SATELLITE=true` expects users on the satellite domain to be redirected to the primary for sign-in handoff; if blerp does nothing the users get stuck on a broken login page.
+**Files:** `packages/shared/src/env.ts`, `packages/nextjs/src/server/middleware.ts`
+
+**Fix applied:** `getSatelliteDomain()` / `isSatellite()` expose the reads. `assertSatelliteNotConfigured()` throws a loud "not yet supported" error pointing to the GitHub issue tracker. Middleware calls it at module load so misconfiguration surfaces at startup, not on the first user redirect.
+
+### BUG-92 (round-2 Clerk parity sweep): `CLERK_PROXY_URL` / `NEXT_PUBLIC_CLERK_PROXY_URL` not honored (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — Clerk supports a customer-hosted reverse proxy; we don't yet route through one but the env is now read and exposed via `/v1/public-config`, so client-side overrides (e.g. a custom fetch wrapper) can pick it up.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** `getProxyUrl()` with the full alias chain.
+
+### BUG-93 (round-2 Clerk parity sweep): `CLERK_ENCRYPTION_KEY` not honored (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — only needed when secretKey is passed dynamically (we accept it from env, not as a runtime option). Helper added so a future dynamic-key path doesn't relitigate the alias list.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** `getEncryptionKey()` exposed.
+
+### BUG-94 (round-2 Clerk parity sweep): Force/Fallback redirect URL envs not honored (FIXED)
+
+**Status:** Fixed
+**Severity:** High — Clerk customers configure `CLERK_SIGN_IN_FORCE_REDIRECT_URL=/dashboard` to override per-request `?redirect_url=` query params (typical for tenant-scoped landing pages); blerp ignored that envelope entirely.
+**Files:** `packages/shared/src/env.ts`, `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/nextjs/src/client/components/Auth.tsx`, `SignUp.tsx`
+
+**Fix applied:** Four new helpers: `getSignInForceRedirectUrl()`, `getSignInFallbackRedirectUrl()`, sign-up equivalents. `openSignIn` / `openSignUp` enforce the documented Clerk precedence: `force > caller-supplied afterSign*Url > fallback`. Default-prop values of `<SignIn>` / `<SignUp>` derive from `getSignInFallbackRedirectUrl()` / `getSignUpFallbackRedirectUrl()` so unconfigured calls still land on the right page.
+
+### BUG-95 (round-2 Clerk parity sweep): Vite (dashboard bundler) requires `VITE_` prefix for client-exposed envs, which blerp ignored (FIXED)
+
+**Status:** Fixed
+**Severity:** High — without `VITE_BLERP_*` / `VITE_CLERK_*` reads, the dashboard's client-side code couldn't see env values at all (Vite only inlines `VITE_*` and `import.meta.env.*` references). Per Clerk's own docs: "Vite-based frameworks require the `VITE_` prefix instead of `NEXT_PUBLIC_` for client-side variables."
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** Every client-facing helper (`getApiUrl`, `getTenantId`, `getPublishableKey`, `getSignInUrl`, `getSignUpUrl`, redirect-URL helpers, `getJwtKey`, `getProxyUrl`, `getTelemetryDisabled`, `getSatelliteDomain`, `isSatellite`) now reads the `VITE_BLERP_*` and `VITE_CLERK_*` aliases alongside the `NEXT_PUBLIC_*` ones. Precedence: server-side bare names > NEXT*PUBLIC*_ > VITE\__ (server reads win for parity with backend env). Server-only keys (`getSecretKey`, `getEncryptionKey`, `getWebhookSecret`) deliberately do not honor `VITE_*` / `NEXT_PUBLIC_*` — exposing secrets to client bundles would be the bug.
+
+### BUG-96 (round-2 Clerk parity sweep): `NEXT_PUBLIC_*` / `VITE_*` are build-time inlined — no runtime override for single-image multi-env Docker deploys (FIXED)
+
+**Status:** Fixed
+**Severity:** High — per Next.js 15+ docs: "After being built, your app will no longer respond to changes to these environment variables ... if you use a Heroku pipeline to promote slugs built in one environment to another environment, or if you build and deploy a single Docker image to multiple environments, all `NEXT_PUBLIC_` variables will be frozen with the value evaluated at build time." Customers shipping a single image to staging + production with different publishable keys / tenant ids had no escape hatch.
+**Files:** `apps/api/src/v1/controllers/discovery.controller.ts`, `apps/api/src/app.ts`, `packages/nextjs/src/client/BlerpProvider.tsx`, `openapi/blerp.v1.yaml`
+
+**Fix applied:** New public endpoint `GET /v1/public-config` reads `process.env` per-request and returns the same values the build-time helpers would: `{ publishable_key, tenant_id, sign_in_url, sign_up_url, sign_in_*_redirect_url, sign_up_*_redirect_url, proxy_url, telemetry_disabled }`. No auth needed (Clerk-parity public). Cache headers (`public, max-age=60, must-revalidate`) so live env changes propagate within ~60s without being re-fetched on every navigation. `BlerpProvider` auto-hydrates from the endpoint when the build-time publishable key equals the documented placeholder `pk_build_placeholder` or when no explicit `tenantId` prop was passed. OpenAPI spec updated; `bun run generate` regenerated types. Integration test asserts: defaults match the env-helper defaults, env reads happen per-request (not at module load), secret-prefixed envs (`BLERP_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`, `CLERK_ENCRYPTION_KEY`) never appear in the response, cache header is present.
+
+### BUG-97 (round-2 Clerk parity sweep): Deprecated `CLERK_AFTER_SIGN_IN_URL` / `_SIGN_UP_URL` aliases not honored (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — Clerk still treats these as back-compat aliases of the newer `*_FALLBACK_REDIRECT_URL` for older customer configs; ignoring them means a migration from old Clerk → blerp drops the redirect target.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** Fallback-redirect helpers fall through to the deprecated names at the end of the precedence chain, after `*_FALLBACK_REDIRECT_URL` / `VITE_*`. New name wins when both are set.

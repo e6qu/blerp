@@ -25,6 +25,24 @@ export interface paths {
      */
     get: operations["getServiceJwks"];
   };
+  "/v1/public-config": {
+    /**
+     * Public runtime configuration
+     * @description Returns the **public** runtime configuration values that the
+     * client SDK (`@blerp/nextjs`, `@blerp/react`) needs to bootstrap.
+     * This is the runtime escape-hatch for Next.js's build-time
+     * `NEXT_PUBLIC_*` env inlining and Vite's `VITE_*` equivalent —
+     * per Next.js docs, NEXT_PUBLIC_* vars are frozen at `next build`,
+     * so a single-image multi-env Docker deploy cannot change them at
+     * runtime. This endpoint reads `process.env` on every request, so
+     * the same image picks up environment-specific values.
+     *
+     * Never returns secrets. The publishable key is public by design;
+     * the secret key, webhook secret, and encryption key are not
+     * exposed here.
+     */
+    get: operations["getPublicConfig"];
+  };
   "/v1/auth/signups": {
     /**
      * Create pending signup
@@ -996,6 +1014,42 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["JWKS"];
+        };
+      };
+    };
+  };
+  /**
+   * Public runtime configuration
+   * @description Returns the **public** runtime configuration values that the
+   * client SDK (`@blerp/nextjs`, `@blerp/react`) needs to bootstrap.
+   * This is the runtime escape-hatch for Next.js's build-time
+   * `NEXT_PUBLIC_*` env inlining and Vite's `VITE_*` equivalent —
+   * per Next.js docs, NEXT_PUBLIC_* vars are frozen at `next build`,
+   * so a single-image multi-env Docker deploy cannot change them at
+   * runtime. This endpoint reads `process.env` on every request, so
+   * the same image picks up environment-specific values.
+   *
+   * Never returns secrets. The publishable key is public by design;
+   * the secret key, webhook secret, and encryption key are not
+   * exposed here.
+   */
+  getPublicConfig: {
+    responses: {
+      /** @description Public config */
+      200: {
+        content: {
+          "application/json": {
+            publishable_key?: string | null;
+            tenant_id: string;
+            sign_in_url: string;
+            sign_up_url: string;
+            sign_in_force_redirect_url?: string | null;
+            sign_in_fallback_redirect_url: string;
+            sign_up_force_redirect_url?: string | null;
+            sign_up_fallback_redirect_url: string;
+            proxy_url?: string | null;
+            telemetry_disabled: boolean;
+          };
         };
       };
     };

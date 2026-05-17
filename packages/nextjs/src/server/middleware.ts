@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as jose from "jose";
-import { getApiUrl } from "@blerp/shared";
+import { assertSatelliteNotConfigured, getApiUrl, getSignInUrl, getSignUpUrl } from "@blerp/shared";
+
+// BUG-91 (round-2 sweep): satellite-domain SSO isn't implemented; refuse
+// to start instead of silently routing users to the wrong domain. The
+// assertion runs at module load so misconfiguration shows up at the same
+// time as the rest of the middleware bootstrap.
+assertSatelliteNotConfigured();
+
+// BUG-84 (round-2 sweep): honor CLERK_SIGN_IN_URL / CLERK_SIGN_UP_URL and
+// their BLERP_*/NEXT_PUBLIC_*/VITE_* aliases. Memoise so the helper isn't
+// re-run on every request — env doesn't change at runtime in Next.js.
+const SIGN_IN_PATH = getSignInUrl();
+const SIGN_UP_PATH = getSignUpUrl();
 
 export type BlerpMiddlewareOptions = {
   publicRoutes?: string[] | ((req: NextRequest) => boolean);
@@ -60,7 +72,7 @@ export function blerpMiddleware(
       const auth = (): AuthObject => ({
         protect() {
           if (!tokenValid) {
-            const signInUrl = new URL("/sign-in", req.url);
+            const signInUrl = new URL(SIGN_IN_PATH, req.url);
             signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
             throw signInUrl;
           }
@@ -112,10 +124,10 @@ export function blerpMiddleware(
     if (
       !tokenValid &&
       !isPublic &&
-      !req.nextUrl.pathname.startsWith("/sign-in") &&
-      !req.nextUrl.pathname.startsWith("/sign-up")
+      !req.nextUrl.pathname.startsWith(SIGN_IN_PATH) &&
+      !req.nextUrl.pathname.startsWith(SIGN_UP_PATH)
     ) {
-      const signInUrl = new URL("/sign-in", req.url);
+      const signInUrl = new URL(SIGN_IN_PATH, req.url);
       signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
       const response = NextResponse.redirect(signInUrl);
       if (token) {

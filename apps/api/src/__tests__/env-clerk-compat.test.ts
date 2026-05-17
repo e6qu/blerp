@@ -6,11 +6,23 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  assertSatelliteNotConfigured,
   getApiUrl,
+  getEncryptionKey,
+  getJwtKey,
+  getProxyUrl,
   getPublishableKey,
   getSecretKey,
+  getSignInFallbackRedirectUrl,
+  getSignInForceRedirectUrl,
+  getSignInUrl,
+  getSignUpFallbackRedirectUrl,
+  getSignUpForceRedirectUrl,
+  getSignUpUrl,
+  getTelemetryDisabled,
   getTenantId,
   getWebhookSecret,
+  isSatellite,
 } from "@blerp/shared";
 
 const PROTECTED = [
@@ -18,16 +30,54 @@ const PROTECTED = [
   "CLERK_SECRET_KEY",
   "BLERP_API_URL",
   "CLERK_API_URL",
+  "NEXT_PUBLIC_BLERP_API_URL",
+  "NEXT_PUBLIC_CLERK_API_URL",
+  "VITE_BLERP_API_URL",
+  "VITE_CLERK_API_URL",
   "BLERP_WEBHOOK_SECRET",
   "CLERK_WEBHOOK_SECRET",
+  "CLERK_WEBHOOK_SIGNING_SECRET",
   "BLERP_PUBLISHABLE_KEY",
   "CLERK_PUBLISHABLE_KEY",
   "NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY",
   "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+  "VITE_BLERP_PUBLISHABLE_KEY",
+  "VITE_CLERK_PUBLISHABLE_KEY",
   "BLERP_TENANT_ID",
   "CLERK_TENANT_ID",
   "NEXT_PUBLIC_BLERP_TENANT_ID",
   "NEXT_PUBLIC_CLERK_TENANT_ID",
+  "VITE_BLERP_TENANT_ID",
+  "VITE_CLERK_TENANT_ID",
+  "BLERP_SIGN_IN_URL",
+  "CLERK_SIGN_IN_URL",
+  "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
+  "VITE_CLERK_SIGN_IN_URL",
+  "BLERP_SIGN_UP_URL",
+  "CLERK_SIGN_UP_URL",
+  "NEXT_PUBLIC_CLERK_SIGN_UP_URL",
+  "VITE_CLERK_SIGN_UP_URL",
+  "CLERK_SIGN_IN_FORCE_REDIRECT_URL",
+  "CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
+  "CLERK_SIGN_UP_FORCE_REDIRECT_URL",
+  "CLERK_SIGN_UP_FALLBACK_REDIRECT_URL",
+  "CLERK_AFTER_SIGN_IN_URL",
+  "CLERK_AFTER_SIGN_UP_URL",
+  "BLERP_JWT_KEY",
+  "CLERK_JWT_KEY",
+  "NEXT_PUBLIC_CLERK_JWT_KEY",
+  "BLERP_ENCRYPTION_KEY",
+  "CLERK_ENCRYPTION_KEY",
+  "BLERP_PROXY_URL",
+  "CLERK_PROXY_URL",
+  "NEXT_PUBLIC_CLERK_PROXY_URL",
+  "BLERP_TELEMETRY_DISABLED",
+  "CLERK_TELEMETRY_DISABLED",
+  "NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED",
+  "BLERP_IS_SATELLITE",
+  "CLERK_IS_SATELLITE",
+  "BLERP_DOMAIN",
+  "CLERK_DOMAIN",
 ] as const;
 
 function snapshot() {
@@ -136,5 +186,133 @@ describe("Clerk-compat env helpers (BUG-46)", () => {
     expect(getTenantId()).toBe("demo-tenant");
     process.env.CLERK_TENANT_ID = "tenant_42";
     expect(getTenantId()).toBe("tenant_42");
+  });
+
+  // --- Round-2 Clerk parity sweep (BUG-84..BUG-97) ------------------
+
+  it("BUG-87: getWebhookSecret accepts the renamed CLERK_WEBHOOK_SIGNING_SECRET", () => {
+    clear();
+    process.env.CLERK_WEBHOOK_SIGNING_SECRET = "whsec_new_name";
+    expect(getWebhookSecret()).toBe("whsec_new_name");
+    // Legacy CLERK_WEBHOOK_SECRET still wins when set alongside (it ranks higher than
+    // the new name? No — the new name ranks higher than the legacy because Clerk
+    // renamed it; we ship the precedence per env.ts).
+    process.env.CLERK_WEBHOOK_SECRET = "whsec_legacy";
+    expect(getWebhookSecret()).toBe("whsec_new_name");
+    // BLERP_* still wins over either Clerk name.
+    process.env.BLERP_WEBHOOK_SECRET = "whsec_blerp";
+    expect(getWebhookSecret()).toBe("whsec_blerp");
+  });
+
+  it("BUG-88: getApiUrl honors NEXT_PUBLIC_CLERK_API_URL and VITE_CLERK_API_URL", () => {
+    clear();
+    process.env.NEXT_PUBLIC_CLERK_API_URL = "https://next.example";
+    expect(getApiUrl()).toBe("https://next.example");
+    clear();
+    process.env.VITE_CLERK_API_URL = "https://vite.example/v1";
+    expect(getApiUrl()).toBe("https://vite.example");
+  });
+
+  it("BUG-84: getSignInUrl honors CLERK_SIGN_IN_URL (+ NEXT_PUBLIC_ / VITE_ aliases)", () => {
+    clear();
+    expect(getSignInUrl()).toBe("/sign-in");
+    process.env.CLERK_SIGN_IN_URL = "/login";
+    expect(getSignInUrl()).toBe("/login");
+    process.env.BLERP_SIGN_IN_URL = "/auth/login";
+    expect(getSignInUrl()).toBe("/auth/login"); // BLERP wins
+    clear();
+    process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL = "/next-login";
+    expect(getSignInUrl()).toBe("/next-login");
+    clear();
+    process.env.VITE_CLERK_SIGN_IN_URL = "/vite-login";
+    expect(getSignInUrl()).toBe("/vite-login");
+  });
+
+  it("BUG-84: getSignUpUrl honors CLERK_SIGN_UP_URL with full alias chain", () => {
+    clear();
+    expect(getSignUpUrl()).toBe("/sign-up");
+    process.env.CLERK_SIGN_UP_URL = "/register";
+    expect(getSignUpUrl()).toBe("/register");
+  });
+
+  it("BUG-94: force-redirect URLs take precedence over fallback + AFTER_* deprecated aliases", () => {
+    clear();
+    // No envs → no force, fallback defaults to "/"
+    expect(getSignInForceRedirectUrl()).toBeUndefined();
+    expect(getSignInFallbackRedirectUrl()).toBe("/");
+    // Force set
+    process.env.CLERK_SIGN_IN_FORCE_REDIRECT_URL = "/forced";
+    expect(getSignInForceRedirectUrl()).toBe("/forced");
+    // Fallback set independently
+    process.env.CLERK_SIGN_IN_FALLBACK_REDIRECT_URL = "/dashboard";
+    expect(getSignInFallbackRedirectUrl()).toBe("/dashboard");
+  });
+
+  it("BUG-97: deprecated CLERK_AFTER_SIGN_IN_URL still works as fallback alias", () => {
+    clear();
+    process.env.CLERK_AFTER_SIGN_IN_URL = "/old-after";
+    expect(getSignInFallbackRedirectUrl()).toBe("/old-after");
+    // New name wins over deprecated
+    process.env.CLERK_SIGN_IN_FALLBACK_REDIRECT_URL = "/new-fallback";
+    expect(getSignInFallbackRedirectUrl()).toBe("/new-fallback");
+  });
+
+  it("BUG-94: sign-up force + fallback redirect URLs honored", () => {
+    clear();
+    expect(getSignUpForceRedirectUrl()).toBeUndefined();
+    expect(getSignUpFallbackRedirectUrl()).toBe("/");
+    process.env.CLERK_SIGN_UP_FORCE_REDIRECT_URL = "/welcome";
+    expect(getSignUpForceRedirectUrl()).toBe("/welcome");
+    process.env.CLERK_AFTER_SIGN_UP_URL = "/onboarding";
+    expect(getSignUpFallbackRedirectUrl()).toBe("/onboarding");
+  });
+
+  it("BUG-90: getJwtKey accepts CLERK_JWT_KEY and the NEXT_PUBLIC_ alias", () => {
+    clear();
+    expect(getJwtKey()).toBeUndefined();
+    process.env.CLERK_JWT_KEY = "-----BEGIN PUBLIC KEY-----";
+    expect(getJwtKey()).toBe("-----BEGIN PUBLIC KEY-----");
+    clear();
+    process.env.NEXT_PUBLIC_CLERK_JWT_KEY = "next-jwt-key";
+    expect(getJwtKey()).toBe("next-jwt-key");
+  });
+
+  it("BUG-93: getEncryptionKey accepts CLERK_ENCRYPTION_KEY", () => {
+    clear();
+    expect(getEncryptionKey()).toBeUndefined();
+    process.env.CLERK_ENCRYPTION_KEY = "enc_key";
+    expect(getEncryptionKey()).toBe("enc_key");
+  });
+
+  it("BUG-92: getProxyUrl accepts CLERK_PROXY_URL", () => {
+    clear();
+    expect(getProxyUrl()).toBeUndefined();
+    process.env.CLERK_PROXY_URL = "https://proxy.example/__clerk";
+    expect(getProxyUrl()).toBe("https://proxy.example/__clerk");
+  });
+
+  it("BUG-89: getTelemetryDisabled parses truthy values from CLERK_TELEMETRY_DISABLED", () => {
+    clear();
+    expect(getTelemetryDisabled()).toBe(false);
+    process.env.CLERK_TELEMETRY_DISABLED = "true";
+    expect(getTelemetryDisabled()).toBe(true);
+    process.env.CLERK_TELEMETRY_DISABLED = "1";
+    expect(getTelemetryDisabled()).toBe(true);
+    process.env.CLERK_TELEMETRY_DISABLED = "no";
+    expect(getTelemetryDisabled()).toBe(false);
+  });
+
+  it("BUG-91: assertSatelliteNotConfigured throws when CLERK_IS_SATELLITE=true", () => {
+    clear();
+    // No-op when not set
+    expect(() => assertSatelliteNotConfigured()).not.toThrow();
+    expect(isSatellite()).toBe(false);
+    process.env.CLERK_IS_SATELLITE = "true";
+    expect(isSatellite()).toBe(true);
+    expect(() => assertSatelliteNotConfigured()).toThrow(/satellite-domain SSO/);
+    clear();
+    // CLERK_DOMAIN alone also throws (satellite handoff target).
+    process.env.CLERK_DOMAIN = "foo.example.com";
+    expect(() => assertSatelliteNotConfigured()).toThrow(/satellite-domain SSO/);
   });
 });

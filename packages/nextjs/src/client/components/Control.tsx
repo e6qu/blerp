@@ -3,6 +3,7 @@
 import React from "react";
 import { useAuth } from "../BlerpProvider";
 import { useUser } from "../hooks";
+import { getSignInUrl } from "@blerp/shared";
 
 export interface SignedInProps {
   children: React.ReactNode;
@@ -49,8 +50,11 @@ export interface RedirectToSignInProps {
   afterSignInUrl?: string;
 }
 
+// BUG-86 (round-2 sweep): default to CLERK_SIGN_IN_URL when prop omitted.
+const SIGN_IN_URL_DEFAULT = getSignInUrl();
+
 export function RedirectToSignIn({
-  signInUrl = "/sign-in",
+  signInUrl = SIGN_IN_URL_DEFAULT,
   afterSignInUrl,
 }: RedirectToSignInProps) {
   const { isSignedIn } = useAuth();

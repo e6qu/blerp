@@ -6,7 +6,15 @@ import type { paths } from "@blerp/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { getPublishableKeyOrBuildPlaceholder } from "./env.js";
-import { getTenantId } from "@blerp/shared";
+import {
+  getSignInFallbackRedirectUrl,
+  getSignInForceRedirectUrl,
+  getSignInUrl,
+  getSignUpFallbackRedirectUrl,
+  getSignUpForceRedirectUrl,
+  getSignUpUrl,
+  getTenantId,
+} from "@blerp/shared";
 import { clearSessionCookies, readSessionCookie } from "./session-cookies";
 
 const queryClient = new QueryClient();
@@ -81,14 +89,22 @@ export function BlerpProvider({
   publishableKey?: string;
   tenantId?: string;
 }) {
-  const key = publishableKey ?? getPublishableKeyOrBuildPlaceholder();
+  const buildTimeKey = publishableKey ?? getPublishableKeyOrBuildPlaceholder();
+  const buildTimeTenant = tenantId ?? getTenantId();
+
   // BUG-81 (codex r17): use the shared getTenantId() helper so the
-  // client tenant tracks the same env (BLERP_TENANT_ID / CLERK_TENANT_ID
-  // + their NEXT_PUBLIC_* aliases) the server uses. Previously
-  // hard-coded "demo-tenant", which silently diverged from server-side
-  // currentUser() / membership lookups when the env was set in
-  // production.
-  const resolvedTenantId = tenantId ?? getTenantId();
+  // client tenant tracks the same env the server uses.
+  //
+  // BUG-96 (round-2 sweep): NEXT_PUBLIC_* envs are frozen at `next
+  // build`. Single-image multi-env Docker deploys override them at
+  // runtime by reading `/v1/public-config` (served by the API from
+  // process.env evaluated per-request). When the build-time key is the
+  // documented placeholder (pk_build_placeholder), we *must* refresh
+  // before the first API call or the Authorization header is wrong.
+  const [runtimeKey, setRuntimeKey] = useState(buildTimeKey);
+  const [runtimeTenant, setRuntimeTenant] = useState(buildTimeTenant);
+  const key = runtimeKey;
+  const resolvedTenantId = runtimeTenant;
 
   const [activeOrgId, setActiveOrgId] = useState<string | null>(
     () => Cookies.get("__blerp_org") || null,
@@ -112,6 +128,36 @@ export function BlerpProvider({
     c.use(createCsrfMiddleware(resolvedTenantId));
     return c;
   }, [key, activeOrgId, resolvedTenantId]);
+
+  // BUG-96 (round-2 sweep): when the build-time key is the placeholder
+  // OR the caller didn't pass an explicit tenant, fetch the runtime
+  // config endpoint. Runs once on mount; the userinfo hydration below
+  // is keyed off `key` so it re-runs after this completes.
+  useEffect(() => {
+    if (buildTimeKey !== "pk_build_placeholder" && tenantId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/v1/public-config", { credentials: "include" });
+        if (!res.ok || cancelled) return;
+        const cfg = (await res.json()) as {
+          publishable_key?: string | null;
+          tenant_id?: string;
+        };
+        if (cfg.publishable_key && buildTimeKey === "pk_build_placeholder") {
+          setRuntimeKey(cfg.publishable_key);
+        }
+        if (cfg.tenant_id && !tenantId) {
+          setRuntimeTenant(cfg.tenant_id);
+        }
+      } catch {
+        // /v1/public-config unavailable — keep the build-time defaults
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [buildTimeKey, tenantId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,17 +275,29 @@ export function BlerpProvider({
     setOrgPermissions([]);
   }, []);
 
+  // BUG-85 / BUG-94 (round-2 sweep): honor CLERK_SIGN_IN_URL,
+  // CLERK_SIGN_UP_URL, and their FORCE/FALLBACK redirect-URL variants
+  // (and BLERP_/NEXT_PUBLIC_/VITE_ aliases). Precedence inside this
+  // callback:
+  //   1. Explicit `options.afterSignInUrl` from the caller.
+  //   2. `*_SIGN_IN_FORCE_REDIRECT_URL` — overrides everything below.
+  //   3. `*_SIGN_IN_FALLBACK_REDIRECT_URL` — used when caller didn't
+  //      pass a redirect target.
+  // Clerk's `forceRedirectUrl` semantics: even when the caller passes a
+  // redirect, the force value wins. Implemented identically.
   const openSignIn = useCallback((options?: { afterSignInUrl?: string }) => {
-    const url = options?.afterSignInUrl
-      ? `/sign-in?redirect_url=${encodeURIComponent(options.afterSignInUrl)}`
-      : "/sign-in";
+    const base = getSignInUrl();
+    const force = getSignInForceRedirectUrl();
+    const target = force ?? options?.afterSignInUrl ?? getSignInFallbackRedirectUrl();
+    const url = target === "/" ? base : `${base}?redirect_url=${encodeURIComponent(target)}`;
     window.location.href = url;
   }, []);
 
   const openSignUp = useCallback((options?: { afterSignUpUrl?: string }) => {
-    const url = options?.afterSignUpUrl
-      ? `/sign-up?redirect_url=${encodeURIComponent(options.afterSignUpUrl)}`
-      : "/sign-up";
+    const base = getSignUpUrl();
+    const force = getSignUpForceRedirectUrl();
+    const target = force ?? options?.afterSignUpUrl ?? getSignUpFallbackRedirectUrl();
+    const url = target === "/" ? base : `${base}?redirect_url=${encodeURIComponent(target)}`;
     window.location.href = url;
   }, []);
 

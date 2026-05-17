@@ -61,6 +61,9 @@ app.use(
 app.get("/v1/jwks", discoveryController.getJWKS);
 app.get("/.well-known/openid-configuration", discoveryController.getOIDCConfig);
 app.get("/.well-known/jwks.json", discoveryController.getJWKS);
+// BUG-96 (round-2 sweep): runtime escape-hatch for NEXT_PUBLIC_* /
+// VITE_* build-time inlining. See discoveryController.getPublicConfig.
+app.get("/v1/public-config", discoveryController.getPublicConfig);
 
 // API routes - all require tenant isolation
 app.use("/v1", tenantMiddleware);
