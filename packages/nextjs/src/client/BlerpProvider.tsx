@@ -233,6 +233,21 @@ export function BlerpProvider({
     };
   }, [key, resolvedTenantId]);
 
+  // BUG-201 (codex r57): same race-class as BUG-190 but for the
+  // imperative `openSignIn` / `openSignUp` callbacks. Pre-r57 those
+  // useCallbacks closed over `config` at render time; if invoked
+  // before the runtime-config success path commits + re-renders,
+  // they read the build-time defaults (sign_in_url, force/fallback
+  // redirect URLs, sign_up_url). Mirror the resolved values into a
+  // ref so the awaiter sees fresh values regardless of React commit
+  // timing. The ref is also written synchronously in the runtime-
+  // config success path (below) before `markReady()` releases the
+  // gate.
+  const latestConfigRef = useRef<PublicConfig>(config);
+  useEffect(() => {
+    latestConfigRef.current = config;
+  }, [config]);
+
   const apiClient = useMemo(() => {
     const sessionToken = readSessionCookie();
     const authHeader = sessionToken ? `Bearer ${sessionToken}` : `Bearer ${key}`;
@@ -295,6 +310,11 @@ export function BlerpProvider({
           // defeating the BUG-180 re-stamp fix. Compute the next ref
           // value from the resolved `raw` config directly + the
           // caller-supplied prop overrides.
+          //
+          // BUG-201 (codex r57): mirror `latestConfigRef` too. Same
+          // race for the imperative `openSignIn` / `openSignUp`
+          // callbacks — they read `latestConfigRef.current.sign_in_url`
+          // etc. instead of the stale closure's `config`.
           const resolvedKey = publishableKey ?? raw.publishable_key;
           const resolvedTenant = tenantId ?? raw.tenant_id;
           const sessionToken = readSessionCookie();
@@ -304,14 +324,14 @@ export function BlerpProvider({
               : `Bearer ${resolvedKey ?? "pk_build_placeholder"}`,
             tenantId: resolvedTenant,
           };
-          setConfig((prev) => ({
+          const nextConfig: PublicConfig = {
             ...raw,
-            // Respect caller-supplied props as overrides.
             publishable_key: resolvedKey,
             tenant_id: resolvedTenant,
-            // Keep prev value if /v1/public-config doesn't change it.
-            proxy_url: raw.proxy_url ?? prev.proxy_url,
-          }));
+            proxy_url: raw.proxy_url ?? latestConfigRef.current.proxy_url,
+          };
+          latestConfigRef.current = nextConfig;
+          setConfig(() => nextConfig);
         }
       } catch {
         // Network failure — fall through to ready with build-time defaults.
@@ -455,30 +475,34 @@ export function BlerpProvider({
   // BUG-108 (codex r19): also wait on readyPromiseRef before navigating,
   // so a click during the narrow [mount → /v1/public-config resolves]
   // window doesn't redirect to the build-time placeholder URL.
-  const openSignIn = useCallback(
-    async (options?: { afterSignInUrl?: string }) => {
-      if (readyPromiseRef.current) await readyPromiseRef.current;
-      const base = config.sign_in_url;
-      const force = config.sign_in_force_redirect_url;
-      const target = force ?? options?.afterSignInUrl ?? config.sign_in_fallback_redirect_url;
-      // BUG-117 (codex r20): use appendRedirectUrl — handles a base
-      // that already has a query string (e.g. /sign-in?theme=dark)
-      // without producing the double-`?` malformation.
-      window.location.href = appendRedirectUrl(base, target);
-    },
-    [config.sign_in_url, config.sign_in_force_redirect_url, config.sign_in_fallback_redirect_url],
-  );
+  //
+  // BUG-201 (codex r57): read from `latestConfigRef` rather than the
+  // closed-over `config`. The closure captures `config` at render
+  // time; calls made between `setConfig` and React's commit-and-
+  // re-render see a stale value. The ref is updated synchronously
+  // in the runtime-config success path BEFORE `markReady()` releases
+  // the gate, so by the time `await readyPromiseRef.current`
+  // resolves the ref always holds the resolved values.
+  const openSignIn = useCallback(async (options?: { afterSignInUrl?: string }) => {
+    if (readyPromiseRef.current) await readyPromiseRef.current;
+    const current = latestConfigRef.current;
+    const base = current.sign_in_url;
+    const force = current.sign_in_force_redirect_url;
+    const target = force ?? options?.afterSignInUrl ?? current.sign_in_fallback_redirect_url;
+    // BUG-117 (codex r20): use appendRedirectUrl — handles a base
+    // that already has a query string (e.g. /sign-in?theme=dark)
+    // without producing the double-`?` malformation.
+    window.location.href = appendRedirectUrl(base, target);
+  }, []);
 
-  const openSignUp = useCallback(
-    async (options?: { afterSignUpUrl?: string }) => {
-      if (readyPromiseRef.current) await readyPromiseRef.current;
-      const base = config.sign_up_url;
-      const force = config.sign_up_force_redirect_url;
-      const target = force ?? options?.afterSignUpUrl ?? config.sign_up_fallback_redirect_url;
-      window.location.href = appendRedirectUrl(base, target);
-    },
-    [config.sign_up_url, config.sign_up_force_redirect_url, config.sign_up_fallback_redirect_url],
-  );
+  const openSignUp = useCallback(async (options?: { afterSignUpUrl?: string }) => {
+    if (readyPromiseRef.current) await readyPromiseRef.current;
+    const current = latestConfigRef.current;
+    const base = current.sign_up_url;
+    const force = current.sign_up_force_redirect_url;
+    const target = force ?? options?.afterSignUpUrl ?? current.sign_up_fallback_redirect_url;
+    window.location.href = appendRedirectUrl(base, target);
+  }, []);
 
   // BUG-185 (codex r50): resolve embedded-form redirects against the
   // runtime-hydrated `config` rather than the build-time
@@ -489,17 +513,23 @@ export function BlerpProvider({
   // CLERK_SIGN_*_FORCE_REDIRECT_URL via /v1/public-config now see
   // their override honored from the rendered <SignIn>/<SignUp> submit
   // handler as well.
-  const resolveSignInRedirect = useCallback(
-    (callerSupplied?: string): string =>
-      config.sign_in_force_redirect_url ?? callerSupplied ?? config.sign_in_fallback_redirect_url,
-    [config.sign_in_force_redirect_url, config.sign_in_fallback_redirect_url],
-  );
+  // BUG-201 (codex r57): read from `latestConfigRef` instead of the
+  // closure's `config` so a submit handler captured before the
+  // runtime-config success path commits still resolves to the
+  // resolved values.
+  const resolveSignInRedirect = useCallback((callerSupplied?: string): string => {
+    const current = latestConfigRef.current;
+    return (
+      current.sign_in_force_redirect_url ?? callerSupplied ?? current.sign_in_fallback_redirect_url
+    );
+  }, []);
 
-  const resolveSignUpRedirect = useCallback(
-    (callerSupplied?: string): string =>
-      config.sign_up_force_redirect_url ?? callerSupplied ?? config.sign_up_fallback_redirect_url,
-    [config.sign_up_force_redirect_url, config.sign_up_fallback_redirect_url],
-  );
+  const resolveSignUpRedirect = useCallback((callerSupplied?: string): string => {
+    const current = latestConfigRef.current;
+    return (
+      current.sign_up_force_redirect_url ?? callerSupplied ?? current.sign_up_fallback_redirect_url
+    );
+  }, []);
 
   const openUserProfile = useCallback(() => {
     window.location.href = "/user-profile";

@@ -2123,3 +2123,19 @@ Project-owner sessions pass through the user-owner branch unchanged. Dev-shim is
 **Files:** `apps/api/src/v1/controllers/invitation.controller.ts`
 
 **Fix applied:** Track whether the caller supplied an `explicitOrgId` via path/body/query. When NOT supplied AND the caller is a real (non-dev-shim) M2M token, look up the invitation's org → project and refuse with 403 if the org's `projectId` doesn't match `req.m2m.projectId`. The explicit-org path is unchanged (the existing cross-org check + upstream `requirePermission` M2M binding still cover it). Sessions and dev-shim are unaffected.
+
+### BUG-200 (codex r57): Secret-key detection used `.` as the JWT discriminator before the `sk_` prefix check — keys with dotted tenant ids were rejected (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — backend SDK regression. BUG-195's gate was `if (!token.includes(".") && (token.startsWith("sk_") || token.startsWith("pk_")))`. Generated keys use the format `sk_<tenantId>_<nanoid>` (see `ProjectService.createApiKey()`). Any tenant id containing a dot — domain-style ids, customer-supplied namespaces, etc. — produced a key string with a dot, which made the `!token.includes(".")` guard skip the secret-key branch. The key then fell through to `jose.jwtVerify(...)`, which rejected it as a malformed JWT (compact-JWT structure requires three base64url segments separated by dots, but the tenant id segment isn't base64url). Net: valid backend SDK requests rejected as 401 for any tenant id with a dot.
+**Files:** `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Flipped the predicate order. The `sk_` / `pk_` prefix is now checked first; if matched, the request goes to the secret-key branch regardless of dot count. Only tokens that don't match the prefix proceed to the JWT discriminator (which still uses `.includes(".")` since modern JWT M2M / session tokens always contain dots).
+
+### BUG-201 (codex r57): `openSignIn` / `openSignUp` / `resolve*Redirect` closures captured stale config in the [mount → /v1/public-config] window (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same race class as BUG-190 but for the imperative + embedded-form callbacks. The `useCallback`s in `BlerpProvider` closed over `config` at render time. Once the runtime-config success path called `setConfig` and `markReady` SYNCHRONOUSLY, a click between `setConfig` and React's commit+re-render would invoke the OLD callback, which awaits the (now-resolved) `readyPromiseRef`, then reads stale `config.sign_in_url` / `*_force_redirect_url` / `*_fallback_redirect_url` — defeating the BUG-190 ref-sync fix for this specific surface. Deployments overriding the redirect URLs via `/v1/public-config` saw the override honored AFTER the first re-render, but a fast initial click hit the build-time defaults.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** Added `latestConfigRef` mirroring `config`, updated via a `useEffect([config])` for normal updates and SYNCHRONOUSLY in the runtime-config success path (alongside the BUG-190 `latestAuthRef` write) before `markReady()` releases the gate. `openSignIn`, `openSignUp`, `resolveSignInRedirect`, and `resolveSignUpRedirect` now read from `latestConfigRef.current` instead of the closure's `config`. Empty dependency arrays on the callbacks — they read from the ref each invocation and don't need to be re-created on config changes.

@@ -26,7 +26,17 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     // semantics (matches Clerk's sk_… contract — high-trust,
     // server-only, used to bootstrap further M2M tokens via the
     // chain-of-trust gate in `createM2MToken`).
-    if (!token.includes(".") && (token.startsWith("sk_") || token.startsWith("pk_"))) {
+    //
+    // BUG-200 (codex r57): the `sk_`/`pk_` prefix MUST be checked
+    // before using `.` as the JWT discriminator. Generated key
+    // format is `sk_<tenantId>_<nanoid>` (see
+    // ProjectService.createApiKey()) — when a tenant id contains a
+    // dot (`demo.tenant`, customer-domain-style ids, etc.) the key
+    // string contains a dot and the prior guard
+    // `!token.includes(".") && token.startsWith("sk_")` skipped this
+    // branch, sending the raw key into jwtVerify and rejecting it as
+    // a malformed JWT. Prefix wins now.
+    if (token.startsWith("sk_") || token.startsWith("pk_")) {
       // Publishable keys (`pk_…`) are client-visible and MUST NOT be
       // honored as admin auth — reject early so a misconfigured
       // frontend that forwards its `pk_` to the server doesn't
