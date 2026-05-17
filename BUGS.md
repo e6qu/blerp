@@ -2083,3 +2083,27 @@ Project-owner sessions pass through the user-owner branch unchanged. Dev-shim is
 **Files:** `apps/api/src/v1/routes/organization.routes.ts`
 
 **Fix applied:** Pass `"org:write"` as the new `requiredScope` arg to `requireProjectAccess` on the create route. Project-owner sessions still pass via the user-owner branch.
+
+### BUG-195 (codex r55): `authMiddleware` only accepted JWTs — backend SDK / `clerkClient()` flow broke on every newly-gated route (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — drop-in-Clerk SDK regression. `@blerp/backend` and the documented Clerk-compat `clerkClient()` path authenticate by sending `Authorization: Bearer sk_…` (raw secret key from `api_keys`, NOT a JWT). Pre-r55 `authMiddleware` only verified bearer tokens that contained `.` as JWTs, so every raw `sk_…` fell straight through to the X-User-Id shim (which is `NODE_ENV !== "production"` only). After the BUG-167+/BUG-178/BUG-188/BUG-193/BUG-194 auth gates landed, every backend SDK call to `/v1/organizations`, `/v1/projects/:id`, `/v1/projects/:id/keys`, etc. returned 401 in production.
+**Files:** `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Added a raw-secret-key branch in `authMiddleware`. When the bearer token doesn't contain `.` and starts with `sk_`, look it up in this tenant's `api_keys` table filtered by `type = "secret"` and `status = "active"`. A match attaches `req.m2m` with tenant-root scopes (full set: every project-bound scope, every tenant-wide scope, every `:admin`) and the api key's `projectId`. Matches Clerk's `sk_…` contract: high-trust, server-only credential. Refreshing `lastUsedAt` is best-effort fire-and-forget. Also: a `pk_…` bearer (publishable key — client-visible) is rejected with a clear 401 so a misconfigured frontend that forwards its publishable key doesn't accidentally elevate. Per-tenant DB scoping is unaffected — the lookup runs against `req.tenantDb`, so a key from tenant A can't authenticate against tenant B.
+
+### BUG-196 (codex r55): Flat `POST /v1/invitations/:id/revoke` 400'd when caller didn't supply `organization_id` — broke `revokeInvitation(id)` SDK contract (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — SDK regression. BUG-157/158 (codex r38) added a cross-org guard requiring `organization_id` from path/body/query. But the backend SDK exposes `revokeInvitation(id)` — id only, no scope. Pre-r55 the controller 400'd those calls. Since `existing` was already loaded by id (line 67), we have the authoritative `existing.organizationId`.
+**Files:** `apps/api/src/v1/controllers/invitation.controller.ts`
+
+**Fix applied:** In the requested-org-id resolution chain, append `existing.organizationId` as the final fallback. When the caller does NOT supply an explicit scope, we trust the row's own org id. The cross-org check (`existing.organizationId !== requestedOrgId`) still trips a 403 when the caller DOES supply an explicit (wrong) scope, so a malicious caller can't revoke arbitrary invitations by guessing ids with a wrong org tag. RBAC (`invitations:write`) is enforced upstream by `requirePermission` on both the nested and flat routes (the flat route's middleware threads body/query `organization_id` into `req.params.organization_id` before `requirePermission` fires).
+
+### BUG-197 (codex r55): Session-created orgs left the creator with no membership — every follow-up org-scoped call 403'd (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — broken happy path for the project-owner self-serve flow. When a session user (project owner) POSTed `/v1/organizations`, the controller inserted the org row but no membership. The BUG-178 owned-project fallback let them SEE the org in their list, but every `requirePermission`-gated follow-up (`GET/PATCH /v1/organizations/:id`, member CRUD, invitations, role admin) 403'd because there was no membership row — `requirePermission` looks for one. Pre-r55 the only way to recover was a direct DB write (no public API to seed your own membership).
+**Files:** `apps/api/src/v1/controllers/organization.controller.ts`
+
+**Fix applied:** After `service.create()` succeeds and the caller is a session user (`req.user` set), `createOrganization` inserts an `owner` membership for `req.user.id` in the new org. M2M callers (no `req.user`) are skipped — there's no user identity to grant. The auto-insert uses a generated `mem_${nanoid()}` id and the `owner` role (full org-scope permissions). Test setups that explicitly seed their own membership still work (the index has no unique constraint, and lookups dedup).

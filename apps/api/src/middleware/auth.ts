@@ -13,6 +13,87 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
 
+    // BUG-195 (codex r55): raw secret key path. The backend SDK and
+    // documented `clerkClient()`-style integrations send
+    // `Authorization: Bearer sk_…` — a raw value from the
+    // `api_keys` table, NOT a JWT. Pre-r55 every non-JWT bearer fell
+    // straight to the X-User-Id shim (which is gated by
+    // NODE_ENV !== "production") so production SDK callers got 401
+    // the moment we tightened the org / project routes (BUG-167+,
+    // BUG-178, BUG-188, BUG-193, BUG-194). Look the token up in
+    // this tenant's `api_keys` table: secret type + active +
+    // belongs to a real project. Match grants tenant-root M2M
+    // semantics (matches Clerk's sk_… contract — high-trust,
+    // server-only, used to bootstrap further M2M tokens via the
+    // chain-of-trust gate in `createM2MToken`).
+    if (!token.includes(".") && (token.startsWith("sk_") || token.startsWith("pk_"))) {
+      // Publishable keys (`pk_…`) are client-visible and MUST NOT be
+      // honored as admin auth — reject early so a misconfigured
+      // frontend that forwards its `pk_` to the server doesn't
+      // accidentally elevate.
+      if (token.startsWith("pk_")) {
+        res.status(401).json({
+          error: "Publishable keys cannot authenticate API requests. Use a secret key (sk_…).",
+        });
+        return;
+      }
+      const apiKey = await req.tenantDb!.query.apiKeys.findFirst({
+        where: and(
+          eq(schema.apiKeys.key, token),
+          eq(schema.apiKeys.type, "secret"),
+          eq(schema.apiKeys.status, "active"),
+        ),
+      });
+      if (!apiKey) {
+        res.status(401).json({ error: "Invalid secret key" });
+        return;
+      }
+      // Touch lastUsedAt asynchronously — best-effort, fire-and-
+      // forget. Failures here must not block the request.
+      void req
+        .tenantDb!.update(schema.apiKeys)
+        .set({ lastUsedAt: new Date() })
+        .where(eq(schema.apiKeys.id, apiKey.id));
+      // Secret key = tenant-root M2M. Grants the full project-bound
+      // scope set + tenant-wide scopes for users/SCIM. This matches
+      // Clerk's sk_ contract: the secret key is admin-equivalent.
+      // For least-privilege app-tier ops, customers should mint a
+      // restricted M2M token via POST /v1/m2m-tokens (chain-of-trust
+      // in BUG-186 / BUG-187 still applies).
+      req.m2m = {
+        clientId: `api_key:${apiKey.id}`,
+        scopes: [
+          "users:read",
+          "users:write",
+          "users:admin",
+          "webhooks:read",
+          "webhooks:write",
+          "audit_logs:read",
+          "usage:read",
+          "org:read",
+          "org:write",
+          "org:admin",
+          "members:read",
+          "members:write",
+          "invitations:read",
+          "invitations:write",
+          "signup_restrictions:read",
+          "signup_restrictions:admin",
+          "redirect_urls:read",
+          "redirect_urls:admin",
+          "projects:read",
+          "projects:write",
+          "projects:admin",
+          "api_keys:read",
+          "api_keys:write",
+          "api_keys:admin",
+        ],
+        projectId: apiKey.projectId,
+      };
+      next();
+      return;
+    }
+
     if (token.includes(".")) {
       try {
         const { publicKey } = await getKeyPair();

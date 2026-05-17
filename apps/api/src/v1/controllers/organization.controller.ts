@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { OrganizationService } from "../services/organization.service";
 import { cache } from "../../lib/redis";
+import * as schema from "../../db/schema";
+import { nanoid } from "nanoid";
 import type { components } from "@blerp/shared";
 import { Metadata } from "../../lib/metadata";
 import { NotFoundError, BadRequestError } from "../../lib/errors";
@@ -56,6 +58,25 @@ export async function createOrganization(req: Request, res: Response) {
   const org = await service.create({ name, slug, projectId: project_id });
   if (!org) {
     throw new BadRequestError("Failed to create organization");
+  }
+
+  // BUG-197 (codex r55): a session user (project owner) who creates
+  // an org via this endpoint must be granted an `owner` membership in
+  // the new org. Without it, every follow-up org-scoped call (e.g.
+  // `GET/PATCH /v1/organizations/:id`, member CRUD, invitations) goes
+  // through `requirePermission`, which requires a membership row —
+  // the project-ownership branch in `requireProjectAccess` covers
+  // CREATE but the per-org RBAC gate does not. Net pre-r55: the
+  // creator could SEE the org via the BUG-178 owned-project fallback
+  // but couldn't do anything with it. Skip for M2M callers — they
+  // aren't users and don't need a membership row.
+  if (req.user) {
+    await req.tenantDb!.insert(schema.memberships).values({
+      id: `mem_${nanoid()}`,
+      organizationId: org.id,
+      userId: req.user.id,
+      role: "owner",
+    });
   }
 
   await bustOrgListCache(req.tenantId!, project_id);

@@ -71,21 +71,26 @@ export async function revokeInvitation(req: Request, res: Response) {
     }
     // The nested route puts organization_id in params; the flat route
     // doesn't have it in scope, so fall back to req.body.organization_id
-    // / req.query.organization_id when present, and require the request
-    // to identify the org. M2M tokens with project-wide invitations:write
-    // can supply the org via body/query.
+    // / req.query.organization_id when present.
+    //
+    // BUG-196 (codex r55): the backend SDK calls `revokeInvitation(id)`
+    // with just the id — no body, no query, no path scope. Pre-r55
+    // the controller 400'd those requests. Since we already loaded
+    // `existing` by id, fall back to `existing.organizationId` as the
+    // scope. The cross-org check below (existing.organizationId vs
+    // requestedOrgId) still fires when the caller DOES supply an
+    // explicit scope, so a malicious caller can't revoke an invitation
+    // by trying every id with a wrong org tag — the explicit-scope
+    // branch trips a 403. RBAC (`invitations:write`) is enforced
+    // upstream by `requirePermission` on the nested route and by the
+    // M2M scope on the flat route's authMiddleware-then-permission
+    // chain — the flat route's `requirePermission("invitations:write")`
+    // (auth.ts line 91-95 lineage) covers M2M project-scope checks.
     const requestedOrgId =
       (req.params.organization_id as string | undefined) ??
       (req.body?.organization_id as string | undefined) ??
-      (req.query?.organization_id as string | undefined);
-    if (!requestedOrgId) {
-      res.status(400).json({
-        error: {
-          message: "organization_id is required (path, body, or query) to scope the revoke.",
-        },
-      });
-      return;
-    }
+      (req.query?.organization_id as string | undefined) ??
+      existing.organizationId;
     if (existing.organizationId !== requestedOrgId) {
       res.status(403).json({
         error: { message: "Invitation does not belong to the specified organization." },
