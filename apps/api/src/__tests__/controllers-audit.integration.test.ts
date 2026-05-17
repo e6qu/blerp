@@ -67,12 +67,14 @@ beforeAll(async () => {
     name: "Audit Org",
     slug: "audit-org",
   });
-  // Membership so RBAC-gated routes (org metadata) admit the user as owner.
+  // Membership so RBAC-gated routes (org metadata, custom roles, etc.)
+  // admit the user. Must be `owner` because `admin` doesn't include
+  // `org:write` (see ROLE_PERMISSIONS in apps/api/src/lib/rbac.ts).
   await db.insert(schema.memberships).values({
     id: "mem_ctrl_audit",
     organizationId: orgId,
     userId,
-    role: "admin",
+    role: "owner",
   });
 });
 
@@ -286,13 +288,70 @@ describe("user-metadata controller", () => {
 // identity.controller — GET /v1/users/:id/identities
 // -----------------------------------------------------------------------------
 describe("identity controller", () => {
-  it("GET /v1/users/:id/identities returns the linked-identities list", async () => {
+  it("GET /v1/users/:id/identities returns the linked-identities list with snake_case fields", async () => {
     const res = await request(app).get(`/v1/users/${userId}/identities`).set(headers());
     expect(res.status).toBe(200);
-    // IdentityService.listUserIdentities returns an object keyed by provider
-    // (oauth: [...], passkeys: [...], totp: bool). Verify the envelope shape.
-    expect(res.body).toBeDefined();
-    expect(typeof res.body).toBe("object");
+    // BUG-52: wrapper has snake_case keys AND inner objects are now mapped
+    // — no raw Drizzle camelCase leakage in either oauth_accounts or
+    // email_addresses arrays.
+    expect(Array.isArray(res.body.oauth_accounts)).toBe(true);
+    expect(Array.isArray(res.body.email_addresses)).toBe(true);
+    for (const account of res.body.oauth_accounts) {
+      expect(account).not.toHaveProperty("userId");
+      expect(account).not.toHaveProperty("providerUserId");
+      expect(account).not.toHaveProperty("emailAddress");
+      expect(account).not.toHaveProperty("createdAt");
+    }
+    for (const email of res.body.email_addresses) {
+      expect(email).not.toHaveProperty("userId");
+      expect(email).not.toHaveProperty("emailAddress");
+      expect(email).not.toHaveProperty("verificationStatus");
+      expect(email).not.toHaveProperty("createdAt");
+    }
+  });
+});
+
+// -----------------------------------------------------------------------------
+// role.controller — /v1/organizations/:id/roles (BUG-52 + general happy path)
+// -----------------------------------------------------------------------------
+describe("role controller", () => {
+  let createdRoleId: string;
+
+  it("POST /v1/organizations/:id/roles returns snake_case Role with no camelCase leak", async () => {
+    const res = await request(app)
+      .post(`/v1/organizations/${orgId}/roles`)
+      .set(headers())
+      .send({ name: "auditor", description: "Read-only", permissions: ["org:read"] });
+    expect(res.status).toBe(201);
+    expect(res.body.id).toBeTruthy();
+    expect(res.body.organization_id).toBe(orgId);
+    expect(res.body.name).toBe("auditor");
+    expect(res.body.permissions).toEqual(["org:read"]);
+    expect(res.body.is_default).toBe(false);
+    expect(res.body).toHaveProperty("created_at");
+    expect(res.body).not.toHaveProperty("organizationId");
+    expect(res.body).not.toHaveProperty("createdAt");
+    createdRoleId = res.body.id;
+  });
+
+  it("PATCH /v1/organizations/:id/roles/:role_id preserves the snake_case shape", async () => {
+    const res = await request(app)
+      .patch(`/v1/organizations/${orgId}/roles/${createdRoleId}`)
+      .set(headers())
+      .send({ description: "Updated description" });
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(createdRoleId);
+    expect(res.body.description).toBe("Updated description");
+    expect(res.body.organization_id).toBe(orgId);
+    expect(res.body).not.toHaveProperty("organizationId");
+    expect(res.body).not.toHaveProperty("updatedAt");
+  });
+
+  it("DELETE /v1/organizations/:id/roles/:role_id returns 204", async () => {
+    const res = await request(app)
+      .delete(`/v1/organizations/${orgId}/roles/${createdRoleId}`)
+      .set(headers());
+    expect(res.status).toBe(204);
   });
 });
 
