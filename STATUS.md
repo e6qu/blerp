@@ -1,17 +1,20 @@
 # Status Log
 
-> **Now (2026-05-17)** — Branch `chore/clerk-compliance-sweep-2026-05-17` open locally with BUG-46..BUG-52 fixed (Clerk API + env-var compliance). Codex review pending.
-> **Tests**: API 108/108 · lint + typecheck + openapi:lint clean.
-> **Active blockers**: M9 Production Infrastructure waits on AWS credentials. No others.
-> **Next action**: see `DO_NEXT.md`. Open bugs: see `BUGS.md`. Milestone history: see `PLAN.md`.
+> **Now (2026-05-18)** — Branch `chore/clerk-compliance-sweep-2026-05-17` 80 commits ahead of `main` (PR #53 in flight). BUG-46 through BUG-219 fixed across 21+ rounds of codex review on the same branch. Most recent commit `c2c5d54` (BUG-218 P1: narrow "tenant admin" to "owns every project in tenant"; BUG-219 P2: sk* admin sees whole tenant on org list).
+> **Tests**: API 162/162 · Dashboard 15/15 · lint + typecheck + openapi:lint clean across 17 turbo tasks.
+> **Codex review status**: r64 produced ONE clean round; r65/r66/r67 each surfaced follow-ups to earlier fixes (CSRF skip ordering, runtime-config public paths, tenant-admin scope semantics, sk* list contract). r68 attempt hit the codex usage limit (~2:56 AM reset). Need TWO consecutive clean rounds to declare convergence per PR's established rule; have one so far (r64).
+> **Active blockers**: codex usage limit until ~2:56 AM (then resume r68); M9 Production Infrastructure waits on AWS credentials.
+> **Next action**: re-run `codex review --base main` once the usage window resets. Detail: `DO_NEXT.md`. Open bugs / fix history: `BUGS.md`. Milestone history: `PLAN.md`.
 
 ## Recent activity (last 14 days — verbatim)
 
-| Date (UTC) | Item                                       | Status    | Notes                                                                                                 |
-| ---------- | ------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------- |
-| 2026-05-17 | Clerk compliance sweep (PR #53, in flight) | in_review | BUG-46..BUG-52 fixed: CLERK\_\* env aliases, dual-cookie, JWT org claims, total_count, errors[], Svix |
-| 2026-05-17 | Skills audit + 2 codex rounds (PR #52)     | merged    | BUG-30..BUG-45 all fixed; 39 new tests; 24 a11y fixes; WebAuthn / org / passkey OpenAPI contract      |
-| 2026-05-16 | Claude Code Skills (PR #51)                | merged    | 7 anti-slop / UI / context-recovery skills under `.claude/skills/`                                    |
+| Date (UTC) | Item                                                 | Status    | Notes                                                                                                                                                                                                         |
+| ---------- | ---------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-18 | Clerk compliance sweep PR #53 — codex r60..r67 fixes | in_review | BUG-207..219 (13 bugs): tenant-root scope predicate, redirect open-redirect, CSRF skip for OAuth, public-config bypass in middleware, tenant-admin "owns every project", sk\_ tenant-wide org list, +more     |
+| 2026-05-17 | Clerk compliance sweep PR #53 — codex r48..r59 fixes | in_review | BUG-178..206 (29 bugs): org list per-user scoping, inlined discovery env, BlerpProvider ref races, project-scoped admin paths, full M2M chain-of-trust, MFA brute-force lockout, audit project_id, +many more |
+| 2026-05-17 | Clerk compliance sweep PR #53 — codex r1..r47 fixes  | in_review | BUG-46..BUG-177 (132 bugs): full Clerk env-var surface, dual-cookie session, JWT org claims, total_count, errors[], Svix webhooks, M2M tenant binding, scope hardening across the entire API surface, +more   |
+| 2026-05-17 | Skills audit + 2 codex rounds (PR #52)               | merged    | BUG-30..BUG-45 all fixed; 39 new tests; 24 a11y fixes; WebAuthn / org / passkey OpenAPI contract                                                                                                              |
+| 2026-05-16 | Claude Code Skills (PR #51)                          | merged    | 7 anti-slop / UI / context-recovery skills under `.claude/skills/`                                                                                                                                            |
 
 ## Earlier activity (compacted — full history in `PLAN.md` § Completed Milestones)
 

@@ -100,3 +100,23 @@ The job of this file is to give a fresh agent enough breadcrumbs to resume mid-s
 - `bun run lint` — 9/9 pass.
 - API tests — 108/108 pass (was 90 pre-sweep; +8 env-compat, +1 BUG-49 JWT, +3 BUG-52 role tests, +1 BUG-47 envelope, +5 BUG-50 svix).
 - Codex review pending.
+
+---
+
+## 2026-05-17 — Clerk-compliance sweep (PR #53) — rounds r1 .. r47
+
+- Summary: 47 codex-review rounds against branch `chore/clerk-compliance-sweep-2026-05-17`, closing BUG-53 through BUG-177. Each round caught 1–3 issues; we fixed them all in the same PR per CLAUDE.md §7 zero-tolerance. Coverage included CLERK\_\* env-var surface (BUG-46+), dual cookie (BUG-51), JWT org claims + total_count + dual-error envelope + Svix webhook signing (BUG-47..50), JWT tenant binding for M2M (BUG-149) and sessions (BUG-155), project-scoping for /organizations / webhooks / audit / SCIM / signup-restrictions / redirect-urls / m2m-tokens, scope-gating across the API, atomic lockout + transactional backup-code consume, and a long tail of small-but-real wire-contract fixes. CI green throughout.
+- Tests: 159/159 (was 108 pre-r1 → ended at 159 after BUG-177).
+- Result: BUG-53..BUG-177 all closed in BUGS.md (per-bug fix narratives there).
+
+## 2026-05-17 — PR #53 codex rounds r48..r59 (BUG-178..BUG-206)
+
+- Summary: 12 more codex-review rounds. Major surfaces: (r48) `GET /v1/organizations` per-user accessibility scope + inlined `@blerp/shared` env reads in `discovery.controller.ts` + `latestAuthRef` re-stamp in BlerpProvider; (r49) Next.js SDK session tenant-binding (`session-verify.ts`), webhook default-bucket wildcard, audit project*id; (r50) webhook admin paths honor `'default'`, embedded forms use runtime-config redirects; (r51) project-owner can't mint tenant-wide scopes (the BUG-186 fix); (r52) full M2M chain-of-trust on create + scope gate on `requireProjectAccess` + MFA persistent counter; (r53) sync ref refresh in runtime-config success path + MFA counter reset on success + CLERK_API_PORT in dashboard proxy; (r54) `org:read` / `org:write` on the org collection routes; (r55) raw `sk*…`accepted in authMiddleware (the big production unblock) + invitation revoke fallback + auto-owner-membership on session-created orgs; (r56) CSRF skip for bearer-no-cookie + project-bind on inferred-org invitation revoke; (r57)`sk*`prefix wins over JWT discriminator +`latestConfigRef`for openSign\* callbacks; (r58) blank`?domain=` no longer bypasses auth on org LIST + redirect components delegate to runtime-config openSign\*; (r59) MFA brute-force counter persists + audit visibility for sk* admins + executed sk\_ lastUsedAt update.
+- Tests: 162/162 at end (was 159; +1 BUG-178 user-scope, +1 BUG-183 audit project_id pin, +1 BUG-187 chain-of-trust).
+- Files touched range: every layer of the API + the Next.js SDK + the dashboard + OpenAPI spec + regenerated schema types.
+
+## 2026-05-17 / 2026-05-18 — PR #53 codex rounds r60..r67 (BUG-207..BUG-219)
+
+- Summary: 8 more rounds. Major surfaces: (r60) narrowed tenant-root predicate to exclude project-bound `:admin` scopes + closed open-redirect in `<SignIn>` / `<SignUp>` via `isSafeRedirect`; (r61) admit session tenant admins on `/v1/users` (`requireScopeOrTenantAdmin`) + invitation-lookup middleware before authMiddleware on flat revoke; (r62) tenant admin can read/edit individual users via `requireSelfOrM2M` + `<CreateOrganization>` derives `project_id` from auth context (API + OpenAPI + client + regen); (r63) auto-enrolled `user.created` carries the enrolled org's project*id + embedded auth links honor runtime config via new context fields; (r65) CSRF skip for `/v1/oauth/token` + framework-public paths bypass `blerpMiddleware`; (r66) CSRF skip uses mounted-relative `req.path` (BUG-215's predicate didn't fire in prod — test-env catch-all masked it); (r67) "tenant admin" tightened to "owns EVERY project in tenant" + sk* admin sees whole tenant on org list. r64 was the first clean round; r65/r66/r67 surfaced follow-ups.
+- Tests: 162/162.
+- Status: r68 attempt hit the codex usage limit (resumes ~2:56 AM). Convergence requires two consecutive clean rounds; r64 was the first. Branch is 80 commits ahead of `main` and PR #53 CI is green / `MERGEABLE`.
