@@ -1553,3 +1553,19 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 ```
 
 SQLite serialises writes so each call observes the row's freshest value. Even under heavy contention the counter advances correctly and the user locks on the 5th wrong attempt.
+
+### BUG-140 (codex r30): `/v1/m2m-tokens` was authMiddleware-only — any session user could mint M2M, bypass BUG-138 (FIXED)
+
+**Status:** Fixed
+**Severity:** High — the BUG-138 admin gate on `/v1/users/:id/unlock` was satisfied by any M2M token. But the M2M-token _creation_ route was just `authMiddleware`-protected, so any signed-in user could: (1) POST `/v1/m2m-tokens` for any project to mint a client secret, (2) exchange it at `/v1/oauth/token` for an M2M JWT, (3) call `/unlock`. Net effect: any session = admin. The new admin gate was an illusion.
+**Files:** `apps/api/src/v1/controllers/m2m.controller.ts`, `apps/api/src/v1/services/m2m.service.ts`
+
+**Fix applied:** New `assertProjectOwnerOrM2M(req, projectId)` runs in `createM2MToken`, `listM2MTokens`, and `revokeM2MToken`. Acceptable callers: (a) an existing M2M token (chain of trust — admin can mint admin), or (b) a user session where the user is the `ownerUserId` of the target project. Anything else returns 403. The revoke path looks up the token first (new `M2MService.findById`) to know which project to check against. This closes the privilege-escalation path without requiring a separate bootstrap mechanism — the project owner is the natural admin root.
+
+### BUG-141 (codex r30): Lockout race — correct-password attempt could mint a session after a parallel wrong attempt had locked the user (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — `attemptSignin` checked `user.locked === false` after the DB lookup, then went through password verification (async), then minted a session. A parallel wrong attempt could flip `locked: true` between the check and the mint. The correct-password path never re-checked, so the locked user still got a fresh session.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Atomic check-and-reset on success: `UPDATE users SET failed_sign_in_attempts = 0 WHERE id = ? AND locked = false RETURNING id`. If the returned array is empty, the user got locked between password verify and now — refuse to mint with the same "Account is locked" error as the early bail. The reset only happens when the user is still unlocked at write time, which is the invariant we actually want.

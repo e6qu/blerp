@@ -1,6 +1,49 @@
 import { Request, Response } from "express";
+import { eq } from "drizzle-orm";
 import { M2MService } from "../services/m2m.service";
 import { getKeyPair } from "../../lib/keys";
+import * as schema from "../../db/schema";
+
+/**
+ * BUG-140 (codex r30): privilege-escalation gate. Pre-fix any
+ * authenticated user could POST `/v1/m2m-tokens` for any project,
+ * receive a client secret, exchange it at `/v1/oauth/token` for an
+ * M2M token, and then satisfy `requireM2M` on `/v1/users/:id/unlock`
+ * (BUG-138). Net effect: any session = admin.
+ *
+ * The fix requires one of:
+ *   1. An existing M2M token (admin → admin chain of trust).
+ *   2. A session whose user is the **owner** of the target project.
+ *
+ * Listing / revoke routes get the same gate so admins can't be
+ * surveilled or have their tokens nuked by random users.
+ */
+async function assertProjectOwnerOrM2M(req: Request, projectId: string): Promise<void> {
+  if (req.m2m) return; // chain-of-trust: an M2M token can mint another.
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new ProjectAuthError("Authentication required.");
+  }
+  const project = await req.tenantDb!.query.projects.findFirst({
+    where: eq(schema.projects.id, projectId),
+  });
+  if (!project) {
+    throw new ProjectAuthError("Project not found.");
+  }
+  if (project.ownerUserId !== userId) {
+    throw new ProjectAuthError("Only the project owner or an M2M token can manage M2M tokens.");
+  }
+}
+
+class ProjectAuthError extends Error {}
+
+function handleAuthError(err: unknown, res: Response): boolean {
+  if (err instanceof ProjectAuthError) {
+    res.status(403).json({ error: { message: err.message } });
+    return true;
+  }
+  return false;
+}
 
 export async function createM2MToken(req: Request, res: Response) {
   const { name, scopes, project_id } = req.body as {
@@ -18,8 +61,14 @@ export async function createM2MToken(req: Request, res: Response) {
     return;
   }
 
-  const m2mService = new M2MService(req.tenantDb!);
+  try {
+    await assertProjectOwnerOrM2M(req, project_id);
+  } catch (err) {
+    if (handleAuthError(err, res)) return;
+    throw err;
+  }
 
+  const m2mService = new M2MService(req.tenantDb!);
   try {
     const token = await m2mService.create(project_id, { name, scopes });
     res.status(201).json(token);
@@ -35,6 +84,13 @@ export async function listM2MTokens(req: Request, res: Response) {
     return;
   }
 
+  try {
+    await assertProjectOwnerOrM2M(req, projectId);
+  } catch (err) {
+    if (handleAuthError(err, res)) return;
+    throw err;
+  }
+
   const m2mService = new M2MService(req.tenantDb!);
   const tokens = await m2mService.list(projectId);
   res.json({ data: tokens });
@@ -43,7 +99,18 @@ export async function listM2MTokens(req: Request, res: Response) {
 export async function revokeM2MToken(req: Request, res: Response) {
   const id = req.params.id as string;
   const m2mService = new M2MService(req.tenantDb!);
-
+  // Look up the token first to find its project so we can authorise.
+  const token = await m2mService.findById(id);
+  if (!token) {
+    res.status(404).json({ error: { message: "M2M token not found." } });
+    return;
+  }
+  try {
+    await assertProjectOwnerOrM2M(req, token.projectId);
+  } catch (err) {
+    if (handleAuthError(err, res)) return;
+    throw err;
+  }
   await m2mService.revoke(id);
   res.status(204).send();
 }
@@ -62,12 +129,10 @@ export async function clientCredentialsGrant(req: Request, res: Response) {
   }
 
   if (!client_id || !client_secret) {
-    res
-      .status(400)
-      .json({
-        error: "invalid_request",
-        error_description: "client_id and client_secret are required",
-      });
+    res.status(400).json({
+      error: "invalid_request",
+      error_description: "client_id and client_secret are required",
+    });
     return;
   }
 

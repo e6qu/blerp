@@ -434,12 +434,21 @@ export class AuthService {
       await bumpUserFailures();
       throw new Error("Invalid email or password");
     }
-    // BUG-137: successful password verify resets the per-user counter.
-    if (user.failedSignInAttempts > 0) {
-      await this.db
-        .update(schema.users)
-        .set({ failedSignInAttempts: 0, updatedAt: new Date() })
-        .where(eq(schema.users.id, user.id));
+    // BUG-137: reset the per-user counter on success.
+    // BUG-141 (codex r30): atomic check-and-reset. A parallel wrong
+    // attempt could have flipped `locked: true` between the post-
+    // lookup check above and now; the UPDATE's `WHERE locked = false`
+    // makes the reset+session-mint conditional on the user still being
+    // unlocked at write time. If 0 rows updated, refuse to mint.
+    const resetRows = await this.db
+      .update(schema.users)
+      .set({ failedSignInAttempts: 0, updatedAt: new Date() })
+      .where(and(eq(schema.users.id, user.id), eq(schema.users.locked, false)))
+      .returning({ id: schema.users.id });
+    if (resetRows.length === 0) {
+      throw new Error(
+        "Account is locked after too many failed sign-in attempts. Contact an administrator.",
+      );
     }
 
     // First-factor done — pending entry already consumed via pop().

@@ -76,6 +76,14 @@ export class M2MService {
     await this.db.delete(schema.m2mTokens).where(eq(schema.m2mTokens.id, id));
   }
 
+  // BUG-140 (codex r30): used by the controller to authorise revoke
+  // by looking up the token's project and asserting the caller owns it.
+  async findById(id: string) {
+    return this.db.query.m2mTokens.findFirst({
+      where: eq(schema.m2mTokens.id, id),
+    });
+  }
+
   async authenticate(clientId: string, clientSecret: string) {
     const token = await this.db.query.m2mTokens.findFirst({
       where: eq(schema.m2mTokens.clientId, clientId),
