@@ -11,7 +11,11 @@ const logger = pino({
   },
 });
 
-const port = getApiPort();
+// BUG-59 (codex r4): getApiPort() returns a string. Node/Express
+// `app.listen(<string>, ...)` selects the Unix-socket-path overload and
+// binds to a socket file rather than a TCP port. Coerce to number so the
+// default "3000" actually binds TCP :3000.
+const port = parseInt(getApiPort(), 10);
 
 app.listen(port, () => {
   logger.info(`

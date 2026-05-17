@@ -521,7 +521,7 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     ErrorResponse: {
-      errors: {
+      errors?: {
         code: string;
         message: string;
         long_message: string;

@@ -640,6 +640,26 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-59 (codex round 4): `app.listen(getApiPort())` bound a Unix socket instead of a TCP port on default startup (FIXED)
+
+**Status:** Fixed
+**Severity:** **P1** — default `bun run dev` would silently bind a socket file named `3000` and the API would be unreachable on `http://localhost:3000`
+**Files:** `apps/api/src/index.ts`
+
+BUG-46's env-helper promotion replaced `process.env.BLERP_API_PORT || process.env.PORT || 3000` (where the trailing `|| 3000` was a number when no env was set) with `getApiPort()` which returns a string. Node/Express's `app.listen(<string>, ...)` overload binds a Unix socket path with that name instead of opening a TCP listener. So a clean local startup with default env created a `3000` socket file in cwd and never bound TCP.
+
+**Fix applied:** `parseInt(getApiPort(), 10)` before passing to `app.listen`. Comment explains the overload trap so it doesn't regress.
+
+### BUG-60 (codex round 4): OpenAPI `ErrorResponse` requires `errors` even though many controllers still emit legacy-only `error` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — SDK clients generated from BUG-57's tightened spec would crash at runtime on the ~40 hand-rolled catch-block 400/403 responses that still emit only `error`
+**Files:** `openapi/blerp.v1.yaml` `components.schemas.ErrorResponse`, `packages/shared/src/schema.ts` (regen), `DO_NEXT.md` (tracked the migration)
+
+BUG-57 made `errors` required in `ErrorResponse`. That's correct for any path that throws `BlerpError`, but ~40 controller catch blocks still hand-roll `res.status(400).json({ error: { message } })` without `errors[]`. SDK consumers reading `body.errors[0].message` against those endpoints would crash with "cannot read undefined".
+
+**Fix applied:** `ErrorResponse` keeps `error` required, makes `errors` optional. Comment explains the contract: SDK clients should prefer `errors[0]` when present and fall back to `error`. Added a tracked follow-up in `DO_NEXT.md` to migrate the remaining hand-rolled errors through `BlerpError` subclasses; once that's done, `errors` can be promoted to required again.
+
 ### BUG-56 (codex round 3): `turbo test` could fail on a clean checkout — new runtime imports from `@blerp/shared` need `dist` to exist (FIXED)
 
 **Status:** Fixed

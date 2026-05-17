@@ -19,7 +19,7 @@
 
 - **Adopt design tokens for real.** BUG-36 added `font-sans`/`font-mono` (kept) and `brand-*`/`status-*` (removed in BUG-40 because no consumer migrated). Next PR that touches dashboard colour should declare the tokens **and** migrate ≥3 sites simultaneously, per `.claude/skills/design-system-check`.
 - **Periodic `hidden-rot-audit` cadence.** Run the full audit before every milestone close-out. PR #52 turned up 14 findings against a "green" CI tree; PR #53 turned up 7 more in a fresh Clerk-fidelity sweep.
-- **Sweep remaining `res.status(N).json({ error: { ... } })` controllers.** BUG-47 fixed the central error envelope + RBAC middleware, but ~40 hand-rolled error responses in service-call catch blocks across controllers are still singular-`error`-only. They're back-compat-safe but eventually should throw `BlerpError` subclasses to gain the `errors[]` array automatically.
+- **Sweep remaining `res.status(N).json({ error: { ... } })` controllers.** BUG-47 fixed the central error envelope + RBAC middleware, but ~40 hand-rolled error responses in service-call catch blocks across controllers are still singular-`error`-only. They're back-compat-safe but should throw `BlerpError` subclasses to gain the `errors[]` array automatically. Once swept, promote `errors` back to required in `openapi/blerp.v1.yaml` `ErrorResponse` (it was made optional in BUG-60 because the runtime contract was not yet uniform).
 - **OpenAPI `ClerkErrorEnvelope` + `total_count` schema entries.** Document the new dual error envelope and the `total_count` pagination field in the spec so generated types reflect what the server actually emits.
 
 ## Maintenance protocol

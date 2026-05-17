@@ -69,11 +69,17 @@ components:
   schemas:
     ErrorResponse:
       type: object
-      # BUG-47/57: blerp emits BOTH the Clerk-compatible `errors[]`
-      # envelope (canonical for new SDK code) AND the legacy singular
-      # `error` field (kept for one release). Both are required so
-      # generated clients can pick whichever they prefer.
-      required: [errors, error]
+      # BUG-47/57: blerp emits the Clerk-compatible `errors[]` envelope
+      # (canonical for new SDK code) from any path that throws a
+      # `BlerpError`. Many hand-rolled `res.status(N).json({ error: ... })`
+      # paths in controller catch blocks still emit only the singular
+      # `error` field — so `error` is required while `errors` stays
+      # optional until those sites migrate to throwing `BlerpError`
+      # (tracked in DO_NEXT.md). Generated SDK clients should read
+      # `errors[0]` when present and fall back to `error` otherwise.
+      # BUG-60 (codex r4): had `errors` required here; SDK consumers
+      # would crash on legacy-shape 400s.
+      required: [error]
       properties:
         errors:
           type: array
