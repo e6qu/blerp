@@ -35,7 +35,9 @@ function resolveApiTarget(): string {
 }
 
 const apiTarget = resolveApiTarget();
-const dashboardPort = process.env.BLERP_DASHBOARD_PORT ?? "3001";
+// BUG-83 (codex r17): blank-string `BLERP_DASHBOARD_PORT=` env in a
+// template made parseInt() return NaN and Vite refused to bind.
+const dashboardPort = nonBlank(process.env.BLERP_DASHBOARD_PORT) ?? "3001";
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({

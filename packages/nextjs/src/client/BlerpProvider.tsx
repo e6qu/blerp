@@ -6,6 +6,7 @@ import type { paths } from "@blerp/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { getPublishableKeyOrBuildPlaceholder } from "./env.js";
+import { getTenantId } from "@blerp/shared";
 import { clearSessionCookies, readSessionCookie } from "./session-cookies";
 
 const queryClient = new QueryClient();
@@ -81,7 +82,13 @@ export function BlerpProvider({
   tenantId?: string;
 }) {
   const key = publishableKey ?? getPublishableKeyOrBuildPlaceholder();
-  const resolvedTenantId = tenantId ?? "demo-tenant";
+  // BUG-81 (codex r17): use the shared getTenantId() helper so the
+  // client tenant tracks the same env (BLERP_TENANT_ID / CLERK_TENANT_ID
+  // + their NEXT_PUBLIC_* aliases) the server uses. Previously
+  // hard-coded "demo-tenant", which silently diverged from server-side
+  // currentUser() / membership lookups when the env was set in
+  // production.
+  const resolvedTenantId = tenantId ?? getTenantId();
 
   const [activeOrgId, setActiveOrgId] = useState<string | null>(
     () => Cookies.get("__blerp_org") || null,

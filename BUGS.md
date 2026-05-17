@@ -893,3 +893,175 @@ New unit-test file `apps/api/src/workers/__tests__/webhook-signatures.test.ts` (
 - `apps/api/src/__tests__/controllers-audit.integration.test.ts` (extended)
 
 **Fix applied:** Added `mapRole()` to `role.controller.ts` and wired into `createRole` + `updateRole` (with explicit 404 / 500 envelopes for the previously-unchecked nullable Drizzle returns). Added `mapOAuthAccount()` + `mapEmailIdentity()` to `identity.controller.ts`; the `listIdentities` wrapper now maps each inner row. The integration-test `identity` block tightened to assert no `userId` / `providerUserId` / `emailAddress` / `createdAt` leakage in either sub-array; a new `role controller` block covers create + update + delete with explicit `not.toHaveProperty("organizationId")`. Seed membership role bumped from `admin` to `owner` (admin doesn't carry `org:write`, which the role routes require). 38/38 controllers-audit pass (was 35).
+
+### BUG-59 (codex round 4): `apps/api/src/index.ts` used `parseInt(env, 10)` against an env that could be `undefined` (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — only manifested if `BLERP_API_PORT` was unset _and_ `PORT` was unset.
+**Files:** `apps/api/src/index.ts`
+
+**Fix applied:** Added explicit `"3000"` default before `parseInt`. Followed by BUG-82 which extended the same chain to also coerce blank-string envs to undefined.
+
+### BUG-60 (codex round 4): OpenAPI `ErrorResponse` declared `errors[]` as optional but every controller actually emits it after BUG-47 (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — SDK code-generators dropped the field; clients that asserted on it broke.
+**Files:** `openapi/blerp.v1.yaml`
+
+**Fix applied:** `errors[]` switched to `required: true`; `error{}` retained for back-compat. `bun run gen:types` regenerated.
+
+### BUG-61 (codex round 5): Authorization derived from JWT `org_permissions` claim — stale after a role change (FIXED)
+
+**Status:** Fixed
+**Severity:** High — privilege-escalation lookalike: a user whose role was demoted kept the elevated permissions until their session token expired (up to 7 days).
+**Files:** `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Authorization now re-resolves the membership from the DB on every request. The JWT claim is treated as a hint only, never trusted for `org:*` gates. New integration test `auth.permission-recheck.test.ts` covers demote → next-request denial.
+
+### BUG-62 (codex round 5): Multi-org integration test re-used a hard-coded tenant id, making it stateful (FIXED)
+
+**Status:** Fixed
+**Severity:** Low (test infra only).
+**Files:** `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:** Each test now provisions a unique tenant id; teardown wipes it.
+
+### BUG-63 (codex round 6): Client-side `useAuth().has()` mapped `admin` → `org:write`, but server RBAC reserves `org:write` for `owner` (FIXED)
+
+**Status:** Fixed
+**Severity:** High — UI showed admin-only buttons that 403'd on submit, _and_ allowed admins to attempt destructive flows the server denied.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`, `apps/api/src/lib/rbac.ts`
+
+**Fix applied:** Removed the local role→permission map. `<Protect>` / `useAuth().has()` now consume the API-returned `permissions` field verbatim (see BUG-67).
+
+### BUG-64 (codex round 6): Direct dev startup (`bun run dev` inside `apps/api` / `apps/dashboard` without going through turbo) failed at import-time on `@blerp/shared` (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — first-run UX regression. Solo-package dev didn't build workspace deps; the runtime `import` of `@blerp/shared/env` resolved before `dist/` existed.
+**Files:** `apps/api/src/index.ts`, `apps/api/src/v1/services/webauthn.service.ts`, `apps/dashboard/vite.config.ts`, `tests/global.setup.ts`
+
+**Fix applied:** Entry-point files that run before the turbo build graph kicks in inline their env reads (still honoring both BLERP*\* and CLERK*\*). Other consumers continue to import from `@blerp/shared`.
+
+### BUG-65 (codex round 7): `apps/api/src/v1/services/webauthn.service.ts` imported `@blerp/shared` at module scope but ran before `dist/` existed (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — same class as BUG-64.
+**Files:** `apps/api/src/v1/services/webauthn.service.ts`
+
+**Fix applied:** Inlined the env reads + URL normalisation (mirroring `normalizeApiUrl`).
+
+### BUG-66 (codex round 7): WebAuthn flow leaked passkey credential ids in `404` responses (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — passkey enumeration via 404-vs-401 timing on unknown emails.
+**Files:** `apps/api/src/v1/services/webauthn.service.ts`, `apps/api/src/__tests__/webauthn.integration.test.ts`
+
+**Fix applied:** Unknown user emails now return the same 401 envelope as known-user-wrong-credential. New 4-test integration block enforces the no-leak invariant.
+
+### BUG-67 (codex round 7): No `/v1/organizations/:id/memberships/me` endpoint — Clerk SDKs call it for the current-membership lookup (FIXED)
+
+**Status:** Fixed
+**Severity:** High — Clerk-compat SDK consumers had to scan the entire membership list and filter client-side, which also required `members:read` (a permission custom read-only roles lack).
+**Files:** `apps/api/src/v1/controllers/membership.controller.ts`, `apps/api/src/v1/routes/membership.routes.ts`, `openapi/blerp.v1.yaml`
+
+**Fix applied:** Added `getOwnMembership` controller + `GET /v1/organizations/:organization_id/memberships/me` route. Returns the calling user's membership with `permissions` resolved via `resolvePermissions()` (default + custom roles). Required scope is only `org:read`. Documented in OpenAPI with `SessionToken` security requirement.
+
+### BUG-68 (codex round 8): Monite example startup files imported `@blerp/shared` before the workspace build ran (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — same dist-resolution failure as BUG-64/65, just one more transitive entry point.
+**Files:** `examples/monite/api/src/index.ts`, `examples/monite/api/src/services/entity.service.ts`
+
+**Fix applied:** Inlined the env reads in the entry points.
+
+### BUG-69 (codex round 8): Monite example `entity.service.ts` only read `__blerp_session` cookie — Clerk-cookie-only callers regressed (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — companion to BUG-54.
+**Files:** `examples/monite/api/src/services/entity.service.ts`
+
+**Fix applied:** Reads `__session` as a fallback when `__blerp_session` is absent.
+
+### BUG-70 (codex round 8): New `/v1/organizations/:id/memberships/me` route missing from OpenAPI (FIXED)
+
+**Status:** Fixed (logged earlier).
+**Files:** `openapi/blerp.v1.yaml`
+
+### BUG-74 (codex round 11): `CLERK_API_URL=https://api.clerk.com/v1` produced `/v1/v1/...` URLs because callers append `/v1` themselves (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — most Clerk doc copy-paste set `CLERK_API_URL` to the documented `https://api.clerk.com/v1` form; we silently double-prefixed.
+**Files:** `packages/shared/src/env.ts`
+
+**Fix applied:** Added `normalizeApiUrl()` that strips a trailing `/v1` (with or without slash). `getApiUrl()` always normalises. Idempotent — bare URLs pass through unchanged. Later extended in BUG-80 to also strip a bare trailing slash.
+
+### BUG-75 (codex round 11): OpenAPI `/memberships/me` path didn't declare `SessionToken` auth (FIXED)
+
+**Status:** Fixed
+**Files:** `openapi/blerp.v1.yaml`
+
+**Fix applied:** Added `security: [{ SessionToken: [] }]` to the new path. (Initial edit accidentally duplicated the security scheme definition; the dupe was removed.)
+
+### BUG-76 (codex round 12): Client BlerpProvider replicated server BUG-63/BUG-67 fixes — local role→permission map + LIST-then-filter membership lookup (FIXED)
+
+**Status:** Fixed
+**Severity:** High — same overgrant + custom-role-cannot-list class as the server side.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** Calls `/v1/organizations/${orgId}/memberships/me` and consumes `permissions` verbatim. Local hard-coded map deleted.
+
+### BUG-77 (codex round 13): Server `auth()` exposed `orgId` straight from the `__blerp_org` cookie without validating membership (FIXED)
+
+**Status:** Fixed
+**Severity:** Critical — a forged or stale cookie value bypassed authorization checks that scope by `orgId`. The cookie is non-httpOnly because the client also reads it for state hydration, so a tampered tab cookie was sufficient.
+**Files:** `packages/nextjs/src/server/auth.ts`
+
+**Fix applied:** `auth()` now calls `/v1/organizations/:orgId/memberships/me` for the candidate `orgId` and only exposes `orgId` / `orgRole` / `orgPermissions` on a 200. Falls back to the JWT-claim `org_id` if the cookie membership check fails.
+
+### BUG-78 (codex round 14): Dashboard Vite proxy derived its target from nonexistent `CLERK_API_PORT` (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — Clerk-style env setup landed `CLERK_API_URL` but no port var, so the proxy target stayed at `http://localhost:3000` regardless.
+**Files:** `apps/dashboard/vite.config.ts`
+
+**Fix applied:** Derived from `CLERK_API_URL` (with the same `/v1` strip + trailing-slash strip as `normalizeApiUrl`). Falls back to localhost+port only when no URL is set.
+
+### BUG-79 (codex round 15): Blank-string env like `BLERP_API_URL=` short-circuited the `CLERK_*` fallback chain to the empty string (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — common `.env.example` pattern (leave key present, value blank, customer fills in) silently produced relative-URL bugs downstream.
+**Files:** `packages/shared/src/env.ts`, `apps/api/src/index.ts`, `apps/dashboard/vite.config.ts`, `apps/api/src/v1/services/webauthn.service.ts`
+
+**Fix applied:** Added `readNonBlank()` helper that returns `undefined` for empty/whitespace-only values. All chained `??` reads go through it. The inline entry-point reads replicate the helper.
+
+### BUG-80 (codex round 15): `getApiUrl()` stripped a trailing `/v1` but not a bare trailing slash (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — `BLERP_API_URL=https://api.example/` produced `//v1/jwks` etc.
+**Files:** `packages/shared/src/env.ts`, `apps/dashboard/vite.config.ts`, `apps/api/src/v1/services/webauthn.service.ts`
+
+**Fix applied:** `normalizeApiUrl()` strips `/v1?` then `/+$`. Idempotent. Inline reads mirror the regex. Regression tests added in BUG-79/80/81 batch in `env-clerk-compat.test.ts`.
+
+### BUG-81 (codex round 17): `getTenantId()` ignored `NEXT_PUBLIC_*` aliases — client used `"demo-tenant"` while server used the configured tenant (FIXED)
+
+**Status:** Fixed
+**Severity:** High — production deployments setting only `BLERP_TENANT_ID` had `BlerpProvider` issue requests with `X-Tenant-Id: demo-tenant`, while server-side `currentUser()` / membership lookups used the real tenant. Silent divergence; every list endpoint returned empty / 404.
+**Files:** `packages/shared/src/env.ts`, `packages/nextjs/src/client/BlerpProvider.tsx`, `apps/api/src/__tests__/env-clerk-compat.test.ts`
+
+**Fix applied:** `getTenantId()` extended to also check `NEXT_PUBLIC_BLERP_TENANT_ID` and `NEXT_PUBLIC_CLERK_TENANT_ID` (in that precedence order, after the bare names). `BlerpProvider` now defaults to `getTenantId()` instead of hard-coded `"demo-tenant"`. Regression test pins the precedence: `BLERP_TENANT_ID > CLERK_TENANT_ID > NEXT_PUBLIC_BLERP_TENANT_ID > NEXT_PUBLIC_CLERK_TENANT_ID > "demo-tenant"`.
+
+### BUG-82 (codex round 17): `apps/api/src/index.ts` port chain didn't coerce blank strings — `BLERP_API_PORT=` produced `parseInt("") === NaN`, crashing `app.listen` (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — same `.env`-template footgun as BUG-79, but for the API entrypoint specifically.
+**Files:** `apps/api/src/index.ts`, `packages/shared/src/env.ts` (`getApiPort` also tightened)
+
+**Fix applied:** Inlined `nonBlank()` helper before the `??` chain. `getApiPort()` shared helper extended in parallel (now honors `CLERK_API_PORT` too and uses `readNonBlank`).
+
+### BUG-83 (codex round 17): Dashboard `vite.config.ts` `BLERP_DASHBOARD_PORT=` (blank) produced NaN port, Vite refused to bind (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — solo-dev dashboard startup, same class as BUG-82.
+**Files:** `apps/dashboard/vite.config.ts`, `packages/shared/src/env.ts`
+
+**Fix applied:** `dashboardPort` now goes through the local `nonBlank()` helper before `parseInt`. `getDashboardPort()` shared helper now also honors `CLERK_DASHBOARD_PORT` for naming parity (BUG-82 family).

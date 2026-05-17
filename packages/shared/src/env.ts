@@ -124,8 +124,21 @@ export function getWebhookSecretOrThrow(): string {
 // any env vars set; production deployments must set BLERP_TENANT_ID
 // explicitly. CLERK_TENANT_ID is honored as a courtesy alias for users
 // migrating multi-tenant Clerk-shaped wrappers.
+//
+// BUG-81 (codex r17): also check NEXT_PUBLIC_* aliases so client code
+// (BlerpProvider, dashboard components) gets the same tenant as the
+// server-side `currentUser()` / membership lookups. Without this, a
+// production deployment setting only BLERP_TENANT_ID had server
+// requests go to the right tenant while client requests still used
+// "demo-tenant" — silent divergence.
 export function getTenantId(defaultValue = "demo-tenant"): string {
-  return readEither("BLERP_TENANT_ID", "CLERK_TENANT_ID", { defaultValue })!;
+  return (
+    readNonBlank("BLERP_TENANT_ID") ??
+    readNonBlank("CLERK_TENANT_ID") ??
+    readNonBlank("NEXT_PUBLIC_BLERP_TENANT_ID") ??
+    readNonBlank("NEXT_PUBLIC_CLERK_TENANT_ID") ??
+    defaultValue
+  );
 }
 
 // --- Client-side (NEXT_PUBLIC_*) --------------------------------------------
@@ -172,11 +185,20 @@ export function getPublishableKeyOrBuildPlaceholder(): string {
 // --- Local-dev convenience --------------------------------------------------
 
 export function getApiPort(defaultValue = "3000"): string {
-  // No Clerk equivalent — Clerk is hosted. BLERP_API_PORT is local-only.
-  // Fall back to standard PORT for PaaS conventions.
-  return process.env.BLERP_API_PORT ?? process.env.PORT ?? defaultValue;
+  // Clerk is hosted so it has no canonical *_API_PORT, but
+  // BUG-82 (codex r17) lesson: any env value that might be supplied
+  // blank in a template needs blank-coercion to avoid parseInt("")=NaN
+  // downstream.
+  return (
+    readNonBlank("BLERP_API_PORT") ??
+    readNonBlank("CLERK_API_PORT") ??
+    readNonBlank("PORT") ??
+    defaultValue
+  );
 }
 
 export function getDashboardPort(defaultValue = "3001"): string {
-  return process.env.BLERP_DASHBOARD_PORT ?? defaultValue;
+  return (
+    readNonBlank("BLERP_DASHBOARD_PORT") ?? readNonBlank("CLERK_DASHBOARD_PORT") ?? defaultValue
+  );
 }

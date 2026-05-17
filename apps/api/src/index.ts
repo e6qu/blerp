@@ -15,9 +15,16 @@ const logger = pino({
 // not through turbo) doesn't build workspace deps, so a runtime import
 // of `@blerp/shared` whose `dist` isn't built fails at module resolve.
 // The dual-name reads stay BLERP_API_PORT > CLERK_API_PORT > PORT > 3000;
-// BUG-59 lesson preserved by parseInt before listen().
+// BUG-59 lesson preserved by parseInt before listen(). BUG-82 (codex
+// r17): coerce blank-string env vars to undefined so `BLERP_API_PORT=`
+// in an .env template doesn't short-circuit the chain and produce
+// `parseInt("") === NaN`, which would crash app.listen at startup.
+const nonBlank = (v: string | undefined) => (v && v.trim() !== "" ? v : undefined);
 const portRaw =
-  process.env.BLERP_API_PORT ?? process.env.CLERK_API_PORT ?? process.env.PORT ?? "3000";
+  nonBlank(process.env.BLERP_API_PORT) ??
+  nonBlank(process.env.CLERK_API_PORT) ??
+  nonBlank(process.env.PORT) ??
+  "3000";
 const port = parseInt(portRaw, 10);
 
 app.listen(port, () => {
