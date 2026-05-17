@@ -1569,3 +1569,27 @@ SQLite serialises writes so each call observes the row's freshest value. Even un
 **Files:** `apps/api/src/v1/services/auth.service.ts`
 
 **Fix applied:** Atomic check-and-reset on success: `UPDATE users SET failed_sign_in_attempts = 0 WHERE id = ? AND locked = false RETURNING id`. If the returned array is empty, the user got locked between password verify and now — refuse to mint with the same "Account is locked" error as the early bail. The reset only happens when the user is still unlocked at write time, which is the invariant we actually want.
+
+### BUG-142 (codex r31): M2M tokens were not project-scoped — cross-project admin (FIXED)
+
+**Status:** Fixed
+**Severity:** High — M2M JWTs only carried `client_id` + `scope`. `assertProjectOwnerOrM2M` accepted any M2M token for any `projectId`, so a project-A owner could mint an A token, exchange it for an M2M JWT, then list / revoke project-B's M2M tokens — and (via BUG-138's M2M-only gate) unlock project-B's users.
+**Files:** `apps/api/src/types/express.d.ts`, `apps/api/src/v1/services/m2m.service.ts`, `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/controllers/m2m.controller.ts`
+
+**Fix applied:** `M2MService.generateJwt` now takes `projectId` and bakes it into the JWT payload as `project_id`. `authMiddleware` reads `payload.project_id` into `req.m2m.projectId`; for legacy tokens (minted before this change) it falls back to a DB lookup by `client_id` so existing keys keep working without forced rotation. `assertProjectOwnerOrM2M` now checks `req.m2m.projectId === projectId` and 403s the mismatch with a clear "scoped to a different project" message. The same check is centralized in the new `requireProjectAccess` middleware (BUG-144) so all project-scoped routes benefit.
+
+### BUG-143 (codex r31): `attemptSecondFactor` minted sessions for users locked between password and TOTP (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-141 closed the race for the non-MFA success path (atomic UPDATE … WHERE locked = false). The MFA branch (`attemptSecondFactor`) had the same hole: it read user once, verified TOTP/backup-code, then minted without rechecking. A concurrent first-factor brute force could lock the user during the second-factor window, and the MFA path still issued a session.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** After successful second-factor verification, an atomic `UPDATE users SET updated_at = ? WHERE id = ? AND locked = false RETURNING id` runs. If 0 rows updated, the user got locked during the MFA window — refuse to mint with the same "Account is locked" message. The UPDATE serves as both a check and a touch (so `updated_at` reflects the verification attempt).
+
+### BUG-144 (codex r31): Project + API-key admin routes were authMiddleware-only — any session could mint SECRET keys for any project (FIXED)
+
+**Status:** Fixed
+**Severity:** High — adjacent privilege-escalation path to BUG-140. `/v1/projects/:project_id`, `/v1/projects/:project_id/keys` (POST / rotate / revoke) all used bare `authMiddleware`. Any signed-in user could create a SECRET API key for any project, then use it to act as that project's admin. Cross-tenant lateral movement was instant once any account existed.
+**Files:** `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/routes/project.routes.ts`
+
+**Fix applied:** New shared `requireProjectAccess(projectIdFrom)` middleware (lifted from BUG-140's inline helper) gates on either: (a) an M2M token scoped to the same project (BUG-142 binding), or (b) a session whose user is the project's `ownerUserId`. All project + API-key admin routes (update / delete / keys.\* ) now chain it after `authMiddleware`. The read-only `GET /v1/projects/:project_id` stays open (any tenant member can see project metadata) — admin write paths are the locked-down ones.

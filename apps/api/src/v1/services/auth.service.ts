@@ -560,6 +560,23 @@ export class AuthService {
       throw new Error("Invalid verification code");
     }
 
+    // BUG-143 (codex r31): second-factor success path must also
+    // re-check the per-user lock. A parallel wrong attempt (e.g. a
+    // concurrent first-factor brute force on this same user) could
+    // have flipped `locked: true` between the post-pop user lookup
+    // and now. Atomic check-and-touch: only succeed if user is still
+    // unlocked at write time.
+    const stillUnlocked = await this.db
+      .update(schema.users)
+      .set({ updatedAt: new Date() })
+      .where(and(eq(schema.users.id, user.id), eq(schema.users.locked, false)))
+      .returning({ id: schema.users.id });
+    if (stillUnlocked.length === 0) {
+      throw new Error(
+        "Account is locked after too many failed sign-in attempts. Contact an administrator.",
+      );
+    }
+
     // No delete needed — pop() above already consumed.
     const mergedMetadata = {
       ipAddress: metadata?.ipAddress ?? pending.ipAddress,

@@ -108,11 +108,24 @@ export class M2MService {
     };
   }
 
-  async generateJwt(clientId: string, scopes: string[], privateKey: CryptoKey): Promise<string> {
-    return jwt.sign({ client_id: clientId, scope: scopes.join(" ") }, privateKey, {
-      issuer: "blerp",
-      audience: "blerp-api",
-      expiresIn: "1h",
-    });
+  // BUG-142 (codex r31): include `project_id` in the JWT payload so
+  // downstream code can enforce project scoping. Pre-fix the token
+  // only carried client_id + scope, so any M2M token from any project
+  // satisfied requireM2M for any other project's resources.
+  async generateJwt(
+    clientId: string,
+    projectId: string,
+    scopes: string[],
+    privateKey: CryptoKey,
+  ): Promise<string> {
+    return jwt.sign(
+      { client_id: clientId, project_id: projectId, scope: scopes.join(" ") },
+      privateKey,
+      {
+        issuer: "blerp",
+        audience: "blerp-api",
+        expiresIn: "1h",
+      },
+    );
   }
 }

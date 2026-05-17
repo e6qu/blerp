@@ -23,9 +23,26 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
         // M2M token: has client_id + scope
         if (payload.client_id && payload.scope) {
+          // BUG-142 (codex r31): require project_id on the JWT. New
+          // tokens always carry it. For tokens minted before this
+          // change (and any legacy callers), look it up from the DB
+          // by client_id so existing keys keep working without a
+          // forced rotation.
+          let projectId = (payload.project_id as string | undefined) ?? "";
+          if (!projectId) {
+            const row = await req.tenantDb!.query.m2mTokens.findFirst({
+              where: eq(schema.m2mTokens.clientId, payload.client_id as string),
+            });
+            if (!row) {
+              res.status(401).json({ error: "M2M token not recognised" });
+              return;
+            }
+            projectId = row.projectId;
+          }
           req.m2m = {
             clientId: payload.client_id as string,
             scopes: (payload.scope as string).split(" "),
+            projectId,
           };
           next();
           return;
@@ -111,4 +128,63 @@ export function requireM2M(req: Request, res: Response, next: NextFunction): voi
         "Admin-only endpoint — requires an M2M / secret-key token (backend SDK), not a user session.",
     },
   });
+}
+
+/**
+ * BUG-144 (codex r31): per-project access gate. Run AFTER
+ * `authMiddleware`. Accepts:
+ *   1. An M2M token scoped to the same project (BUG-142).
+ *   2. A session whose user is the project's `ownerUserId`.
+ *
+ * `projectIdFrom` extracts the project id from the request (usually
+ * `req.params.project_id` or `req.body.project_id`). Returning
+ * undefined makes the gate 400 with a clear message.
+ *
+ * This is the same pattern as `assertProjectOwnerOrM2M` in
+ * m2m.controller.ts, lifted into middleware so project / API-key /
+ * environment routes don't have to repeat the check inline.
+ */
+export function requireProjectAccess(
+  projectIdFrom: (req: Request) => string | undefined,
+): (req: Request, res: Response, next: NextFunction) => Promise<void> {
+  return async (req, res, next) => {
+    const projectId = projectIdFrom(req);
+    if (!projectId) {
+      res.status(400).json({ error: { message: "project_id is required" } });
+      return;
+    }
+    if (req.m2m) {
+      if (req.m2m.projectId !== projectId) {
+        res.status(403).json({
+          error: {
+            message: "M2M token is scoped to a different project. Mint a token for this project.",
+          },
+        });
+        return;
+      }
+      next();
+      return;
+    }
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: { message: "Authentication required." } });
+      return;
+    }
+    const project = await req.tenantDb!.query.projects.findFirst({
+      where: eq(schema.projects.id, projectId),
+    });
+    if (!project) {
+      res.status(404).json({ error: { message: "Project not found." } });
+      return;
+    }
+    if (project.ownerUserId !== userId) {
+      res.status(403).json({
+        error: {
+          message: "Only the project owner or a project-scoped M2M token can manage this project.",
+        },
+      });
+      return;
+    }
+    next();
+  };
 }

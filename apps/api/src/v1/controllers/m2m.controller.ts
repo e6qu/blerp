@@ -19,7 +19,16 @@ import * as schema from "../../db/schema";
  * surveilled or have their tokens nuked by random users.
  */
 async function assertProjectOwnerOrM2M(req: Request, projectId: string): Promise<void> {
-  if (req.m2m) return; // chain-of-trust: an M2M token can mint another.
+  if (req.m2m) {
+    // BUG-142 (codex r31): M2M tokens are scoped to one project; an
+    // M2M token from project A can no longer act on project B.
+    if (req.m2m.projectId !== projectId) {
+      throw new ProjectAuthError(
+        "M2M token is scoped to a different project. Mint a token for this project.",
+      );
+    }
+    return; // chain-of-trust within the same project.
+  }
   const userId = req.user?.id;
   if (!userId) {
     throw new ProjectAuthError("Authentication required.");
@@ -148,7 +157,14 @@ export async function clientCredentialsGrant(req: Request, res: Response) {
   const grantedScopes = requestedScopes.filter((s: string) => tokenRecord.scopes.includes(s));
 
   const keyPair = await getKeyPair();
-  const accessToken = await m2mService.generateJwt(client_id, grantedScopes, keyPair.privateKey);
+  // BUG-142 (codex r31): pass the token's project so it gets baked
+  // into the JWT and downstream checks can enforce project scoping.
+  const accessToken = await m2mService.generateJwt(
+    client_id,
+    tokenRecord.projectId,
+    grantedScopes,
+    keyPair.privateKey,
+  );
 
   res.json({
     access_token: accessToken,
