@@ -114,9 +114,14 @@ export function SignIn({ afterSignInUrl, signUpUrl = SIGN_UP_URL }: SignInProps)
     setError(null);
     setIsSubmitting(true);
     try {
+      // BUG-130 (codex r24): send explicit `strategy: "totp"` + `stage:
+      // "second_factor"`. Without these, the service falls back to
+      // permissive try-both, so a backup code typed into the TOTP-
+      // labeled UI would silently succeed and consume a recovery code.
+      // The TOTP UI here is exclusively for authenticator-app codes.
       const { data, error: apiError } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
         params: { path: { signin_id: signinId! } },
-        body: { code: totpCode },
+        body: { code: totpCode, strategy: "totp", stage: "second_factor" },
       });
       if (apiError) {
         const errorData = apiError as { error?: { message?: string } };

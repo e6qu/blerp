@@ -381,9 +381,17 @@ export class AuthService {
       verified = await tryTotp();
     } else if (strategy === "backup_code") {
       verified = await tryBackupCode();
-    } else {
-      // Permissive fallback (no strategy supplied) — try TOTP first.
+    } else if (strategy === undefined || strategy === null) {
+      // BUG-129 (codex r24): permissive fallback ONLY when strategy is
+      // genuinely absent — older callers may not send it. An explicit
+      // strategy that's not a recognized second-factor name (e.g.
+      // `"password"`, `"email_code"`, a typo) should fail loudly rather
+      // than allow TOTP/backup_code to be silently consumed.
       verified = (await tryTotp()) || (await tryBackupCode());
+    } else {
+      throw new Error(
+        `Unsupported second-factor strategy: "${strategy}". Expected "totp" or "backup_code".`,
+      );
     }
 
     if (!verified) {

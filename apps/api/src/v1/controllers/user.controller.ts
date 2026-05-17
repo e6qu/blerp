@@ -8,11 +8,17 @@ type User = components["schemas"]["User"];
 type DBUser = typeof schema.users.$inferSelect;
 type DBEmailAddress = typeof schema.emailAddresses.$inferSelect;
 
-interface UserWithRelations extends DBUser {
+export interface UserWithRelations extends DBUser {
   emailAddresses: DBEmailAddress[];
 }
 
-function mapUser(user: UserWithRelations): User {
+// BUG-128 (codex r24): exported so user-metadata.controller (and any
+// future controller that returns a User) can use the same mapper.
+// Prior duplicate in user-metadata.controller.ts drifted from this
+// one — missing password_enabled / totp_enabled / backup_code_enabled
+// / two_factor_enabled — so PATCH /v1/users/:id/metadata responses
+// quietly omitted the Clerk-style credential flags.
+export function mapUser(user: UserWithRelations): User {
   return {
     id: user.id,
     external_id: undefined,

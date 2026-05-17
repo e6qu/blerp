@@ -1447,3 +1447,27 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 **Files:** `apps/api/src/v1/services/auth.service.ts`, `openapi/blerp.v1.yaml`
 
 **Fix applied:** `available_strategies` is now hard-coded to `["password"]` until/unless additional first-factor verifications are wired. The `strategy` field on the response still echoes the request (Clerk parity — the caller's chosen factor name round-trips) but `available_strategies` is the source of truth for what will actually succeed. OpenAPI description on `/v1/auth/signins` `strategy` field updated to call this out; enum stays inclusive of future strategies to keep the spec forward-compatible.
+
+### BUG-128 (codex r24): Duplicate stale `mapUser()` in user-metadata.controller dropped Clerk-style credential flags (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — BUG-125 added `password_enabled` / `totp_enabled` / `backup_code_enabled` / `two_factor_enabled` to `user.controller.ts::mapUser`, but `user-metadata.controller.ts` had its own copy that pre-dated those fields. `PATCH /v1/users/:id/metadata` quietly returned a User payload missing the flags, so any dashboard component that read the response (rather than re-fetching) showed stale credential state.
+**Files:** `apps/api/src/v1/controllers/user.controller.ts`, `apps/api/src/v1/controllers/user-metadata.controller.ts`
+
+**Fix applied:** Exported `mapUser()` + `UserWithRelations` interface from `user.controller.ts`. `user-metadata.controller.ts` now imports and uses them — the duplicate inline mapper is gone. Single source of truth prevents future drift.
+
+### BUG-129 (codex r24): Permissive second-factor fallback applied to ALL non-recognized strategies, not just absent ones (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — my BUG-126 fix treated `strategy !== "totp" && strategy !== "backup_code"` as the permissive fallback (try both). That meant `strategy: "password"`, `strategy: "email_code"`, `strategy: "passkey"`, or a typo would still silently allow TOTP or backup-code consumption. The fallback should only apply when `strategy` is genuinely absent (older callers); explicit-but-unknown values should error loudly.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Branch is now `strategy === "totp"` → TOTP only; `strategy === "backup_code"` → backup code only; `strategy === undefined || null` → permissive try-both (back-compat); otherwise → `throw new Error('Unsupported second-factor strategy: "${strategy}". Expected "totp" or "backup_code".')`. Typos and unsupported-yet factor names fail loudly.
+
+### BUG-130 (codex r24): Shipped `<SignIn>` TOTP-step components submit second factor without strategy/stage — bypassed BUG-126 protection (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — `useSignIn().attemptSecondFactor` was updated (BUG-121/126) to send `strategy: params.strategy` + `stage: "second_factor"`, but the rendered `<SignIn>` component in `packages/nextjs` and the standalone `apps/dashboard/src/components/auth/SignIn.tsx` both submitted bare `{ code: totpCode }`. Under the BUG-126/129 permissive fallback (absent strategy), a backup code typed into the TOTP-labeled UI would silently succeed and consume a recovery code — exactly the silent-consumption bug BUG-126 was meant to prevent.
+**Files:** `packages/nextjs/src/client/components/Auth.tsx`, `apps/dashboard/src/components/auth/SignIn.tsx`
+
+**Fix applied:** Both TOTP submit handlers now send `{ code, strategy: "totp", stage: "second_factor" }`. The UI is exclusively for authenticator-app codes; a user wanting to use a backup code goes through a separate "Use a backup code" flow (future PR). Also cleaned up deprecated `React.FormEvent<HTMLFormElement>` type usages in the dashboard SignIn — replaced with `SyntheticEvent<HTMLFormElement>` (BUG-86 lineage; `@types/react` 19 marks FormEvent deprecated).
