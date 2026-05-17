@@ -435,23 +435,14 @@ export class AuthService {
       throw new Error("Invalid email or password");
     }
     // BUG-137: reset the per-user counter on success.
-    // BUG-141 (codex r30): atomic check-and-reset on success.
-    // BUG-146 (codex r32) revisited: better-sqlite3 transactions don't
-    // accept async callbacks (drizzle wraps it strictly synchronously),
-    // so wrapping reset + session-INSERT in `db.transaction(async)` is
-    // not viable in this stack. Fortunately SQLite + better-sqlite3
-    // already serialise writes per connection: the atomic
-    // `UPDATE … WHERE locked=false … RETURNING` either matches (we're
-    // unlocked at write time and the reset succeeded) or returns 0 rows
-    // (someone else just locked us). Two concurrent wrong attempts
-    // can't both push the counter to 5 simultaneously because the
-    // SQL-side `failed_sign_in_attempts + 1` evaluates at write time
-    // against the row's freshest value. The only remaining window —
-    // between the reset RETURNING and the session INSERT — would
-    // require the concurrent attempts to advance the counter by 5 in
-    // that span, but each wrong attempt only +1's. Net: the race codex
-    // r32 worried about isn't reachable in this storage model. We
-    // re-evaluate when (if) we swap SQLite for a multi-connection store.
+    // BUG-141 (codex r30) / BUG-148 (codex r33): atomic check-and-
+    // reset on success. The second-factor branch is unchanged here
+    // (TOTP path doesn't INSERT a session yet). The first-factor-only
+    // success path passes the unlocked-at-reset-time signal forward
+    // to `createSessionForUser`, which uses a conditional INSERT
+    // (`INSERT … SELECT … FROM users WHERE locked = false`) so even
+    // if a parallel wrong attempt locks the user between reset and
+    // INSERT, the session row never lands and we throw.
     const resetRows = await this.db
       .update(schema.users)
       .set({ failedSignInAttempts: 0, updatedAt: new Date() })
@@ -603,15 +594,41 @@ export class AuthService {
     const sessionId = `ses_${nanoid()}`;
     const expireAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const abandonAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    await db.insert(schema.sessions).values({
-      id: sessionId,
-      userId,
-      status: "active",
-      ipAddress: metadata?.ipAddress,
-      userAgent: metadata?.userAgent,
-      expireAt,
-      abandonAt,
-    });
+
+    // BUG-148 (codex r33): conditional INSERT — the session row only
+    // lands if the user is still unlocked at write time. Without this,
+    // a parallel wrong-attempt burst could lock the user between the
+    // caller's `UPDATE … WHERE locked=false RETURNING` check and the
+    // INSERT below, leaving the locked user with a fresh session.
+    // SQLite serialises writes per connection so the INSERT's `SELECT
+    // … FROM users WHERE id = ? AND locked = false` evaluates the row
+    // at write time. Net effect: if locked, 0 rows inserted, RETURNING
+    // is empty → throw.
+    // drizzle better-sqlite3 .all() is synchronous; the `await` would
+    // be a no-op and the linter flags it. Cast through unknown to keep
+    // the typed return shape without an unsafe `as` on the wire type.
+    const inserted = db.all<{ id: string }>(sql`
+      INSERT INTO sessions
+        (id, user_id, status, ip_address, user_agent, expire_at, abandon_at, created_at, updated_at)
+      SELECT
+        ${sessionId},
+        users.id,
+        'active',
+        ${metadata?.ipAddress ?? null},
+        ${metadata?.userAgent ?? null},
+        ${Math.floor(expireAt.getTime() / 1000)},
+        ${Math.floor(abandonAt.getTime() / 1000)},
+        unixepoch(),
+        unixepoch()
+      FROM users
+      WHERE users.id = ${userId} AND users.locked = false
+      RETURNING id
+    `);
+    if (inserted.length === 0) {
+      throw new Error(
+        "Account is locked after too many failed sign-in attempts. Contact an administrator.",
+      );
+    }
 
     // Update last sign in
     await db

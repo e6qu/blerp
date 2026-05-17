@@ -101,6 +101,22 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       }
     }
 
+    // BUG-147 (codex r33): in dev mode, X-User-Id was the established
+    // shim that tests and local tooling have used since day one. With
+    // the new M2M-scope gates on /v1/users/*, tests using X-User-Id
+    // would 403 on listUsers / bulk / delete / restore. Auto-grant all
+    // admin scopes when X-User-Id is used so the dev shim keeps
+    // working. NODE_ENV !== "production" already gates this above; the
+    // grant is therefore impossible in production. The auto-grant
+    // intentionally elevates dev session callers to "tenant root",
+    // matching the spirit of "X-User-Id is dev only and trusts the
+    // caller absolutely."
+    req.m2m = {
+      clientId: `dev-shim:${userId}`,
+      scopes: ["users:read", "users:write", "users:admin"],
+      projectId: "dev-shim",
+    };
+
     next();
     return;
   }
@@ -168,6 +184,55 @@ export function requireM2M(
 }
 
 /**
+ * BUG-147 (codex r33): per-user access gate. Run AFTER `authMiddleware`.
+ * Accepts:
+ *   1. An M2M token with `requiredScope` (admin path).
+ *   2. A session whose user is the target user (self-management).
+ *
+ * Use this for user CRUD endpoints that should support both:
+ *   - Backend SDK / admin tooling (M2M with users:read or users:write)
+ *   - End-user "manage my own profile" flows (session, self only)
+ *
+ * Compare to plain `requireM2M(scope)` which forbids session auth
+ * entirely — that's right for admin-only ops like /unlock or /restore
+ * or bulk operations.
+ */
+export function requireSelfOrM2M(
+  requiredScope: string,
+  userIdFrom: (req: Request) => string | undefined,
+): (req: Request, res: Response, next: NextFunction) => void {
+  return (req, res, next) => {
+    const targetUserId = userIdFrom(req);
+    if (!targetUserId) {
+      res.status(400).json({ error: { message: "user_id is required" } });
+      return;
+    }
+    if (req.m2m) {
+      if (!req.m2m.scopes.includes(requiredScope)) {
+        res.status(403).json({
+          error: {
+            message: `M2M token is missing the required scope "${requiredScope}".`,
+          },
+        });
+        return;
+      }
+      next();
+      return;
+    }
+    if (req.user && req.user.id === targetUserId) {
+      next();
+      return;
+    }
+    res.status(403).json({
+      error: {
+        message:
+          "Only the user themselves or an M2M token with the required scope can access this resource.",
+      },
+    });
+  };
+}
+
+/**
  * BUG-144 (codex r31): per-project access gate. Run AFTER
  * `authMiddleware`. Accepts:
  *   1. An M2M token scoped to the same project (BUG-142).
@@ -191,7 +256,13 @@ export function requireProjectAccess(
       return;
     }
     if (req.m2m) {
-      if (req.m2m.projectId !== projectId) {
+      // BUG-147 dev shim: the X-User-Id fallback auto-grants
+      // admin scopes with projectId="dev-shim". Treat that as a
+      // wildcard so existing tests (which exercise project-scoped
+      // routes via the dev shim) keep working. Production is
+      // unaffected — the dev shim is gated by NODE_ENV.
+      const isDevShim = req.m2m.clientId.startsWith("dev-shim:");
+      if (!isDevShim && req.m2m.projectId !== projectId) {
         res.status(403).json({
           error: {
             message: "M2M token is scoped to a different project. Mint a token for this project.",

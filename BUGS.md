@@ -1615,3 +1615,29 @@ SQLite serialises writes so each call observes the row's freshest value. Even un
 `tryBackupCode` was rewritten to use a single atomic UPDATE with `json_each` to filter the code out, gated by an `EXISTS` clause that checks the row at write time. Returns true iff the code was present at write time — concurrent callers see the row in exactly one ordering, so exactly one observes it present.
 
 If/when SQLite is swapped for a multi-connection store, the trade-off changes and proper transactions become necessary. Documented in the code comments.
+
+### BUG-147 (codex r33): All `/v1/users/*` admin surfaces accepted bare session auth — any signed-in user could list/read/modify arbitrary users (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `/v1/users` list, GET/PATCH/DELETE/restore/bulk all used plain `authMiddleware`. A signed-in regular user could `GET /v1/users` and read every user's `private_metadata`; could `PATCH /v1/users/:other_id` to take over another account; could `DELETE` arbitrary users. Tenant-wide data-exfiltration + account-takeover path.
+**Files:** `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/routes/auth.routes.ts`
+
+**Fix applied:** New `requireSelfOrM2M(scope, userIdFrom)` middleware accepts either an M2M token with the given scope OR a session whose user is the target user (self-management). Route gating:
+
+- `GET /v1/users` → `requireM2M("users:read")` (list-all is admin only)
+- `GET /v1/users/:user_id` → `requireSelfOrM2M("users:read")` (self or admin)
+- `PATCH /v1/users/:user_id` → `requireSelfOrM2M("users:write")` (self or admin)
+- `DELETE /v1/users/:user_id` → `requireM2M("users:write")` (destructive — admin only)
+- `POST /v1/users/:user_id/restore` → `requireM2M("users:write")` (admin only)
+- `POST /v1/users/bulk` → `requireM2M("users:write")` (admin only)
+- `POST /v1/users/:user_id/unlock` → `requireM2M("users:admin")` (already scope-gated per BUG-145)
+
+Dev-shim: the X-User-Id header has always been the dev-only auth fallback for tests. Adding M2M scope gates without breaking that contract meant elevating dev X-User-Id callers to "tenant root" — `authMiddleware` now also sets `req.m2m = { clientId: "dev-shim:<id>", scopes: ["users:read","users:write","users:admin"], projectId: "dev-shim" }` when X-User-Id is used. Production is unaffected (the X-User-Id path is already gated by `NODE_ENV !== "production"`). `assertProjectOwnerOrM2M` + `requireProjectAccess` treat `clientId starting with "dev-shim:"` as a wildcard for projectId so existing project-scoped tests keep working.
+
+### BUG-148 (codex r33): Lockout-check vs. session-INSERT atomicity gap closed via conditional INSERT (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `UPDATE … WHERE locked=false RETURNING` is atomic, but the INSERT into `sessions` ran later as a separate statement. A burst of concurrent wrong attempts could push the user past `MAX_SIGNIN_ATTEMPTS` between the reset and the INSERT, and the now-locked user still got a fresh session. Per BUG-146's analysis, better-sqlite3's transactions don't accept async callbacks so the obvious fix (`db.transaction(async tx => ...)`) doesn't work in this stack.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Conditional INSERT using a raw SQL `INSERT … SELECT … FROM users WHERE users.id = ? AND users.locked = false RETURNING id`. SQLite serialises writes per connection so the `SELECT … FROM users WHERE locked = false` evaluates the row at write time. If any concurrent wrong attempt locked the user between the upstream atomic reset and this INSERT, the FROM clause returns 0 rows, the INSERT inserts nothing, and `RETURNING` is empty — the caller throws the same "Account is locked" error. No transaction needed; the conditional INSERT is itself atomic at the SQLite level.
