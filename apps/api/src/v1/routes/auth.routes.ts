@@ -231,10 +231,13 @@ router.delete(
   totpController.disableTotp,
 );
 
-// Signup Restrictions (Allowlist/Blocklist) — BUG-169 (codex r43):
-// admin-only. The allowlist controls who can sign up; letting any
-// signed-in user mutate it is account-takeover via altered ruleset.
-// `signup_restrictions:read` / `signup_restrictions:write` M2M scopes.
+// Signup Restrictions (Allowlist/Blocklist) — BUG-169 (codex r43) /
+// BUG-171 (codex r44): use the `:admin` suffix on write scopes so
+// createM2MToken's chain-of-trust gate (BUG-145) prevents a plain
+// project owner from minting them. These mutate tenant-wide tables
+// (no per-project filter), so the threat is "project owner adds
+// themselves to the allowlist." `:admin` requires an existing
+// admin-scoped M2M to mint, bootstrapping via the install path.
 router.get(
   "/signup-restrictions",
   authMiddleware,
@@ -244,13 +247,13 @@ router.get(
 router.post(
   "/signup-restrictions",
   authMiddleware,
-  requireM2M("signup_restrictions:write"),
+  requireM2M("signup_restrictions:admin"),
   restrictionController.createRestriction,
 );
 router.delete(
   "/signup-restrictions/:id",
   authMiddleware,
-  requireM2M("signup_restrictions:write"),
+  requireM2M("signup_restrictions:admin"),
   restrictionController.deleteRestriction,
 );
 
@@ -261,8 +264,10 @@ router.post("/auth/magic-links/verify", magicLinkController.verifyMagicLink);
 // Testing Tokens (dev-only)
 router.post("/auth/testing-tokens", authController.createTestingToken);
 
-// Redirect URLs — BUG-169 (codex r43): admin-only. Letting any user
-// add a redirect URL opens an OAuth-redirect phishing path.
+// Redirect URLs — BUG-169 (codex r43) / BUG-171 (codex r44):
+// `:admin` for the write scope per the same rationale as signup-
+// restrictions. Adding a redirect URL opens an OAuth-redirect
+// phishing path — tenant admin only.
 router.get(
   "/redirect-urls",
   authMiddleware,
@@ -272,13 +277,13 @@ router.get(
 router.post(
   "/redirect-urls",
   authMiddleware,
-  requireM2M("redirect_urls:write"),
+  requireM2M("redirect_urls:admin"),
   redirectController.createRedirectUrl,
 );
 router.delete(
   "/redirect-urls/:id",
   authMiddleware,
-  requireM2M("redirect_urls:write"),
+  requireM2M("redirect_urls:admin"),
   redirectController.deleteRedirectUrl,
 );
 

@@ -1850,3 +1850,27 @@ Future emitters added by the audit worker / org-mgmt flows should follow the sam
 - `redirect_urls:read` for GET, `redirect_urls:write` for POST/DELETE
 
 Dev shim extended to grant the new scopes.
+
+### BUG-170 (codex r44): `/v1/organizations?project_id=...` validated access but the service ignored the filter (FIXED)
+
+**Status:** Fixed
+**Severity:** High — my BUG-167 fix put `requireProjectAccess(query.project_id)` in front of the route, but the controller dropped the `project_id` value and `OrganizationService.list()` had no project filter. A caller with access to project A could pass `project_id=projA` (satisfying the gate) and see EVERY project's orgs in the tenant — including `private_metadata`. The cache key was also tenant-wide so the leak persisted across requests.
+**Files:** `apps/api/src/v1/services/organization.service.ts`, `apps/api/src/v1/controllers/organization.controller.ts`
+
+**Fix applied:** Service `.list()` accepts `projectId?` and filters on it. Controller passes the query value. Cache key now `blerp:orgs:${tenantId}:${projectId ?? "_"}` so a project-A response can't accidentally serve a project-B request.
+
+### BUG-171 (codex r44): `signup_restrictions:write` and `redirect_urls:write` were mintable by plain project owners (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-169 added the gates but used `:write` suffixes. `createM2MToken`'s chain-of-trust check (BUG-145) only blocks scopes ending in `:admin`. A plain project owner could mint a token with `signup_restrictions:write` and mutate the tenant-wide allowlist (account-takeover via altered ruleset) or `redirect_urls:write` (OAuth-redirect phishing path).
+**Files:** `apps/api/src/v1/routes/auth.routes.ts`, `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Renamed write scopes to `:admin` (`signup_restrictions:admin`, `redirect_urls:admin`) — auto-gated by the existing chain-of-trust rule. Only an admin-scoped M2M can mint another. Bootstrap via the install/seed path. Dev shim grant list updated.
+
+### BUG-172 (codex r44): Unauthenticated domain discovery returned full org shape including `private_metadata` (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — the `?domain=` branch on `GET /v1/organizations` intentionally bypasses auth (it's the pre-session OAuth sign-in lookup). But `mapOrganization()` returns `private_metadata` for every result, so an unauthenticated caller could enumerate domains and harvest each owning org's private config.
+**Files:** `apps/api/src/v1/controllers/organization.controller.ts`
+
+**Fix applied:** When the request is `?domain=` AND has neither `req.user` nor `req.m2m`, the response strips `private_metadata` from each org. Authenticated callers (M2M with read scope or session) get the full shape.

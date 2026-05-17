@@ -170,11 +170,13 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
         "members:write",
         "invitations:read",
         "invitations:write",
-        // BUG-169 (codex r43): tenant-admin scopes.
+        // BUG-169 (codex r43) / BUG-171 (codex r44): tenant-admin
+        // scopes. Write paths use `:admin` so the chain-of-trust gate
+        // in createM2MToken prevents a plain project owner minting.
         "signup_restrictions:read",
-        "signup_restrictions:write",
+        "signup_restrictions:admin",
         "redirect_urls:read",
-        "redirect_urls:write",
+        "redirect_urls:admin",
       ],
       projectId: "dev-shim",
     };

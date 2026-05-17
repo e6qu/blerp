@@ -35,7 +35,17 @@ export class OrganizationService {
     return this.get(id);
   }
 
-  async list(filters?: { domain?: string; query?: string; limit?: number; offset?: number }) {
+  async list(filters?: {
+    domain?: string;
+    query?: string;
+    // BUG-170 (codex r44): scope the list to a project. The route's
+    // requireProjectAccess gate validated the caller's access to the
+    // requested project but the service then ignored it — anyone with
+    // access to ANY project could list ALL projects' orgs.
+    projectId?: string;
+    limit?: number;
+    offset?: number;
+  }) {
     const limit = filters?.limit ?? 20;
     const offset = filters?.offset ?? 0;
 
@@ -57,6 +67,9 @@ export class OrganizationService {
     }
 
     const conditions: ReturnType<typeof eq>[] = [];
+    if (filters?.projectId) {
+      conditions.push(eq(schema.organizations.projectId, filters.projectId));
+    }
     if (filters?.query) {
       const pattern = `%${filters.query}%`;
       conditions.push(

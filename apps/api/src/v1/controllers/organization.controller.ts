@@ -49,13 +49,21 @@ export async function createOrganization(req: Request, res: Response) {
 }
 
 export async function listOrganizations(req: Request, res: Response) {
-  const { domain, limit, offset, query } = req.query as {
+  const { domain, limit, offset, query, project_id } = req.query as {
     domain?: string;
     limit?: string;
     offset?: string;
     query?: string;
+    project_id?: string;
   };
-  const cacheKey = `blerp:orgs:${req.tenantId}`;
+  // BUG-170 (codex r44): the project_id from query is the scope. The
+  // requireProjectAccess gate already validated the caller has access
+  // to it (BUG-167); now the service actually filters by it. Cache key
+  // is per-(tenant, project) so cross-project hits aren't returned.
+  // Domain-discovery (?domain=) bypasses the project filter — it's
+  // already filtered to verified-domain orgs and is pre-session.
+  const projectId = typeof project_id === "string" ? project_id : undefined;
+  const cacheKey = `blerp:orgs:${req.tenantId}:${projectId ?? "_"}`;
 
   const parsedLimit = limit ? parseInt(limit, 10) : undefined;
   const parsedOffset = offset ? parseInt(offset, 10) : undefined;
@@ -70,12 +78,28 @@ export async function listOrganizations(req: Request, res: Response) {
 
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
-  const result = await service.list({ domain, query, limit: parsedLimit, offset: parsedOffset });
-  const mappedOrgs = result.data.map(mapOrganization);
+  const result = await service.list({
+    domain,
+    query,
+    projectId,
+    limit: parsedLimit,
+    offset: parsedOffset,
+  });
+  // BUG-172 (codex r44): the domain-discovery path is unauthenticated
+  // (intentional — pre-session OAuth sign-in flow). Strip private
+  // metadata from the response so an unauthenticated caller can
+  // resolve "which org owns this domain" without exfiltrating org
+  // private config. Other callers (authenticated, project-scoped) get
+  // the full org shape.
+  const isUnauthenticatedDiscovery = !!domain && !req.user && !req.m2m;
+  const mappedOrgs = result.data.map((o) => {
+    const full = mapOrganization(o);
+    if (isUnauthenticatedDiscovery) {
+      return { ...full, private_metadata: undefined } as typeof full;
+    }
+    return full;
+  });
   // BUG-48: Clerk's paginated list shape is { data, total_count }.
-  // Keep `meta.total` as a legacy alias for one release so existing
-  // dashboard / SDK code continues to work; new code should read
-  // `total_count`.
   const response = {
     data: mappedOrgs,
     total_count: result.totalCount,
