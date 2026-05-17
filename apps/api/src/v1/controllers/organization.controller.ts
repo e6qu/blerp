@@ -113,21 +113,58 @@ export async function listOrganizations(req: Request, res: Response) {
   // derive the scope from the auth context. Mirrors Clerk's session
   // semantics: `clerkClient.organizations.list()` returns orgs the
   // caller can actually see.
-  //   * Real M2M token with a project scope → restrict to that project.
+  //   * Tenant-root M2M (sk_ secret keys per BUG-195, or M2M with a
+  //     tenant-wide :admin scope per BUG-186/207) → NO filter;
+  //     returns every org in the tenant. Backend SDK callers using
+  //     sk_ expect this; same semantics as audit.controller's
+  //     `isTenantRootM2M` (BUG-205/207).
+  //   * Real M2M token scoped to a specific project → restrict to
+  //     that project.
   //   * Session JWT (or X-User-Id dev shim) → restrict to orgs the
   //     user is a member of, or projects the user owns.
-  //   * Tenant-root M2M (only mintable via the chain-of-trust gate, see
-  //     `createM2MToken`) → no filter; returns every org in the tenant.
   // The route only attaches `requireProjectAccess` when `project_id`
   // is explicit, so the auth-context scope below is the sole defence
   // against tenant-wide enumeration for the "no project_id" path.
+  //
+  // BUG-219 (codex r67): pre-r67 sk_ admin callers were treated as
+  // ordinary M2M tokens and the controller scoped to the api key's
+  // bound project. So `clerkClient.organizations.list()` returned
+  // only orgs in the seed project, not the whole tenant — wrong
+  // contract for a tenant-root credential.
+  // BUG-219 (codex r67): identify ONLY production tenant-root
+  // credentials. Unlike audit.controller's `isTenantRootM2M`, we do
+  // NOT include the dev-shim here — dev-shim is a TEST-mode session
+  // shortcut, and the BUG-178 contract for the org list is that
+  // sessions get user-scoped results (so dev-shim sessions behave
+  // like real sessions in test). Real tenant-root credentials in
+  // production are: an `sk_` secret key (BUG-195 attaches
+  // `api_key:` clientId), or an M2M carrying a tenant-wide `:admin`
+  // scope (mintable only via chain-of-trust per BUG-186/207).
+  const TENANT_ROOT_ADMIN_SCOPES = new Set([
+    "users:admin",
+    "signup_restrictions:admin",
+    "redirect_urls:admin",
+    "usage:admin",
+  ]);
+  function isProductionTenantRoot(): boolean {
+    const m2m = req.m2m;
+    if (!m2m) return false;
+    if (m2m.clientId.startsWith("dev-shim")) return false; // test-mode session shortcut
+    if (m2m.clientId.startsWith("api_key:")) return true; // sk_ secret key
+    return m2m.scopes.some((s) => TENANT_ROOT_ADMIN_SCOPES.has(s));
+  }
   let derivedProjectId: string | undefined;
   let accessibleToUserId: string | undefined;
   if (!projectId && !domain) {
-    const isDevShimM2M = req.m2m?.clientId.startsWith("dev-shim") ?? false;
-    if (req.m2m && !isDevShimM2M && req.m2m.projectId) {
+    if (isProductionTenantRoot()) {
+      // No filter — tenant-root sees everything.
+    } else if (req.m2m && !req.m2m.clientId.startsWith("dev-shim") && req.m2m.projectId) {
+      // Real project-scoped M2M token (non-dev-shim) — filter by
+      // its bound project.
       derivedProjectId = req.m2m.projectId;
     } else if (req.user) {
+      // Session JWT (or dev-shim X-User-Id): filter to orgs the
+      // user is a member of, or projects the user owns.
       accessibleToUserId = req.user.id;
     }
   }

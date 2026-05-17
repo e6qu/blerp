@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as schema from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import * as jose from "jose";
 import { getKeyPair } from "../lib/keys";
 import { logger } from "../lib/logger";
@@ -430,6 +430,42 @@ export function requireM2M(
  * trust operations require an explicit admin credential for the
  * audit trail.
  */
+/**
+ * BUG-218 (codex r67): "tenant admin" = a session user who owns
+ * EVERY project in this tenant. The pre-r67 "owns any project"
+ * definition broke the security model in multi-project tenants:
+ * project-A's owner could exercise tenant-wide `users:*` operations
+ * (via the dashboard) against project-B's users, contradicting
+ * BUG-186 which explicitly bars project-owner sessions from minting
+ * tenant-wide privileged scopes.
+ *
+ * Semantics:
+ *   - Single-project tenant (the common deploy): the project owner
+ *     is the tenant admin. Dashboard works.
+ *   - Multi-project tenant where one user owns ALL projects: that
+ *     user is the tenant admin.
+ *   - Multi-project tenant with split ownership: no user qualifies
+ *     as a tenant admin via session; admin operations require an
+ *     `sk_` secret key (which has tenant-root semantics per BUG-195)
+ *     or a chain-of-trust-minted tenant-wide M2M token (BUG-186).
+ */
+async function isSessionTenantAdmin(req: Request): Promise<boolean> {
+  if (!req.user || !req.tenantDb) return false;
+  // Tenant admin iff there is NO project in this tenant that
+  // someone other than req.user owns. Implemented as "find any
+  // not-owned-by-me project" — if none exists, they own them all.
+  const notOwnedByCaller = await req.tenantDb.query.projects.findFirst({
+    where: ne(schema.projects.ownerUserId, req.user.id),
+  });
+  if (notOwnedByCaller) return false;
+  // Also require they own AT LEAST one project (otherwise an empty-
+  // projects tenant or a non-owner user would qualify trivially).
+  const ownsAny = await req.tenantDb.query.projects.findFirst({
+    where: eq(schema.projects.ownerUserId, req.user.id),
+  });
+  return !!ownsAny;
+}
+
 export function requireScopeOrTenantAdmin(
   requiredScope: string,
 ): (req: Request, res: Response, next: NextFunction) => Promise<void> {
@@ -444,20 +480,15 @@ export function requireScopeOrTenantAdmin(
       next();
       return;
     }
-    if (req.user) {
-      const ownedProject = await req.tenantDb!.query.projects.findFirst({
-        where: eq(schema.projects.ownerUserId, req.user.id),
-      });
-      if (ownedProject) {
-        next();
-        return;
-      }
+    if (await isSessionTenantAdmin(req)) {
+      next();
+      return;
     }
     res.status(403).json({
       error: {
         message:
           `Requires an M2M / secret-key token with "${requiredScope}" or a session for ` +
-          "a tenant admin (project owner).",
+          "a tenant admin (a user who owns every project in the tenant).",
       },
     });
   };
@@ -503,21 +534,14 @@ export function requireSelfOrM2M(
       next();
       return;
     }
-    // BUG-211 (codex r62): also admit session tenant admins (project
-    // owners) — the dashboard's user-management edit flow (`useUser`,
-    // `useUpdateUser`) needs to GET / PATCH OTHER users' rows, not
-    // just self. BUG-209 admitted them on `/v1/users` but the
-    // per-user routes were still locked to self-or-M2M. Same "tenant
-    // admin" definition as `requireScopeOrTenantAdmin`: owns a
-    // project in this tenant.
-    if (req.user && req.tenantDb) {
-      const ownedProject = await req.tenantDb.query.projects.findFirst({
-        where: eq(schema.projects.ownerUserId, req.user.id),
-      });
-      if (ownedProject) {
-        next();
-        return;
-      }
+    // BUG-211 (codex r62): also admit session tenant admins — the
+    // dashboard's user-management edit flow (`useUser`,
+    // `useUpdateUser`) needs to GET / PATCH OTHER users' rows.
+    // BUG-218 (codex r67): "tenant admin" is "owns EVERY project in
+    // this tenant", not "owns any" — see `isSessionTenantAdmin`.
+    if (await isSessionTenantAdmin(req)) {
+      next();
+      return;
     }
     res.status(403).json({
       error: {

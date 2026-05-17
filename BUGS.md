@@ -2278,3 +2278,23 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/middleware/csrf.ts`
 
 **Fix applied:** Compare against the mounted-relative path `req.path === "/oauth/token"`, with a defense-in-depth `req.originalUrl?.startsWith("/v1/oauth/token")` in case the mount changes in the future.
+
+### BUG-218 (codex r67): "Tenant admin" admitted ANY project owner — cross-project user-management escalation in multi-project tenants (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — security regression introduced by BUG-209. `requireScopeOrTenantAdmin` and `requireSelfOrM2M` admitted "session user who owns ANY project in tenant" as tenant admin. In a multi-project tenant, a project-A owner could then exercise tenant-wide `users:*` operations against project-B's users via the dashboard. This directly contradicted BUG-186's classification of `users:*` as tenant-wide privileged scopes that plain project-owner sessions cannot grant themselves via M2M minting — so the model was self-inconsistent.
+**Files:** `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Tightened "tenant admin" to: session user who owns EVERY project in this tenant. New `isSessionTenantAdmin(req)` helper implements this as "find any project NOT owned by req.user; absence = qualifies" (plus a sanity check that they own at least one project so empty-projects tenants don't trivially qualify). Both `requireScopeOrTenantAdmin` and `requireSelfOrM2M` route through the helper. Semantics:
+
+- **Single-project tenant** (common deploy): the project owner is the tenant admin → dashboard works unchanged.
+- **Multi-project tenant where one user owns all**: that user qualifies → dashboard still works.
+- **Multi-project tenant with split ownership**: no one qualifies via session → tenant-wide ops require an `sk_` secret key (BUG-195) or a chain-of-trust-minted tenant-wide M2M (BUG-186).
+
+### BUG-219 (codex r67): `GET /v1/organizations` from `sk_` admin returned only one project's orgs instead of the whole tenant (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — backend-SDK contract regression. The org list controller derived `projectId` from `req.m2m.projectId` for any M2M token (including raw `sk_` secret keys, which BUG-195 documents as tenant-root). Backend SDK callers using `clerkClient.organizations.list()` with an `sk_` got back only orgs in the api key's bound project, not the whole tenant — wrong contract.
+**Files:** `apps/api/src/v1/controllers/organization.controller.ts`
+
+**Fix applied:** Added a controller-local `isProductionTenantRoot()` predicate mirroring BUG-205/207's pattern: `api_key:` clientId (BUG-195's `sk_` path) OR M2M holding a tenant-wide `:admin` scope. Tenant-root callers see all orgs in the tenant (no project filter). Critically, `dev-shim` is EXCLUDED from the tenant-root set in this controller (unlike audit.controller's variant) because the BUG-178 contract for the org list is that dev-shim sessions behave like real sessions in test (filter to accessible orgs). Real project-scoped M2M tokens still get the project filter; sessions still get the membership/owner filter.
