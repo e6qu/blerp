@@ -134,12 +134,18 @@ describe("Membership & Invitation Integration", () => {
     expect(meAsOther.body.user_id).toBe(otherUserId);
     expect(Array.isArray(meAsOther.body.permissions)).toBe(true);
 
-    // 404 when the caller is not a member of the org
+    // 404 when the caller is not a member of the org. BUG-73 (codex r10):
+    // the response MUST flow through the central error handler and emit
+    // the documented dual envelope { errors: [...], error: { code, ... } }.
     const meAsStranger = await request(app)
       .get(`/v1/organizations/${orgId}/memberships/me`)
       .set("X-Tenant-Id", tenantId)
       .set("X-User-Id", "user_not_a_member_of_this_org");
     expect(meAsStranger.status).toBe(404);
+    expect(meAsStranger.body.error?.code).toBe("not_found");
+    expect(Array.isArray(meAsStranger.body.errors)).toBe(true);
+    expect(meAsStranger.body.errors[0].code).toBe("not_found");
+    expect(typeof meAsStranger.body.errors[0].long_message).toBe("string");
 
     // 4. Delete Membership
     const del = await request(app)

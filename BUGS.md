@@ -640,6 +640,26 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-72 (codex round 10): Client `useAuth().orgId` stayed null after sign-in even when the JWT carried `org_id` — server/client drift (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — for single-org users, server-rendered `auth().orgId` saw the org but the client `useAuth()` from `BlerpProvider` didn't, breaking `<Protect>` / `has({ permission })` checks on hydration
+**Files:** `packages/nextjs/src/client/session-cookies.ts`
+
+BUG-49 / BUG-53 added a single-org `org_id` JWT claim. The server `auth()` path (BUG-67's `/memberships/me` lookup) picks it up. But `packages/nextjs/src/client/BlerpProvider.tsx` initializes `orgId` only from the `__blerp_org` cookie — which `setSessionCookies` never wrote. Result: SSR rendered the protected UI; hydration unmounted it.
+
+**Fix applied:** `setSessionCookies` now best-effort decodes the JWT payload and, if `org_id` is present, writes the `__blerp_org` cookie alongside the session cookies. Multi-org users get no claim (BUG-53), so this is a no-op for them and the `OrganizationSwitcher` flow still owns cookie state. `clearSessionCookies` also clears `__blerp_org`. Decoding is best-effort (no verification) — the cookie helper is for client-side state mirroring, not authorization.
+
+### BUG-73 (codex round 10): `/memberships/me` 404 returned bare `{ error: { message } }` — missing the documented `code` + `errors[]` envelope (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — generated SDK clients consuming the documented `ErrorResponse` schema would see undefined fields on this newly-added endpoint
+**Files:** `apps/api/src/v1/controllers/membership.controller.ts`, `apps/api/src/__tests__/membership.integration.test.ts`
+
+The OpenAPI 404 response for `/memberships/me` references `#/components/schemas/ErrorResponse`, which requires `error.code` and includes the Clerk-compat `errors[]` array (BUG-57). My hand-rolled `res.status(404).json({ error: { message } })` in `getOwnMembership` skipped both.
+
+**Fix applied:** `getOwnMembership` routes through `next(new NotFoundError("Membership"))`; same pattern for the 401 (`UnauthorizedError`). The central error handler emits the documented dual envelope. Integration test extended to assert `body.error.code === "not_found"`, `body.errors[0].code === "not_found"`, and `body.errors[0].long_message` exists.
+
 ### BUG-71 (codex round 9): `/memberships/me` did an O(n) list-and-filter scan per request (FIXED)
 
 **Status:** Fixed

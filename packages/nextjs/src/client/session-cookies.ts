@@ -13,10 +13,38 @@ import Cookies from "js-cookie";
  * Read paths inside `@blerp/nextjs` still prefer `__blerp_session`
  * (own name first; `__session` is the alias). If a customer needs to
  * read the cookie themselves, they can read either.
+ *
+ * BUG-72 (codex r10): when the issued JWT carries an `org_id` claim
+ * (single-org users get one stamped at sign-in by AuthService — see
+ * BUG-49 / BUG-53), we also write the `__blerp_org` cookie so the
+ * client `useAuth().orgId` matches what server `auth().orgId` returns.
+ * Without this, the JWT tells the server about an active org but the
+ * client BlerpProvider stays at `orgId: null` (it only initializes
+ * from the cookie) — drift between SSR and hydration.
  */
 
 const BLERP_SESSION = "__blerp_session";
 const CLERK_SESSION = "__session";
+const BLERP_ORG = "__blerp_org";
+
+/**
+ * Best-effort JWT payload decode (no verification — the cookie helper
+ * is for setting client-side state mirrors, not authorization). Returns
+ * undefined on any parse failure.
+ */
+function decodeJwtPayload(token: string): Record<string, unknown> | undefined {
+  const [, payloadB64] = token.split(".");
+  if (!payloadB64) return undefined;
+  try {
+    // base64url → base64 → utf8 JSON
+    const padded = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded =
+      typeof atob === "function" ? atob(padded) : Buffer.from(padded, "base64").toString("utf-8");
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
 
 interface SessionCookieOptions {
   expiresDays?: number;
@@ -34,11 +62,22 @@ export function setSessionCookies(accessToken: string, options: SessionCookieOpt
   };
   Cookies.set(BLERP_SESSION, accessToken, opts);
   Cookies.set(CLERK_SESSION, accessToken, opts);
+
+  // BUG-72 (codex r10): mirror the JWT's `org_id` claim into the
+  // `__blerp_org` cookie so client and server agree on the active org
+  // immediately after sign-in. AuthService only stamps the claim for
+  // single-org users (BUG-53), so for multi-org users this is a no-op
+  // and the OrganizationSwitcher still drives cookie state as before.
+  const payload = decodeJwtPayload(accessToken);
+  if (payload && typeof payload.org_id === "string" && payload.org_id) {
+    Cookies.set(BLERP_ORG, payload.org_id, opts);
+  }
 }
 
 export function clearSessionCookies(): void {
   Cookies.remove(BLERP_SESSION);
   Cookies.remove(CLERK_SESSION);
+  Cookies.remove(BLERP_ORG);
 }
 
 /** Returns the session token from either cookie (BLERP first, CLERK as alias). */

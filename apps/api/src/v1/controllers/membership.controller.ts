@@ -1,6 +1,7 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import { MembershipService } from "../services/membership.service";
 import { resolvePermissions } from "../../lib/rbac";
+import { NotFoundError, UnauthorizedError } from "../../lib/errors";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "../../db/schema";
 
@@ -127,12 +128,11 @@ export async function deleteMembership(req: Request, res: Response) {
  * read-only roles may lack). This is what `@blerp/nextjs auth()` calls
  * to populate `orgPermissions` for `has({ permission: ... })` checks.
  */
-export async function getOwnMembership(req: Request, res: Response) {
+export async function getOwnMembership(req: Request, res: Response, next: NextFunction) {
   const organization_id = req.params.organization_id as string;
   const userId = req.user?.id;
   if (!userId) {
-    res.status(401).json({ error: { message: "Unauthorized" } });
-    return;
+    return next(new UnauthorizedError());
   }
   const service = new MembershipService(req.tenantDb!);
 
@@ -144,12 +144,16 @@ export async function getOwnMembership(req: Request, res: Response) {
     // this endpoint on every server-rendered request.
     const own = await service.getByOrgAndUser(organization_id, userId);
     if (!own) {
-      res.status(404).json({ error: { message: "Membership not found" } });
-      return;
+      // BUG-73 (codex r10): route through NotFoundError so the
+      // central error handler emits the documented dual envelope
+      // ({ errors: [{code, message, long_message}], error: {code,
+      // message} }) — matches the OpenAPI 404 contract for this
+      // endpoint and avoids missing `error.code` on the legacy field.
+      return next(new NotFoundError("Membership"));
     }
     res.status(200).json(await mapMembershipWithPermissions(req.tenantDb!, own as DBMembership));
   } catch (error) {
-    res.status(400).json({ error: { message: (error as Error).message } });
+    next(error);
   }
 }
 
