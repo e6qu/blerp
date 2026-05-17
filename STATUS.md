@@ -1,16 +1,17 @@
 # Status Log
 
-> **Now (2026-05-17)** — Branch `chore/run-skills-audit-2026-05-17` open as PR #52, ready to merge. All BUG-30..BUG-45 fixed in same PR. Codex review round 3 returned clean (no new findings).
-> **Tests**: API 90/90 · E2E 152/152 · Storybook 15/15 · lint + typecheck + openapi:lint clean.
+> **Now (2026-05-17)** — Branch `chore/clerk-compliance-sweep-2026-05-17` open locally with BUG-46..BUG-52 fixed (Clerk API + env-var compliance). Codex review pending.
+> **Tests**: API 108/108 · lint + typecheck + openapi:lint clean.
 > **Active blockers**: M9 Production Infrastructure waits on AWS credentials. No others.
 > **Next action**: see `DO_NEXT.md`. Open bugs: see `BUGS.md`. Milestone history: see `PLAN.md`.
 
 ## Recent activity (last 14 days — verbatim)
 
-| Date (UTC) | Item                                   | Status    | Notes                                                                                            |
-| ---------- | -------------------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
-| 2026-05-17 | Skills audit + 2 codex rounds (PR #52) | in_review | BUG-30..BUG-45 all fixed; 39 new tests; 24 a11y fixes; WebAuthn / org / passkey OpenAPI contract |
-| 2026-05-16 | Claude Code Skills (PR #51)            | merged    | 7 anti-slop / UI / context-recovery skills under `.claude/skills/`                               |
+| Date (UTC) | Item                                       | Status    | Notes                                                                                                 |
+| ---------- | ------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------- |
+| 2026-05-17 | Clerk compliance sweep (PR #53, in flight) | in_review | BUG-46..BUG-52 fixed: CLERK\_\* env aliases, dual-cookie, JWT org claims, total_count, errors[], Svix |
+| 2026-05-17 | Skills audit + 2 codex rounds (PR #52)     | merged    | BUG-30..BUG-45 all fixed; 39 new tests; 24 a11y fixes; WebAuthn / org / passkey OpenAPI contract      |
+| 2026-05-16 | Claude Code Skills (PR #51)                | merged    | 7 anti-slop / UI / context-recovery skills under `.claude/skills/`                                    |
 
 ## Earlier activity (compacted — full history in `PLAN.md` § Completed Milestones)
 

@@ -77,3 +77,26 @@ When you append an entry here:
 - **>3 months ago**: leave the compacted paragraph alone — `git log` and merged PR descriptions are authoritative for anything older.
 
 The job of this file is to give a fresh agent enough breadcrumbs to resume mid-session. Anything older than a quarter is git's job, not this file's.
+
+---
+
+## 2026-05-17 — Clerk-compliance sweep (PR #53)
+
+- Summary: After PR #52 merged, ran a focused Clerk-API-compliance sweep + a vibe-slop sweep against `origin/main`. Vibe slop was clean (no orphans, no fake tests, no a11y gaps — PR #52's cleanup held). The Clerk-fidelity sweep turned up 7 wire-contract drifts (BUG-46..BUG-52), all fixed in this PR per user direction.
+- Result: BUG-46..BUG-52 closed across 5 commits.
+
+### Chunks
+
+1. **`d338540`** — Logged BUG-46..BUG-52 in `BUGS.md` (Clerk compliance + vibe slop sweep).
+2. **`5b5cd62`** — BUG-52: `mapRole()` / `mapOAuthAccount()` / `mapEmailIdentity()` projections; `controllers-audit` test extended with explicit `not.toHaveProperty("organizationId")` assertions; seed membership role fixed to `owner` so the role routes' `org:write` RBAC accepts it.
+3. **`ac4f6c1`** — BUG-46: shared env helper. `packages/shared/src/env.ts` is now the single source for `getApiUrl` / `getSecretKey` / `getWebhookSecret` / `getTenantId` / `getPublishableKey` / `getApiPort` / `getDashboardPort` and all swept consumers go through it. Re-exported from `@blerp/nextjs/server` so examples don't need a separate `@blerp/shared` dep. New `env-clerk-compat.test.ts` (8/8) pins the regression.
+4. **`(this commit)`** — BUG-51: dual cookie. New `packages/nextjs/src/client/session-cookies.ts` writes both `__blerp_session` + `__session` on every sign-in; clears both on sign-out; server-side reads either; CSRF middleware reads either.
+5. **`7b239f4`** — BUG-47/48/49/50 batched: error envelope dual `{ errors: [...], error: {...} }` via `BlerpError.toJSON()` + RBAC middleware refactor; `total_count` in paginated org/audit responses; session JWT carries `org_id/org_role/org_slug/org_permissions` claims from the user's first membership; webhook delivery emits Svix triple (`svix-id` / `svix-timestamp` / `svix-signature` v1) alongside `X-Blerp-Signature`. New `webhook-signatures.test.ts` (5/5) replicates the canonical Svix verification algorithm and round-trips emitted signatures.
+
+### Final verification
+
+- `bun run openapi:lint` — clean.
+- `bun run typecheck` — 6/6 pass.
+- `bun run lint` — 9/9 pass.
+- API tests — 108/108 pass (was 90 pre-sweep; +8 env-compat, +1 BUG-49 JWT, +3 BUG-52 role tests, +1 BUG-47 envelope, +5 BUG-50 svix).
+- Codex review pending.
