@@ -14,7 +14,12 @@ import * as restrictionController from "../controllers/restriction.controller";
 import * as magicLinkController from "../controllers/magic-link.controller";
 import * as redirectController from "../controllers/redirect.controller";
 import * as m2mController from "../controllers/m2m.controller";
-import { authMiddleware, requireM2M, requireSelfOrM2M } from "../../middleware/auth";
+import {
+  authMiddleware,
+  requireM2M,
+  requireScopeOrTenantAdmin,
+  requireSelfOrM2M,
+} from "../../middleware/auth";
 
 // BUG-147 (codex r33): admin/read endpoints that accept session auth
 // from the user themselves use requireSelfOrM2M; pure admin endpoints
@@ -56,13 +61,27 @@ router.get("/userinfo", authMiddleware, userinfoController.getUserInfo);
 //   users:write — PATCH / DELETE / POST restore / POST bulk
 //   users:admin — POST /unlock (account-recovery primitive; gated
 //                 higher because it can defeat the lockout policy)
+//
+// BUG-209 (codex r61): the bulk / list / write / restore routes
+// also admit a session-authenticated tenant admin (project owner
+// in this tenant) via `requireScopeOrTenantAdmin`. The in-repo
+// dashboard is a Vite SPA that authenticates with the user's
+// session JWT — it has no M2M token in the browser. Pre-r61 every
+// dashboard call to the User Management page 403'd in production
+// (dev was masked by the X-User-Id shim). `users:admin` (unlock)
+// stays strict — high-trust, M2M-only for the audit trail.
 router.post(
   "/users/bulk",
   authMiddleware,
-  requireM2M("users:write"),
+  requireScopeOrTenantAdmin("users:write"),
   userController.bulkUpdateUsers,
 );
-router.get("/users", authMiddleware, requireM2M("users:read"), userController.listUsers);
+router.get(
+  "/users",
+  authMiddleware,
+  requireScopeOrTenantAdmin("users:read"),
+  userController.listUsers,
+);
 // GET / PATCH on a single user_id: self OR admin (matches Clerk's
 // user-can-read-and-update-themselves model).
 router.get(
@@ -77,17 +96,19 @@ router.patch(
   requireSelfOrM2M("users:write", userIdFromParams),
   userController.updateUser,
 );
-// Deletion and restore are destructive admin operations: M2M-only.
+// Deletion and restore are destructive admin operations — admit a
+// session tenant admin so the dashboard's user-management UI works
+// in production (BUG-209). Unlock stays strict M2M-only.
 router.delete(
   "/users/:user_id",
   authMiddleware,
-  requireM2M("users:write"),
+  requireScopeOrTenantAdmin("users:write"),
   userController.deleteUser,
 );
 router.post(
   "/users/:user_id/restore",
   authMiddleware,
-  requireM2M("users:write"),
+  requireScopeOrTenantAdmin("users:write"),
   userController.restoreUser,
 );
 router.post(

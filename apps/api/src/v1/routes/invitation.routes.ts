@@ -1,7 +1,9 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import { eq } from "drizzle-orm";
 import * as invitationController from "../controllers/invitation.controller";
 import { authMiddleware } from "../../middleware/auth";
 import { requirePermission } from "../../middleware/rbac";
+import * as schema from "../../db/schema";
 
 const router = Router();
 
@@ -65,9 +67,17 @@ router.post(
 
 // BUG-157 (codex r38): the controller now verifies that the
 // invitation belongs to the org from path/body/query before revoking,
-// so cross-org revoke is impossible even via this flat route. The
-// caller must supply `organization_id` in body or query; the
-// controller 400s otherwise.
+// so cross-org revoke is impossible even via this flat route.
+// BUG-196 (codex r55): backend SDK calls `revokeInvitation(id)`
+// without an explicit org id. The controller falls back to the
+// invitation row's own `organizationId` for the auth check.
+// BUG-210 (codex r61): the dashboard also calls flat-revoke with
+// an empty body — but the session-RBAC path needs
+// `req.params.organization_id` to be set BEFORE `authMiddleware`
+// runs so authMiddleware can load `req.membership`. When the
+// caller doesn't supply an org id, load the invitation here and
+// thread its org_id into params before auth. Best-effort: a
+// missing invitation falls through to the controller's 404.
 router.post(
   "/invitations/:id/revoke",
   (req: Request, _res: Response, next: NextFunction) => {
@@ -75,6 +85,23 @@ router.post(
       req.params.organization_id = req.body.organization_id;
     } else if (typeof req.query?.organization_id === "string") {
       req.params.organization_id = req.query.organization_id;
+    }
+    next();
+  },
+  async (req: Request, _res: Response, next: NextFunction) => {
+    if (req.params.organization_id) return next();
+    const inviteId = req.params.id;
+    if (typeof inviteId !== "string") return next();
+    try {
+      const invitation = await req.tenantDb!.query.invitations.findFirst({
+        where: eq(schema.invitations.id, inviteId),
+      });
+      if (invitation) {
+        req.params.organization_id = invitation.organizationId;
+      }
+    } catch {
+      // Best-effort — let the controller surface the 404 with the
+      // proper error envelope if the invitation is missing.
     }
     next();
   },

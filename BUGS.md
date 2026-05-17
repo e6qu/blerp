@@ -2200,3 +2200,19 @@ Project-owner sessions pass through the user-owner branch unchanged. Dev-shim is
 - Absolute URLs whose `origin` matches `window.location.origin`.
 
 Anything else (different host, `javascript:`, `data:`, malformed) returns false, so `readRedirectQueryParam()` returns `undefined` and the caller falls through to the runtime-config redirect resolution (BUG-201 — force / fallback URLs configured by the deployer, always safe). Duplicated the helper in both files since they're separate components; if a third surface adopts the same pattern, lift to a shared util.
+
+### BUG-209 (codex r61): In-repo dashboard's User Management page 403'd in production because `/v1/users` was strict M2M-only (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — first-party-dashboard regression. BUG-147 (codex r33) hardened `/v1/users/*` to `requireM2M(scope)`. The in-repo Vite-SPA dashboard authenticates with the signed-in user's session JWT (`apps/dashboard/src/lib/api.ts`) — it never has a secret/M2M token in the browser, and a frontend secret would defeat the purpose. Production callers therefore 403'd the moment the user opened the Users page. Dev was masked by the X-User-Id shim (`NODE_ENV !== "production"`).
+**Files:** `apps/api/src/middleware/auth.ts`, `apps/api/src/v1/routes/auth.routes.ts`
+
+**Fix applied:** New `requireScopeOrTenantAdmin(scope)` middleware accepts either an M2M token with the required scope (existing path) OR a session user who's a "tenant admin" — defined as owning at least one project in the tenant (`projects.ownerUserId === req.user.id`). Project owners are the tenant's designated administrators by model; they already have full project-owner authority (BUG-144) and can mint a tenant-root M2M token via the chain-of-trust gate (BUG-186/187) — the session shortcut just spares the dashboard from minting a server-side key on every navigation. Rewired the dashboard-facing user routes (list, bulk, delete, restore) to the new helper. `users:admin` (unlock — BUG-138) stays strict M2M-only: high-trust account-recovery primitive that requires an explicit admin credential for the audit trail.
+
+### BUG-210 (codex r61): Flat `POST /v1/invitations/:id/revoke` from the dashboard 403'd on `requirePermission` before the controller could infer the org (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — companion to BUG-196 / BUG-199. The dashboard's revoke-invitation hook posts only the invitation id with an empty body. The route's existing middleware threaded body/query org_id into `req.params.organization_id`, but with no body that was a no-op. `authMiddleware` then ran without an org context, so `req.membership` stayed unset, and `requirePermission("invitations:write")` (session-RBAC path) rejected the call before the controller could load `existing` and infer the org. M2M path was fine (BUG-196 infers from `existing.organizationId`); session path broke.
+**Files:** `apps/api/src/v1/routes/invitation.routes.ts`
+
+**Fix applied:** Added an invitation-lookup middleware BEFORE `authMiddleware` on the flat revoke route. When `req.params.organization_id` isn't already set by body/query, the middleware loads the invitation by id and threads its `organizationId` into `req.params`. `authMiddleware` then loads `req.membership` against the right org; `requirePermission` resolves the session-RBAC check correctly. Missing invitations fall through (controller surfaces 404). The BUG-199 project-binding check still fires in the controller for M2M callers.

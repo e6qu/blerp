@@ -411,6 +411,59 @@ export function requireM2M(
 }
 
 /**
+ * BUG-209 (codex r61): admit session-authenticated tenant admins to
+ * tenant-wide endpoints that the dashboard needs (e.g. `users:read`,
+ * `users:write`). Pre-r61 `/v1/users` was strict `requireM2M(...)`,
+ * which 403'd the in-repo dashboard in production — the dashboard
+ * authenticates with the user's session JWT, not a secret key.
+ *
+ * "Tenant admin" = session user who owns at least one project in
+ * this tenant. Project owners are the tenant's designated admins by
+ * model — this isn't a privilege escalation: a project owner already
+ * has full authority over their project (BUG-144) and can mint a
+ * tenant-root M2M token via the chain-of-trust gate (BUG-186/187)
+ * anyway. The session shortcut just spares the dashboard from
+ * minting a server-side key on every navigation.
+ *
+ * Strict `requireM2M("…:admin")` paths (e.g. unlock — BUG-138) stay
+ * M2M-only and are NOT routed through this helper — those high-
+ * trust operations require an explicit admin credential for the
+ * audit trail.
+ */
+export function requireScopeOrTenantAdmin(
+  requiredScope: string,
+): (req: Request, res: Response, next: NextFunction) => Promise<void> {
+  return async (req, res, next) => {
+    if (req.m2m) {
+      if (!req.m2m.scopes.includes(requiredScope)) {
+        res.status(403).json({
+          error: { message: `M2M token is missing the required scope "${requiredScope}".` },
+        });
+        return;
+      }
+      next();
+      return;
+    }
+    if (req.user) {
+      const ownedProject = await req.tenantDb!.query.projects.findFirst({
+        where: eq(schema.projects.ownerUserId, req.user.id),
+      });
+      if (ownedProject) {
+        next();
+        return;
+      }
+    }
+    res.status(403).json({
+      error: {
+        message:
+          `Requires an M2M / secret-key token with "${requiredScope}" or a session for ` +
+          "a tenant admin (project owner).",
+      },
+    });
+  };
+}
+
+/**
  * BUG-147 (codex r33): per-user access gate. Run AFTER `authMiddleware`.
  * Accepts:
  *   1. An M2M token with `requiredScope` (admin path).
