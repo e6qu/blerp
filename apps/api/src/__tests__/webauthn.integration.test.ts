@@ -106,15 +106,39 @@ describe("WebAuthn passkeys integration", () => {
     expect(res.body).not.toHaveProperty("credentialId");
   });
 
-  it("PATCH /v1/auth/webauthn/passkeys/{id} rejects mutation by a different user", async () => {
+  it("PATCH /v1/auth/webauthn/passkeys/{id} rejects mutation by a different user with 404", async () => {
+    // Contract: OpenAPI documents 404 for missing/non-owned passkey. The
+    // service throws Error("Passkey not found") which the controller must
+    // map to 404 (BUG-41 — was previously 400 because the generic catch
+    // downgraded the error code).
     const res = await request(app)
       .patch(`/v1/auth/webauthn/passkeys/${passkeyId}`)
       .set("X-Tenant-Id", tenantId)
       .set("X-User-Id", "user_other")
       .send({ name: "Hijack" });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(404);
     expect(res.body.error?.message).toMatch(/passkey not found/i);
+  });
+
+  it("PATCH /v1/auth/webauthn/passkeys/{id} returns 404 for a non-existent passkey", async () => {
+    const res = await request(app)
+      .patch("/v1/auth/webauthn/passkeys/pk_does_not_exist")
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId)
+      .send({ name: "Anything" });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error?.message).toMatch(/passkey not found/i);
+  });
+
+  it("DELETE /v1/auth/webauthn/passkeys/{id} returns 404 for a non-existent passkey", async () => {
+    const res = await request(app)
+      .delete("/v1/auth/webauthn/passkeys/pk_does_not_exist")
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId);
+
+    expect(res.status).toBe(404);
   });
 
   it("DELETE /v1/auth/webauthn/passkeys/{id} removes the passkey", async () => {

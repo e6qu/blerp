@@ -119,5 +119,17 @@ describe("Organization Integration", () => {
     const listA2 = await request(app).get("/v1/organizations").set("X-Tenant-Id", tenantA);
 
     expect(listA2.body.data).toHaveLength(0);
+
+    // 7. DELETE again returns 403, not 404 — RBAC requires a membership
+    // row pointing at this org for `org:write`, and that row was cascaded
+    // away with the org. The OpenAPI contract documents 403 for both the
+    // "missing org" and "not permitted" cases (BUG-42: previous 204
+    // unconditional success now correctly surfaces the permission failure).
+    const deleteMissing = await request(app)
+      .delete(`/v1/organizations/${orgAId}`)
+      .set("X-Tenant-Id", tenantA)
+      .set("X-User-Id", userId);
+
+    expect(deleteMissing.status).toBe(403);
   });
 });

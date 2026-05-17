@@ -177,7 +177,11 @@ export interface paths {
     get: operations["getOrganization"];
     /**
      * Delete an organization
-     * @description Permanently deletes the organization. Requires `org:write` on the target organization.
+     * @description Permanently deletes the organization. Requires `org:write` on the
+     * target organization (a membership row with that permission must
+     * exist for the caller). The RBAC layer evaluates first, so a
+     * request for an organization the caller cannot access — whether
+     * the row exists or not — receives 403, never 404.
      */
     delete: operations["deleteOrganization"];
     /**
@@ -1550,7 +1554,11 @@ export interface operations {
   };
   /**
    * Delete an organization
-   * @description Permanently deletes the organization. Requires `org:write` on the target organization.
+   * @description Permanently deletes the organization. Requires `org:write` on the
+   * target organization (a membership row with that permission must
+   * exist for the caller). The RBAC layer evaluates first, so a
+   * request for an organization the caller cannot access — whether
+   * the row exists or not — receives 403, never 404.
    */
   deleteOrganization: {
     parameters: {
@@ -1563,8 +1571,8 @@ export interface operations {
       204: {
         content: never;
       };
-      /** @description Organization not found */
-      404: {
+      /** @description Caller lacks `org:write` on the target organization (or the organization does not exist; the two cases are not distinguished, by design, to avoid leaking existence to unauthorized callers) */
+      403: {
         content: never;
       };
     };

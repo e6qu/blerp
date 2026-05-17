@@ -20,6 +20,19 @@ function mapPasskey(row: PasskeyRow) {
   };
 }
 
+// The WebAuthn service throws Error("Passkey not found") for both
+// missing-id and not-owner-of-passkey. The OpenAPI contract for the
+// PATCH and DELETE routes documents this as 404, so map it explicitly
+// instead of letting the generic catch downgrade it to 400.
+function sendPasskeyError(res: Response, error: unknown) {
+  const message = error instanceof Error ? error.message : "Unknown error";
+  if (/passkey not found/i.test(message)) {
+    res.status(404).json({ error: { message } });
+    return;
+  }
+  res.status(400).json({ error: { message } });
+}
+
 export async function getRegistrationOptions(req: Request, res: Response) {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -74,7 +87,7 @@ export async function renamePasskey(req: Request, res: Response) {
     if (!passkey) return res.status(404).json({ error: { message: "Passkey not found" } });
     res.json(mapPasskey(passkey));
   } catch (error) {
-    res.status(400).json({ error: { message: (error as Error).message } });
+    sendPasskeyError(res, error);
   }
 }
 
@@ -88,6 +101,6 @@ export async function deletePasskey(req: Request, res: Response) {
     await service.deletePasskey(userId, passkeyId);
     res.status(204).send();
   } catch (error) {
-    res.status(400).json({ error: { message: (error as Error).message } });
+    sendPasskeyError(res, error);
   }
 }

@@ -530,3 +530,49 @@ Regenerating `packages/shared/src/schema.ts` from OpenAPI (after the BUG-34 Pass
 **Fix applied:** Added `delete:` to `/v1/organizations/{organization_id}` in OpenAPI with the 204 / 404 response shape and the existing `SecretKey` security scheme. Reran `bun run openapi:lint` (clean), regenerated `packages/shared/src/schema.ts`, all 6 packages typecheck again.
 
 **Follow-up:** The 87/33 line drift suggests other endpoints are likely missing from the spec. Tracking a full diff sweep against `apps/api/src/v1/routes/*.routes.ts` in `DO_NEXT.md`.
+
+---
+
+## Open — Second skills-audit sweep + codex review (2026-05-17)
+
+After PR #52's first batch of fixes landed locally, ran a second vibe-slop sweep against the new diff plus a non-interactive `codex review --base main`. The first found one more a11y miss and a token-hygiene violation against the very skill I introduced; codex found two real OpenAPI-vs-controller contract drifts in the BUG-34 / BUG-39 fixes themselves.
+
+### BUG-40: Design tokens added but no consumer migrated (FIXED)
+
+**Status:** Fixed
+**Severity:** Low — but it violated `design-system-check` which says "Add a token when a new value will be reused 3+ times"
+**Files:** `apps/dashboard/src/index.css`
+
+BUG-36's fix introduced `--color-brand-50/500/600/700/900` and `--color-status-{success,warning,destructive,info}` tokens. Zero components consumed them — the dashboard still uses `*-blue-*` (136 sites) and `*-red-*` / `*-emerald-*` / `*-amber-*` / `*-sky-*` directly. The tokens declared-but-unused were dead code by the skill's own rule.
+
+**Fix applied:** Removed the unused `brand-*` and `status-*` aliases from `index.css`. Kept `--font-sans` and `--font-mono` (the latter is consumed by ~10 components — codes, IDs, secrets, kbd hints). The CSS file now declares only tokens that are actually exercised. The next genuine adoption of brand/status colours should land in a PR that simultaneously migrates ≥3 consumers — the very pattern the skill prescribes.
+
+### BUG-41 (codex): Passkey rename / 404 contract drift
+
+**Status:** Open
+**Severity:** P2 — contract drift; generated SDK clients will see 400 where spec says 404
+**Files:** `apps/api/src/v1/controllers/webauthn.controller.ts`, `apps/api/src/v1/services/webauthn.service.ts`
+
+The BUG-34 fix added an explicit `404` branch when `service.renamePasskey` returns nullish — but the service throws `new Error("Passkey not found")` first, which falls into the generic `catch` and returns `400`. The OpenAPI now documents `404` for the same case, so the wire contract lies.
+
+**Fix plan:** Map the well-known `"Passkey not found"` error to 404 in the controller's catch (or refactor service to return `null` rather than throw for the not-found case). Cover both `renamePasskey` and `deletePasskey`. Extend the webauthn integration test to assert 404 on rename-by-non-owner.
+
+### BUG-42 (codex): `DELETE /v1/organizations/{id}` 404 contract drift (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — contract drift; same class as BUG-41 + BUG-39
+**Files:** `apps/api/src/v1/controllers/organization.controller.ts`, `openapi/blerp.v1.yaml`, `apps/api/src/__tests__/organization.integration.test.ts`
+
+BUG-39 added `404` to the documented responses, but the route is gated by `requirePermission("org:write")` middleware which fires **before** the controller. Without a membership row pointing at the target org, the caller gets 403; the controller's existence-check (if any) is unreachable. Generated clients trained on the spec would never see the 404 the spec promised.
+
+**Fix applied:** Reverted the (unreachable) controller existence-check that I'd tentatively added. Dropped `404` from the OpenAPI response set for `DELETE /v1/organizations/{organization_id}` and added `403` with an explicit note that the missing-org and not-permitted cases are intentionally indistinguishable (avoids leaking existence to unauthorized callers — the standard REST-permission convention). Extended `organization.integration.test.ts` to assert a second DELETE on the same id returns 403 (the membership row was cascaded away with the org).
+
+### BUG-43: Pagination prev/next icon buttons lack aria-label
+
+**Status:** Fixed
+**Severity:** Medium — same WCAG 4.1.2 class as BUG-33; missed in the first sweep because the icons are `ChevronLeft` / `ChevronRight`, not `<X>`
+**Files:** `apps/dashboard/src/components/ui/Pagination.tsx`
+
+The first aria-sweep grepped for `<X>` close buttons; pagination uses `<ChevronLeft>` / `<ChevronRight>` so it slipped through.
+
+**Fix applied:** Added `type="button"`, `aria-label="Previous page"` / `"Next page"` to both buttons; chevron icons carry `aria-hidden="true"`.
