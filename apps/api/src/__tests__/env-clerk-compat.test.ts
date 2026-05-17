@@ -6,6 +6,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  appendRedirectUrl,
   assertSatelliteNotConfigured,
   getApiUrl,
   getApiVersion,
@@ -458,6 +459,32 @@ describe("Clerk-compat env helpers (BUG-46)", () => {
     expect(getClerkJsUrl()).toBe("https://legacy.example/blerp.js");
     process.env.CLERK_JS_URL = "https://current.example/blerp.js";
     expect(getClerkJsUrl()).toBe("https://current.example/blerp.js"); // current wins
+  });
+
+  // --- Codex r20 follow-ups (BUG-114..BUG-117) ----------------------
+
+  it("BUG-117: appendRedirectUrl handles a base URL that already has a query string", () => {
+    expect(appendRedirectUrl("/sign-in?theme=dark", "/dashboard")).toBe(
+      "/sign-in?theme=dark&redirect_url=%2Fdashboard",
+    );
+    expect(appendRedirectUrl("/sign-in", "/dashboard")).toBe("/sign-in?redirect_url=%2Fdashboard");
+    expect(appendRedirectUrl("/sign-in", "/")).toBe("/sign-in"); // sentinel
+    expect(appendRedirectUrl("/sign-in", undefined)).toBe("/sign-in");
+  });
+
+  it("BUG-117: appendRedirectUrl preserves fragments + handles absolute URLs", () => {
+    expect(appendRedirectUrl("https://auth.example.com/sign-in", "/dashboard")).toBe(
+      "https://auth.example.com/sign-in?redirect_url=%2Fdashboard",
+    );
+    expect(appendRedirectUrl("https://auth.example.com/sign-in?from=app", "/x")).toBe(
+      "https://auth.example.com/sign-in?from=app&redirect_url=%2Fx",
+    );
+  });
+
+  it("BUG-117: appendRedirectUrl overwrites an existing redirect_url rather than duplicating", () => {
+    expect(appendRedirectUrl("/sign-in?redirect_url=/old", "/new")).toBe(
+      "/sign-in?redirect_url=%2Fnew",
+    );
   });
 
   it("BUG-91: assertSatelliteNotConfigured throws when CLERK_IS_SATELLITE=true", () => {

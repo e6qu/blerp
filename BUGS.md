@@ -1309,3 +1309,56 @@ New unit-test file `apps/api/src/workers/__tests__/webhook-signatures.test.ts` (
 Also added back-compat for the deprecated bare `CLERK_JS` (was the original name before Clerk renamed it to `CLERK_JS_URL`). `getApiUrl()` additionally accepts `CLERK_FAPI` (the Frontend API URL) after the normal `*_API_URL` chain, so an explicit `CLERK_API_URL` still wins.
 
 Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable_key + full prefix-precedence ladder, `CLERK_FAPI` alias for API URL, and `CLERK_JS` deprecation-alias for JS URL.
+
+### BUG-114 (codex r20): Sign-up was broken end-to-end — UI sent password as verification code, API ignored password, response shape mismatch (FIXED)
+
+**Status:** Fixed
+**Severity:** High — every cascading bug in one flow:
+
+1. `<SignUp>` second step posted `{ code: password }` as the verification code; the API expects the 6-digit OTP from `createSignup`, so verification always failed with "Invalid verification code" — no user ever made it through.
+2. `createSignup` accepted `password` in OpenAPI but the controller / service threw it away; even when the UI was patched the user had no credential.
+3. `attemptSignup` returned `{ userId }` (camelCase) while OpenAPI documented `{ user_id }` (snake_case BUG-3 lineage) and the UI checked `data.session` — silent failure.
+4. `useSignUp().attemptVerification` typed the response as `{ status, tokens }`, a shape the API never produced.
+
+**Files:** `packages/nextjs/src/client/components/SignUp.tsx`, `packages/nextjs/src/client/hooks.ts`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/auth.controller.ts`, `openapi/blerp.v1.yaml`, plus `apps/api/src/__tests__/auth.integration.test.ts` + `auto-enrollment.integration.test.ts` to assert the snake_case response.
+
+**Fix applied:**
+
+- `<SignUp>` is now a real three-step flow: email → password → verify (OTP). The OTP step shows a one-shot dev-mode echo of the code so the demo flow works without an email server.
+- `createSignup` accepts optional `password`, validates min length (8), hashes via `crypto.hashPassword`, and stores the digest in the transient pending-signup record. Spec already documented `password`; only the runtime was dropping it.
+- `attemptSignup` installs the stored `passwordDigest` on the new user during creation, then mints a session via `createSessionForUser` and returns `{ user_id, session, tokens }`. The session lets the SDK redirect-after-signup path trigger immediately (matches Clerk's behavior).
+- `useSignUp().attemptVerification` adopts the actual response shape `{ user_id, session, tokens }`. Existing tests updated to assert `body.user_id` (snake_case match OpenAPI).
+- OpenAPI: `/v1/auth/signups/{signup_id}/attempt` response now documents `session` + `tokens`.
+
+### BUG-115 (codex r20): `useSignIn().attemptFirstFactor()` missing `identifier` → 400 every time (FIXED)
+
+**Status:** Fixed
+**Severity:** High — the controller's first-factor path explicitly `if (!identifier) → 400 identifier is required`. Hook-based sign-in (the entire `useSignIn()` surface, which `<SignIn>` doesn't go through) was unreachable.
+**Files:** `packages/nextjs/src/client/hooks.ts`
+
+**Fix applied:** `attemptFirstFactor` now sends `identifier: status.identifier ?? undefined` alongside `password` / `code`. `status.identifier` is set by `create()`, so it's always present when this is called. Second-factor path is unchanged (it goes through `attemptSecondFactor`, which doesn't need identifier).
+
+### BUG-116 (codex r20): `<SignIn>` ignored `needs_second_factor` — MFA users hit a dead end (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — `attemptSignin` correctly returns `{ status: "needs_second_factor", signin_id }` when the user has TOTP enabled (auth.service.ts ~269), but the component only branched on `response.session`. MFA users saw the password form clear and nothing else happen — no error, no second-factor input.
+**Files:** `packages/nextjs/src/client/components/Auth.tsx`
+
+**Fix applied:** Added a third step `"totp"` to `SignInStep`. On the password-submit response, branch: `needs_second_factor` → transition to `"totp"` step; otherwise existing session-or-error path. New `handleTotpSubmit` posts `{ code }` (no password) to the same attempt endpoint — controller routes that to `attemptSecondFactor`. TOTP UI renders a 6-digit numeric input with `inputMode="numeric"` and disables submit until length === 6.
+
+### BUG-117 (codex r20): `redirect_url` handling lost query strings / corrupted URLs with existing `?` (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — two related issues:
+
+1. Middleware stored only `req.nextUrl.pathname` in `redirect_url`. A user hitting `/dashboard?tab=settings` got redirected to `/sign-in?redirect_url=/dashboard` and landed on the bare dashboard after sign-in — losing their tab selection. Same for hash fragments.
+2. `openSignIn` / `openSignUp` / `RedirectToSignIn` / `RedirectToSignUp` built the URL via string-concat `${base}?redirect_url=${encodeURIComponent(target)}`. If `CLERK_SIGN_IN_URL` already had a query (`/sign-in?theme=dark`), the result was `/sign-in?theme=dark?redirect_url=...` — two `?` separators, malformed URL.
+
+**Files:** `packages/shared/src/env.ts`, `packages/nextjs/src/server/middleware.ts`, `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/nextjs/src/client/components/Control.tsx`
+
+**Fix applied:**
+
+- New `appendRedirectUrl(base, target)` helper in `@blerp/shared`. Uses `URL` constructor with a placeholder origin for path-only inputs, then re-emits `pathname + search + hash`. Treats `target === "/"` as the no-redirect sentinel. Idempotent: setting `redirect_url` again overwrites (no duplication).
+- Middleware: `searchParams.set("redirect_url", pathname + search + hash)` so query + fragment round-trip.
+- `BlerpProvider.openSignIn/openSignUp`, `Control.RedirectToSignIn/RedirectToSignUp` all routed through `appendRedirectUrl()` — no more string-concat.
+- Regression tests in `env-clerk-compat.test.ts`: base with query, base with no query, absolute URL, overwriting an existing redirect_url.

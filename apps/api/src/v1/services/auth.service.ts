@@ -25,6 +25,11 @@ interface PendingSignup {
   code: string;
   email: string;
   strategy: string;
+  // BUG-114 (codex r20): optional password hash. Stored at createSignup
+  // time so attemptSignup can install it on the new user without a
+  // second round-trip. OpenAPI documents `password` on the create
+  // endpoint already; only the runtime was ignoring it.
+  passwordDigest?: string;
 }
 
 const pendingSignins = new TransientStore<PendingSignin>(5 * 60 * 1000);
@@ -36,14 +41,28 @@ export class AuthService {
     private tenantId: string,
   ) {}
 
-  async createSignup(data: { email: string; strategy: string }) {
+  async createSignup(data: { email: string; strategy: string; password?: string }) {
     const signupId = `sig_${nanoid()}`;
     const code = otp.generateNumericCode(6);
+
+    // BUG-114 (codex r20): hash the password at create-time when
+    // supplied. The strategy=password sign-up flow needs it so the new
+    // user can immediately sign in afterwards. Without this, sign-up
+    // succeeded but every subsequent sign-in 401'd with "No password
+    // set for this account" (auth.service.ts line ~261).
+    let passwordDigest: string | undefined;
+    if (data.password) {
+      if (data.password.length < 8) {
+        throw new Error("Password must be at least 8 characters");
+      }
+      passwordDigest = await crypto.hashPassword(data.password);
+    }
 
     pendingSignups.set(signupId, {
       code,
       email: data.email,
       strategy: data.strategy,
+      passwordDigest,
     });
 
     logger.info({ email: data.email, code }, "Signup verification code");
@@ -66,7 +85,12 @@ export class AuthService {
     return response;
   }
 
-  async attemptSignup(signupId: string, code: string, _email: string = "pending@example.com") {
+  async attemptSignup(
+    signupId: string,
+    code: string,
+    _email: string = "pending@example.com",
+    metadata?: { ipAddress?: string; userAgent?: string },
+  ) {
     const pending = pendingSignups.get(signupId);
     if (!pending) {
       throw new Error("Signup attempt expired or not found");
@@ -77,6 +101,7 @@ export class AuthService {
     }
 
     const email = pending.email;
+    const passwordDigest = pending.passwordDigest;
     pendingSignups.delete(signupId);
 
     // Check signup restrictions
@@ -87,9 +112,13 @@ export class AuthService {
     }
 
     const userId = `user_${nanoid()}`;
+    // BUG-114 (codex r20): install passwordDigest if the create step
+    // captured one. Without this, password sign-up succeeds but the
+    // user has no credential to sign in with.
     await this.db.insert(schema.users).values({
       id: userId,
       status: "active",
+      ...(passwordDigest ? { passwordDigest } : {}),
     });
     await this.db.insert(schema.emailAddresses).values({
       id: `email_${nanoid()}`,
@@ -119,7 +148,17 @@ export class AuthService {
     }
 
     await eventBus.emit("user.created", this.tenantId, { userId });
-    return { userId };
+
+    // BUG-114 (codex r20): always return snake_case `user_id` to match
+    // OpenAPI + the Clerk-shaped convention used everywhere else.
+    // Additionally, mint a session so the caller is signed in
+    // immediately — matches Clerk's behavior and lets the SDK's
+    // redirect-on-signup path (which checks `data.session`) trigger.
+    const session = await this.createSessionForUser(userId, metadata);
+    return {
+      user_id: userId,
+      ...session,
+    };
   }
 
   async getUser(id: string) {

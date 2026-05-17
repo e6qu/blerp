@@ -997,9 +997,25 @@ paths:
             application/json:
               schema:
                 type: object
+                # BUG-114 (codex r20): attemptSignup now also mints a
+                # session (matches Clerk's behavior — the user is
+                # signed in immediately after verification).
+                required: [user_id]
                 properties:
                   user_id:
                     type: string
+                  session:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                  tokens:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
   /v1/auth/oauth/{provider}:
     get:
       tags: [Auth]

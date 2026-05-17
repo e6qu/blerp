@@ -85,7 +85,7 @@ describe("Domain Auto-enrollment Integration", () => {
       .send({ code: verificationCode, email: "user@enterprise.com" });
 
     expect(result.status).toBe(200);
-    const userId = result.body.userId;
+    const userId = result.body.user_id;
 
     // 3. Verify Membership
     const db = await getTenantDb(tenantId);
@@ -112,7 +112,7 @@ describe("Domain Auto-enrollment Integration", () => {
       .set("X-Tenant-Id", tenantId)
       .send({ code: verificationCode, email: "user@unverified.com" });
 
-    const userId = result.body.userId;
+    const userId = result.body.user_id;
 
     const db = await getTenantDb(tenantId);
     const membership = await db.query.memberships.findFirst({

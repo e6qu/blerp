@@ -352,9 +352,19 @@ export function useSignIn() {
     if (!status.id) throw new Error("No sign-in attempt in progress");
     setIsLoading(true);
     try {
+      // BUG-115 (codex r20): include `identifier` — the controller's
+      // first-factor path is `if (!identifier) → 400 identifier is
+      // required`. Without this, `useSignIn().attemptFirstFactor()` for
+      // a password sign-in always 400'd, breaking the entire hook-based
+      // Clerk sign-in flow. The status object captures the identifier
+      // from `create()`; pass it through verbatim.
       const { data, error } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
         params: { path: { signin_id: status.id } },
-        body: { password: params.password, code: params.code },
+        body: {
+          password: params.password,
+          code: params.code,
+          identifier: status.identifier ?? undefined,
+        },
       });
       if (error) {
         setStatus((prev) => ({ ...prev, status: "failed" }));
@@ -489,7 +499,16 @@ export function useSignUp() {
         setStatus((prev) => ({ ...prev, status: "failed" }));
         throw error;
       }
-      const result = data as { status: string; tokens?: { access_token: string } };
+      // BUG-114 (codex r20): API returns `{ user_id, session, tokens }`
+      // (not `{ status, tokens }`). The old shape was speculative — the
+      // service never populated it. Adopt the actual shape here so
+      // `tokens` correctly populates session cookies and the hook's
+      // return matches what callers branch on.
+      const result = data as {
+        user_id?: string;
+        session?: { id?: string };
+        tokens?: { access_token?: string };
+      };
 
       if (result.tokens?.access_token) {
         setSessionCookies(result.tokens.access_token);

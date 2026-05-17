@@ -114,7 +114,14 @@ export function blerpMiddleware(
         protect() {
           if (!tokenValid) {
             const signInUrl = new URL(SIGN_IN_RAW, req.url);
-            signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
+            // BUG-117 (codex r20): preserve query string + hash on the
+            // redirected-from URL. `/dashboard?tab=settings` should
+            // round-trip back to the same page after sign-in, not bare
+            // `/dashboard`.
+            signInUrl.searchParams.set(
+              "redirect_url",
+              req.nextUrl.pathname + req.nextUrl.search + req.nextUrl.hash,
+            );
             throw signInUrl;
           }
         },
@@ -171,7 +178,11 @@ export function blerpMiddleware(
       !isOnAuthPage(reqOrigin, reqPath, SIGN_UP)
     ) {
       const signInUrl = new URL(SIGN_IN_RAW, req.url);
-      signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
+      // BUG-117 (codex r20): preserve query + hash (see same fix above).
+      signInUrl.searchParams.set(
+        "redirect_url",
+        req.nextUrl.pathname + req.nextUrl.search + req.nextUrl.hash,
+      );
       const response = NextResponse.redirect(signInUrl);
       if (token) {
         response.cookies.delete("__blerp_session");

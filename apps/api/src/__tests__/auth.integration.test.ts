@@ -67,7 +67,7 @@ describe("Auth Integration", () => {
       });
 
     expect(attemptRes.status).toBe(200);
-    expect(attemptRes.body.userId).toBeDefined();
+    expect(attemptRes.body.user_id).toBeDefined();
   });
 
   it("should fail verification with wrong code", async () => {
@@ -119,7 +119,7 @@ describe("Auth Integration", () => {
       .send({ code: signupRes.body.verification_code });
 
     expect(attemptRes.status).toBe(200);
-    const userId = attemptRes.body.userId;
+    const userId = attemptRes.body.user_id;
 
     // 2. Set password (via PATCH /v1/users/:user_id with X-User-Id dev fallback)
     const patchRes = await request(app)
@@ -180,7 +180,7 @@ describe("Auth Integration", () => {
       .set("X-Tenant-Id", tenantId)
       .send({ code: signupRes.body.verification_code });
     expect(attemptRes.status).toBe(200);
-    const userId = attemptRes.body.userId;
+    const userId = attemptRes.body.user_id;
     await request(app)
       .patch(`/v1/users/${userId}`)
       .set("X-Tenant-Id", tenantId)
@@ -249,7 +249,7 @@ describe("Auth Integration", () => {
       .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
       .set("X-Tenant-Id", tenantId)
       .send({ code: signupRes.body.verification_code });
-    const userId = attemptRes.body.userId;
+    const userId = attemptRes.body.user_id;
     await request(app)
       .patch(`/v1/users/${userId}`)
       .set("X-Tenant-Id", tenantId)

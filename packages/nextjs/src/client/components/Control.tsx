@@ -4,6 +4,7 @@ import React from "react";
 import { useAuth } from "../BlerpProvider";
 import { useUser } from "../hooks";
 import {
+  appendRedirectUrl,
   getSignInFallbackRedirectUrl,
   getSignInUrl,
   getSignUpUrl,
@@ -67,10 +68,8 @@ export function RedirectToSignIn({
 
   React.useEffect(() => {
     if (!isSignedIn) {
-      const url = afterSignInUrl
-        ? `${signInUrl}?redirect_url=${encodeURIComponent(afterSignInUrl)}`
-        : signInUrl;
-      window.location.href = url;
+      // BUG-117 (codex r20): URL constructor handles pre-existing query strings.
+      window.location.href = appendRedirectUrl(signInUrl, afterSignInUrl);
     }
   }, [isSignedIn, signInUrl, afterSignInUrl]);
 
@@ -90,10 +89,7 @@ export function RedirectToSignUp({
 
   React.useEffect(() => {
     if (!isSignedIn) {
-      const url = afterSignUpUrl
-        ? `${signUpUrl}?redirect_url=${encodeURIComponent(afterSignUpUrl)}`
-        : signUpUrl;
-      window.location.href = url;
+      window.location.href = appendRedirectUrl(signUpUrl, afterSignUpUrl);
     }
   }, [isSignedIn, signUpUrl, afterSignUpUrl]);
 

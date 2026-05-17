@@ -1112,7 +1112,14 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            user_id?: string;
+            user_id: string;
+            session?: {
+              id?: string;
+            };
+            tokens?: {
+              access_token?: string;
+              refresh_token?: string;
+            };
           };
         };
       };

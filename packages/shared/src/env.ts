@@ -368,6 +368,27 @@ export function resolveSignUpRedirect(callerSupplied?: string, fallback?: string
   );
 }
 
+/**
+ * BUG-117 (codex r20): safely append `?redirect_url=...` to an auth URL
+ * that may already carry its own query string. The previous
+ * `${base}?redirect_url=...` string-concat produced `/login?from=x?redirect_url=y`
+ * — two `?` separators — for any CLERK_SIGN_IN_URL pre-loaded with a
+ * query. Using the URL constructor handles both relative paths and full
+ * URLs without breaking the user's existing query.
+ *
+ * `target === "/"` keeps the base bare (no `redirect_url=` added) since
+ * `/` is the documented "no specific destination" sentinel.
+ */
+export function appendRedirectUrl(base: string, target: string | undefined): string {
+  if (!target || target === "/") return base;
+  const isAbsolute = /^https?:\/\//i.test(base);
+  const PLACEHOLDER = "https://blerp-redirect.invalid";
+  const url = isAbsolute ? new URL(base) : new URL(base, PLACEHOLDER);
+  url.searchParams.set("redirect_url", target);
+  if (isAbsolute) return url.toString();
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 export function getSignUpFallbackRedirectUrl(defaultValue = "/"): string {
   return (
     firstSet(

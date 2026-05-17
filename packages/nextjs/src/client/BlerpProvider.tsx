@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { getPublishableKeyOrBuildPlaceholder } from "./env.js";
 import {
+  appendRedirectUrl,
   getSignInFallbackRedirectUrl,
   getSignInForceRedirectUrl,
   getSignInUrl,
@@ -404,8 +405,10 @@ export function BlerpProvider({
       const base = config.sign_in_url;
       const force = config.sign_in_force_redirect_url;
       const target = force ?? options?.afterSignInUrl ?? config.sign_in_fallback_redirect_url;
-      const url = target === "/" ? base : `${base}?redirect_url=${encodeURIComponent(target)}`;
-      window.location.href = url;
+      // BUG-117 (codex r20): use appendRedirectUrl — handles a base
+      // that already has a query string (e.g. /sign-in?theme=dark)
+      // without producing the double-`?` malformation.
+      window.location.href = appendRedirectUrl(base, target);
     },
     [config.sign_in_url, config.sign_in_force_redirect_url, config.sign_in_fallback_redirect_url],
   );
@@ -416,8 +419,7 @@ export function BlerpProvider({
       const base = config.sign_up_url;
       const force = config.sign_up_force_redirect_url;
       const target = force ?? options?.afterSignUpUrl ?? config.sign_up_fallback_redirect_url;
-      const url = target === "/" ? base : `${base}?redirect_url=${encodeURIComponent(target)}`;
-      window.location.href = url;
+      window.location.href = appendRedirectUrl(base, target);
     },
     [config.sign_up_url, config.sign_up_force_redirect_url, config.sign_up_fallback_redirect_url],
   );
