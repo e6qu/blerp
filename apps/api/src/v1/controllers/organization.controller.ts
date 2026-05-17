@@ -31,12 +31,12 @@ function mapOrganization(org: DBOrg): Organization {
   };
 }
 
-// BUG-173 (codex r45): bust both the tenant-wide list cache (legacy
-// pre-BUG-170 key) AND the affected project's per-project list cache.
-// Without busting the project key, stale list responses (including
-// stale private_metadata) survived for 300s after a create / update /
-// delete. The "_" suffix matches the listOrganizations cache key when
-// no project_id is supplied.
+// BUG-173 (codex r45) / BUG-174 (codex r46): the org list is no
+// longer cached (the speedup didn't justify the resurrection race —
+// see listOrganizations for the rationale). Bust any legacy keys so
+// a deploy that still has a populated cache from the prior version
+// doesn't serve stale data after a mutation. Safe to delete this
+// helper after one release cycle.
 async function bustOrgListCache(tenantId: string, projectId?: string) {
   await cache.del(`blerp:orgs:${tenantId}`);
   await cache.del(`blerp:orgs:${tenantId}:_`);
@@ -72,23 +72,24 @@ export async function listOrganizations(req: Request, res: Response) {
   };
   // BUG-170 (codex r44): the project_id from query is the scope. The
   // requireProjectAccess gate already validated the caller has access
-  // to it (BUG-167); now the service actually filters by it. Cache key
-  // is per-(tenant, project) so cross-project hits aren't returned.
+  // to it (BUG-167); now the service actually filters by it.
   // Domain-discovery (?domain=) bypasses the project filter — it's
   // already filtered to verified-domain orgs and is pre-session.
+  //
+  // BUG-174 (codex r46): no read-through cache here. A previous
+  // implementation cached the list under a per-(tenant, project) key
+  // with a 300s TTL. That created a classic cache-resurrection race:
+  //   T1 (list, cache miss) reads DB → [orgA, orgB]
+  //   T2 (delete orgA) busts cache
+  //   T1 cache.set([orgA, orgB])  ← resurrects deleted org for 300s
+  // including stale `private_metadata`. The org list is small and
+  // database-backed; the speedup didn't justify the data-freshness
+  // hazard. If caching becomes necessary later, use a versioned key
+  // (per-tenant counter that mutations increment).
   const projectId = typeof project_id === "string" ? project_id : undefined;
-  const cacheKey = `blerp:orgs:${req.tenantId}:${projectId ?? "_"}`;
 
   const parsedLimit = limit ? parseInt(limit, 10) : undefined;
   const parsedOffset = offset ? parseInt(offset, 10) : undefined;
-
-  // Only use cache for non-paginated, non-filtered requests
-  if (!domain && !parsedLimit && !parsedOffset && !query) {
-    const cached = await cache.get<{ data: Organization[]; meta?: { total: number } }>(cacheKey);
-    if (cached) {
-      return res.status(200).json(cached);
-    }
-  }
 
   const service = new OrganizationService(req.tenantDb!, req.tenantId!);
 
@@ -114,14 +115,12 @@ export async function listOrganizations(req: Request, res: Response) {
     return full;
   });
   // BUG-48: Clerk's paginated list shape is { data, total_count }.
+  // BUG-174 (codex r46): no `cache.set` — see comment at top of function.
   const response = {
     data: mappedOrgs,
     total_count: result.totalCount,
     meta: { total: result.totalCount },
   };
-  if (!domain && !parsedLimit && !parsedOffset && !query) {
-    await cache.set(cacheKey, response, 300);
-  }
   res.status(200).json(response);
 }
 

@@ -1882,3 +1882,11 @@ Dev shim extended to grant the new scopes.
 **Files:** `apps/api/src/v1/controllers/organization.controller.ts`
 
 **Fix applied:** New `bustOrgListCache(tenantId, projectId?)` helper busts (a) the legacy `:${tenantId}` key, (b) the `:${tenantId}:_` no-project fallback, and (c) the `:${tenantId}:${projectId}` specific project key when known. Create handler busts with the body's `project_id`. Update handler busts with the org's `projectId` (from the returned row). Delete handler reads the org BEFORE deleting so it can bust the right project key after.
+
+### BUG-174 (codex r46): Org list cache could be resurrected after a mutation (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — classic cache-aside race even after BUG-173. A slow list request that started before a mutation could land its `cache.set(pre-mutation-data, 300)` AFTER the mutation's `bustOrgListCache`, resurrecting stale data (including stale `private_metadata`) for 300s.
+**Files:** `apps/api/src/v1/controllers/organization.controller.ts`
+
+**Fix applied:** Dropped the read-through cache on `listOrganizations` entirely. The org list is small and database-backed; the speedup didn't justify the data-freshness hazard. `bustOrgListCache` is retained for one release cycle to clear any stale entries written by a prior deploy. If caching becomes necessary later, the proper fix is versioned keys — a per-tenant counter incremented on every mutation, included in the cache key, so a stale `set` lands under an orphaned key and gets TTL-evicted without serving stale reads.
