@@ -1495,3 +1495,19 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 **Files:** `apps/api/src/v1/controllers/auth.controller.ts`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/__tests__/auth.integration.test.ts`
 
 **Fix applied:** Controller forwards `strategy`. Service adds `strategy: string | undefined` parameter and the same shape of branch BUG-129/131 ship for second factor: `undefined` → password (back-compat for older callers); `"password"` → password; anything else → `throw new Error('Unsupported first-factor strategy: "${strategy}". Expected "password".')`. Regression test asserts `strategy: "email_code"` produces a 400 rather than silently succeeding.
+
+### BUG-134 (codex r27): `pendingSignins.get()` + later `.delete()` was racy — concurrent valid attempts minted multiple sessions; backup codes double-consumable (FIXED)
+
+**Status:** Fixed
+**Severity:** High — the time-of-check-to-time-of-use window between `get()` and the eventual `delete()` was the entire async credential-verification path. Two concurrent requests with the same `signin_id` both saw the entry, both verified, both minted sessions. For the second-factor branch the same race could cause a backup code to be consumed twice (each request deleted it from the user's stored array, but both verified before either delete reached the DB).
+**Files:** `apps/api/src/lib/transient-store.ts`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:** Added atomic `pop()` to `TransientStore` (get + delete in a single synchronous step — race-free in-process; maps cleanly to Redis `GETDEL` if/when we swap stores). Both `attemptSignin` and `attemptSecondFactor` now `pop()` at the start. Concurrent attempts: exactly one sees the entry, the others see undefined and 400 with "expired or not found". On wrong-credential failure (not terminal error), the entry is restored via `set()` with `failedAttempts + 1` — see BUG-135.
+
+### BUG-135 (codex r27): No per-attempt failure counter / lockout despite OpenAPI advertising `locked` status (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — `User.locked` in the spec implied a lockout mechanism but the service had only the global IP rate limiter. A bad actor with a stolen `signin_id` could attempt unbounded credential combinations against the same attempt (subject only to the per-IP global limit).
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Added `failedAttempts` field to both `PendingFirstFactor` and `PendingSecondFactor`, plus `MAX_SIGNIN_ATTEMPTS = 5` constant. On every wrong-credential / wrong-code, the restored entry's `failedAttempts` is incremented. Once `failedAttempts >= MAX_SIGNIN_ATTEMPTS`, the attempt is rejected with "locked after too many failed attempts" — even if the next submitted credential is correct. The only remedy is a fresh `createSignin` (which gets a new `signin_id`). Terminal errors (forged id, mismatched identifier, unsupported strategy) do NOT restore — those aren't credential typos and shouldn't reset the lockout clock either. Regression test exercises 5 wrong passwords followed by the correct one and asserts the 400 lockout.

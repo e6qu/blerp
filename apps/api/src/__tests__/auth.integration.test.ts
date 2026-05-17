@@ -93,6 +93,58 @@ describe("Auth Integration", () => {
     expect(userRes.body.password_enabled).toBe(true);
   });
 
+  it("BUG-134 / BUG-135 (codex r27): repeated wrong-password attempts increment the counter and the attempt locks after 5", async () => {
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "lockout@blerp.dev",
+        password: "supersecret555",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "lockout@blerp.dev", strategy: "password" });
+    const signinId = signinRes.body.id;
+
+    // 5 wrong-password attempts should all 400 with "Invalid email or
+    // password" — and crucially the attempt should remain reusable
+    // (BUG-134: wrong-password restores with incremented counter).
+    for (let i = 0; i < 5; i++) {
+      const wrong = await request(app)
+        .post(`/v1/auth/signins/${signinId}/attempt`)
+        .set("X-Tenant-Id", tenantId)
+        .send({
+          identifier: "lockout@blerp.dev",
+          password: "wrong_password",
+          strategy: "password",
+          stage: "first_factor",
+        });
+      expect(wrong.status).toBe(400);
+      expect(wrong.body.error?.message).toMatch(/Invalid email or password/);
+    }
+
+    // The 6th attempt should hit the lockout — even with the correct
+    // password (BUG-135).
+    const lockedRes = await request(app)
+      .post(`/v1/auth/signins/${signinId}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "lockout@blerp.dev",
+        password: "supersecret555",
+        strategy: "password",
+        stage: "first_factor",
+      });
+    expect(lockedRes.status).toBe(400);
+    expect(lockedRes.body.error?.message).toMatch(/locked after too many failed attempts/);
+  });
+
   it("BUG-132 (codex r26): attempt-id is enforced — a forged signin_id is rejected even with valid credentials", async () => {
     // Make sure a user with a valid password exists.
     const signupRes = await request(app)

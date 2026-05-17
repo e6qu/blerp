@@ -22,11 +22,18 @@ import { resolvePermissions } from "../../lib/rbac";
 // id exists + matches the supplied identifier + hasn't expired. The
 // elevated `PendingSecondFactor` keeps the same shape as before so the
 // MFA flow is unchanged.
+// BUG-135 (codex r27): max wrong-code attempts per pending sign-in
+// before we refuse to revalidate. Matches the spirit of Clerk's
+// `locked` user status — once exceeded, the only remediation is a
+// fresh createSignin / second-factor re-enrol.
+const MAX_SIGNIN_ATTEMPTS = 5;
+
 interface PendingFirstFactor {
   stage: "first_factor";
   identifier: string;
   strategy: string;
   createdAt: number;
+  failedAttempts: number;
 }
 interface PendingSecondFactor {
   stage: "second_factor";
@@ -34,6 +41,7 @@ interface PendingSecondFactor {
   identifier: string;
   ipAddress?: string;
   userAgent?: string;
+  failedAttempts: number;
 }
 type PendingSignin = PendingFirstFactor | PendingSecondFactor;
 
@@ -297,6 +305,7 @@ export class AuthService {
       identifier: data.identifier,
       strategy: data.strategy,
       createdAt: Date.now(),
+      failedAttempts: 0,
     });
 
     // BUG-127 (codex r23): only advertise first-factor strategies the
@@ -324,16 +333,28 @@ export class AuthService {
     metadata?: { ipAddress?: string; userAgent?: string },
   ) {
     // BUG-132 (codex r26): require the signin_id to map to a pending
-    // first-factor attempt. Rejects bogus / expired ids and asserts
-    // the identifier hasn't been swapped between create and attempt
-    // (mitigates a confused-deputy scenario where a stolen signin_id
-    // gets reused with a different account).
-    const pending = pendingSignins.get(signinId);
+    // first-factor attempt.
+    //
+    // BUG-134 (codex r27): atomic check-and-consume — `pop()` removes
+    // the entry as it's returned so two concurrent valid attempts
+    // can't both pass the stage check and mint multiple sessions. If
+    // verification fails for a wrong-credential reason (vs. terminal
+    // forged-id / wrong-identifier), we restore the entry below with
+    // an incremented failure counter (BUG-135).
+    const pending = pendingSignins.pop(signinId);
     if (!pending || pending.stage !== "first_factor") {
       throw new Error("Sign-in attempt expired or not found");
     }
     if (pending.identifier !== identifier) {
+      // Terminal — do NOT restore; a swapped identifier is a forged
+      // / replay attempt, not a typo.
       throw new Error("Identifier does not match the original sign-in attempt");
+    }
+    // BUG-135 (codex r27): refuse if the attempt has already locked.
+    if (pending.failedAttempts >= MAX_SIGNIN_ATTEMPTS) {
+      throw new Error(
+        "Sign-in attempt locked after too many failed attempts. Start a new sign-in.",
+      );
     }
 
     // BUG-133 (codex r26): same factor-name semantics as BUG-126/131
@@ -343,37 +364,45 @@ export class AuthService {
     // verification. Undefined falls back to password for back-compat
     // with older callers that don't send strategy.
     if (strategy !== undefined && strategy !== "password") {
+      // Terminal — don't restore. The strategy is wrong, not the
+      // credential; restoring would let the caller burn through
+      // attempts without ever submitting valid input.
       throw new Error(`Unsupported first-factor strategy: "${strategy}". Expected "password".`);
     }
 
-    // Look up user by email
+    // BUG-134 (codex r27): wrap credential verification so a wrong-
+    // password restores the pending entry with an incremented failure
+    // counter (until the lockout threshold). Anything else terminal
+    // (no such user, no password set, infra error) does NOT restore —
+    // these aren't credential typos.
+    const restoreWithFailure = () => {
+      pendingSignins.set(signinId, {
+        ...pending,
+        failedAttempts: pending.failedAttempts + 1,
+      });
+    };
+
     const emailRecord = await this.db.query.emailAddresses.findFirst({
       where: eq(schema.emailAddresses.emailAddress, identifier),
     });
-
     if (!emailRecord) {
       throw new Error("Invalid email or password");
     }
-
     const user = await this.getUser(emailRecord.userId);
     if (!user) {
       throw new Error("Invalid email or password");
     }
-
     if (!user.passwordDigest) {
       throw new Error("No password set for this account");
     }
-
     const valid = await crypto.verifyPassword(user.passwordDigest, password);
     if (!valid) {
+      restoreWithFailure();
       throw new Error("Invalid email or password");
     }
 
-    // First-factor done — consume the pending entry. If TOTP is enabled
-    // we immediately replace it with a second-factor entry below.
-    pendingSignins.delete(signinId);
-
-    // If TOTP is enabled, defer session creation until 2FA is verified
+    // First-factor done — pending entry already consumed via pop().
+    // If TOTP is enabled, install an elevated second-factor entry.
     if (user.totpEnabled) {
       pendingSignins.set(signinId, {
         stage: "second_factor",
@@ -381,6 +410,7 @@ export class AuthService {
         identifier,
         ipAddress: metadata?.ipAddress,
         userAgent: metadata?.userAgent,
+        failedAttempts: 0,
       });
       return {
         status: "needs_second_factor" as const,
@@ -397,15 +427,22 @@ export class AuthService {
     strategy: string | undefined,
     metadata?: { ipAddress?: string; userAgent?: string },
   ) {
-    const pending = pendingSignins.get(signinId);
+    // BUG-134 (codex r27): atomic check-and-consume — same pattern as
+    // attemptSignin. Two concurrent valid second-factor attempts can't
+    // both succeed; the loser sees "expired or not found". Backup-code
+    // double-consumption (one of the original codex concerns) is
+    // closed by-product: only the pop-winner reaches tryBackupCode.
+    const pending = pendingSignins.pop(signinId);
     if (!pending) {
       throw new Error("Sign-in attempt expired or not found");
     }
-    // BUG-132 (codex r26): require the attempt to have completed first
-    // factor before second-factor verification. Otherwise a caller
-    // could skip straight to second factor with a stolen signin_id.
     if (pending.stage !== "second_factor") {
       throw new Error("Sign-in attempt is not at the second-factor stage");
+    }
+    if (pending.failedAttempts >= MAX_SIGNIN_ATTEMPTS) {
+      throw new Error(
+        "Sign-in attempt locked after too many failed attempts. Start a new sign-in.",
+      );
     }
 
     const user = await this.getUser(pending.userId);
@@ -413,13 +450,14 @@ export class AuthService {
       throw new Error("User not found");
     }
 
-    // BUG-126 (codex r23): respect the requested factor name. Before
-    // this, the verifier tried TOTP first then backup codes regardless
-    // of `strategy`, so a `strategy: "totp"` attempt could consume a
-    // backup code (silent reduction in security) and a `strategy:
-    // "backup_code"` attempt could verify against TOTP (mis-attribution
-    // in audit logs). When strategy is omitted, fall back to the old
-    // permissive try-both behavior so existing callers don't break.
+    const restoreWithFailure = () => {
+      pendingSignins.set(signinId, {
+        ...pending,
+        failedAttempts: pending.failedAttempts + 1,
+      });
+    };
+
+    // BUG-126 (codex r23): respect the requested factor name.
     const tryTotp = async (): Promise<boolean> => {
       if (!user.totpSecret) return false;
       const totp = new TOTP();
@@ -445,25 +483,20 @@ export class AuthService {
     } else if (strategy === "backup_code") {
       verified = await tryBackupCode();
     } else if (strategy === undefined) {
-      // BUG-129 (codex r24) / BUG-131 (codex r25): permissive fallback
-      // ONLY when strategy is genuinely absent — older callers may not
-      // send it. An explicit `strategy: null` (a JSON value, not an
-      // absent field) or any unrecognized value (`"password"`,
-      // `"email_code"`, typos) fails loudly rather than allow TOTP /
-      // backup_code to be silently consumed.
       verified = (await tryTotp()) || (await tryBackupCode());
     } else {
+      // Terminal — wrong strategy, not wrong code; don't restore.
       throw new Error(
         `Unsupported second-factor strategy: "${strategy}". Expected "totp" or "backup_code".`,
       );
     }
 
     if (!verified) {
+      restoreWithFailure();
       throw new Error("Invalid verification code");
     }
 
-    pendingSignins.delete(signinId);
-
+    // No delete needed — pop() above already consumed.
     const mergedMetadata = {
       ipAddress: metadata?.ipAddress ?? pending.ipAddress,
       userAgent: metadata?.userAgent ?? pending.userAgent,
