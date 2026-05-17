@@ -75,8 +75,25 @@ export function getSecretKeyOrThrow(): string {
   return readEither("BLERP_SECRET_KEY", "CLERK_SECRET_KEY", { required: true })!;
 }
 
+/**
+ * Strip a trailing `/v1` (with or without a trailing slash) from the
+ * URL. Clerk's documented `CLERK_API_URL` form is `https://api.clerk.com/v1`
+ * — i.e. it INCLUDES the version path — while every caller in this
+ * repo appends `/v1/...` itself. Without this normalisation the URL
+ * resolves to `/v1/v1/...` and 404s (BUG-74 codex r11). Idempotent —
+ * already-bare base URLs pass through unchanged.
+ *
+ * Exported so the inlined env reads in entry-point files
+ * (`apps/api/src/index.ts`, `apps/api/src/v1/services/webauthn.service.ts`,
+ * `apps/dashboard/vite.config.ts`, etc.) can apply the same normalisation
+ * without re-implementing it.
+ */
+export function normalizeApiUrl(rawUrl: string): string {
+  return rawUrl.replace(/\/v1\/?$/i, "");
+}
+
 export function getApiUrl(defaultValue = "http://localhost:3000"): string {
-  return readEither("BLERP_API_URL", "CLERK_API_URL", { defaultValue })!;
+  return normalizeApiUrl(readEither("BLERP_API_URL", "CLERK_API_URL", { defaultValue })!);
 }
 
 export function getWebhookSecret(): string | undefined {

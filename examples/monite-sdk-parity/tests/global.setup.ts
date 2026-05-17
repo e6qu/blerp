@@ -6,7 +6,13 @@ import { fileURLToPath } from "node:url";
 // turbo build graph, so importing `@blerp/nextjs/server` (which
 // resolves to packages/nextjs/dist) would fail on a clean checkout.
 // Same inlining pattern as apps/dashboard/tests/global.setup.ts.
-const API_URL = process.env.BLERP_API_URL ?? process.env.CLERK_API_URL ?? "http://localhost:3000";
+// BUG-74 (codex r11): strip a trailing `/v1` so Clerk-style URLs
+// don't compound into `/v1/v1/...` when callers append the version.
+const API_URL = (
+  process.env.BLERP_API_URL ??
+  process.env.CLERK_API_URL ??
+  "http://localhost:3000"
+).replace(/\/v1\/?$/i, "");
 const TENANT_ID = process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant";
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 

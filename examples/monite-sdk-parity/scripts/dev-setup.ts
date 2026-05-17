@@ -18,8 +18,13 @@ import path from "node:path";
 // "first thing a new dev runs"; importing `@blerp/nextjs/server` (which
 // resolves to packages/nextjs/dist) would fail on a clean checkout
 // where workspace packages haven't been built. Same dual-name
-// semantics as the shared helper.
-const API_URL = process.env.BLERP_API_URL ?? process.env.CLERK_API_URL ?? "http://localhost:3000";
+// semantics as the shared helper. BUG-74 (codex r11): strip trailing
+// `/v1` so Clerk-style URLs don't compound to `/v1/v1/...`.
+const API_URL = (
+  process.env.BLERP_API_URL ??
+  process.env.CLERK_API_URL ??
+  "http://localhost:3000"
+).replace(/\/v1\/?$/i, "");
 const TENANT_ID = process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant";
 
 const ROOT = path.resolve(import.meta.dir, "..");

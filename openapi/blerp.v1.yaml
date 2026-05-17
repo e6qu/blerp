@@ -1771,8 +1771,11 @@ paths:
         `@blerp/nextjs auth()` uses to populate `orgPermissions` for
         `has({ permission })` checks.
       operationId: getOwnMembership
+      # BUG-75 (codex r11): authMiddleware accepts the user's session
+      # JWT, not an sk_* secret key. Documented as SessionToken so
+      # generated clients send the right credential.
       security:
-        - SecretKey: []
+        - SessionToken: []
       parameters:
         - name: organization_id
           in: path

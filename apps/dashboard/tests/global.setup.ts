@@ -6,8 +6,14 @@ import { fileURLToPath } from "node:url";
 // turbo `^build` graph, so a runtime import of `@blerp/shared` would
 // fail on a fresh checkout where `packages/shared/dist` is missing.
 // Inline the env reads here. Same dual-name semantics as the shared
-// helper (BLERP_* > CLERK_* > default).
-const API_URL = process.env.BLERP_API_URL ?? process.env.CLERK_API_URL ?? "http://localhost:3000";
+// helper (BLERP_* > CLERK_* > default). BUG-74 (codex r11): strip a
+// trailing `/v1` so Clerk-style URLs don't compound into `/v1/v1/...`
+// when callers append the version path.
+const API_URL = (
+  process.env.BLERP_API_URL ??
+  process.env.CLERK_API_URL ??
+  "http://localhost:3000"
+).replace(/\/v1\/?$/i, "");
 const TENANT_ID = process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant";
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 

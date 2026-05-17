@@ -17,7 +17,13 @@ import { TransientStore } from "../../lib/transient-store";
 // here — same dual-name semantics (BLERP_* > CLERK_* > default) as the
 // shared helper. Trade-off: a tiny duplication at module load time.
 function readApiUrl(): string {
-  return process.env.BLERP_API_URL ?? process.env.CLERK_API_URL ?? "http://localhost:3000";
+  // BUG-74 (codex r11): strip a trailing `/v1` so Clerk-style URLs
+  // (`https://api.example.com/v1`) don't compound into `/v1/v1/...`.
+  return (
+    process.env.BLERP_API_URL ??
+    process.env.CLERK_API_URL ??
+    "http://localhost:3000"
+  ).replace(/\/v1\/?$/i, "");
 }
 
 function getRpId(): string {
