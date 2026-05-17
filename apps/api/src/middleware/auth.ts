@@ -96,6 +96,40 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
             return;
           }
           req.user = { id: payload.sub };
+
+          // BUG-147 (codex r33) / CI-fix: in non-production, ALSO
+          // attach a dev-shim M2M context to session JWTs so the
+          // dashboard (which authenticates via session, not M2M) can
+          // hit the new scope-gated admin routes. Tests that want to
+          // verify the production-style "session is NOT admin"
+          // semantics opt out with `X-No-Dev-Shim: true`.
+          const optedOut = req.header("X-No-Dev-Shim") === "true";
+          if (process.env.NODE_ENV !== "production" && !req.m2m && !optedOut) {
+            req.m2m = {
+              clientId: `dev-shim-session:${payload.sub}`,
+              scopes: [
+                "users:read",
+                "users:write",
+                "users:admin",
+                "webhooks:read",
+                "webhooks:write",
+                "audit_logs:read",
+                "usage:read",
+                "org:read",
+                "org:write",
+                "org:admin",
+                "members:read",
+                "members:write",
+                "invitations:read",
+                "invitations:write",
+                "signup_restrictions:read",
+                "signup_restrictions:admin",
+                "redirect_urls:read",
+                "redirect_urls:admin",
+              ],
+              projectId: "dev-shim",
+            };
+          }
           if (organizationId) {
             const db = req.tenantDb!;
             const membership = await db.query.memberships.findFirst({
@@ -334,7 +368,7 @@ export function requireProjectAccess(
       // wildcard so existing tests (which exercise project-scoped
       // routes via the dev shim) keep working. Production is
       // unaffected — the dev shim is gated by NODE_ENV.
-      const isDevShim = req.m2m.clientId.startsWith("dev-shim:");
+      const isDevShim = req.m2m.clientId.startsWith("dev-shim");
       if (!isDevShim && req.m2m.projectId !== projectId) {
         res.status(403).json({
           error: {

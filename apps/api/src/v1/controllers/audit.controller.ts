@@ -10,7 +10,7 @@ export async function listAuditLogs(req: Request, res: Response) {
   // shim sees the full tenant stream (project_id undefined → no
   // filter applied).
   const projectId =
-    req.m2m && !req.m2m.clientId.startsWith("dev-shim:") ? req.m2m.projectId : undefined;
+    req.m2m && !req.m2m.clientId.startsWith("dev-shim") ? req.m2m.projectId : undefined;
 
   try {
     const result = await service.list({

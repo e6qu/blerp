@@ -166,11 +166,14 @@ describe("Auth Integration", () => {
 
     // Call unlock with the user's own session JWT — should 403, not
     // 200. Pre-BUG-138 a locked user could self-unlock with their
-    // existing session.
+    // existing session. X-No-Dev-Shim opts out of the dev-mode
+    // session→M2M auto-elevation so this verifies the production
+    // contract.
     const sessionRes = await request(app)
       .post(`/v1/users/${userId}/unlock`)
       .set("X-Tenant-Id", tenantId)
-      .set("Authorization", `Bearer ${userToken}`);
+      .set("Authorization", `Bearer ${userToken}`)
+      .set("X-No-Dev-Shim", "true");
     expect(sessionRes.status).toBe(403);
     expect(sessionRes.body.error?.message).toMatch(/Admin-only/);
   });

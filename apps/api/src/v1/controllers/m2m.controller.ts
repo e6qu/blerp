@@ -24,7 +24,7 @@ async function assertProjectOwnerOrM2M(req: Request, projectId: string): Promise
     // M2M token from project A can no longer act on project B.
     // BUG-147 dev shim: see requireProjectAccess — dev-shim clientId
     // is a wildcard so tests using X-User-Id keep working.
-    const isDevShim = req.m2m.clientId.startsWith("dev-shim:");
+    const isDevShim = req.m2m.clientId.startsWith("dev-shim");
     if (!isDevShim && req.m2m.projectId !== projectId) {
       throw new ProjectAuthError(
         "M2M token is scoped to a different project. Mint a token for this project.",

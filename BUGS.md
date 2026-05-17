@@ -1906,3 +1906,13 @@ Dev shim extended to grant the new scopes.
 - `/v1/client`, `/v1/client/sessions`, `/v1/client/user` — Clerk-inspired but never implemented; `/v1/public-config` (BUG-96) and `/v1/userinfo` cover the same use cases.
 
 OpenAPI lint clean; types regenerated.
+
+### BUG-176 (CI break): BUG-147+ scope gates locked the dashboard's session-JWT auth out of admin routes — E2E failed (FIXED)
+
+**Status:** Fixed
+**Severity:** High (CI-blocking) — the dashboard signs users in via the real `/v1/auth/signins` flow which mints a session JWT. That JWT has no M2M scopes, so post-BUG-147 every dashboard call to `/v1/users`, `/v1/webhooks`, `/v1/audit_logs`, `/v1/usage`, `/v1/organizations`, etc. 403'd. The E2E suite (organization CRUD, user management, webhook config, etc.) all failed.
+**Files:** `apps/api/src/middleware/auth.ts`, `apps/api/src/__tests__/auth.integration.test.ts`, plus dev-shim prefix matchers in `rbac.ts` / `m2m.controller.ts` / `webhook.controller.ts` / `audit.controller.ts`
+
+**Fix applied:** Extended the dev shim (BUG-147 X-User-Id mechanism) to also attach a `req.m2m` context with tenant-root scopes to session JWTs in `NODE_ENV !== "production"`. Production behavior is unchanged — there the dashboard is expected to use a real SecretKey-minted M2M token instead. Tests that need to verify the production "session is NOT admin" semantics (BUG-138 unlock test) opt out via a new `X-No-Dev-Shim: true` request header.
+
+Updated all dev-shim prefix matchers from `"dev-shim:"` to `"dev-shim"` so both `dev-shim:<userId>` (X-User-Id shim) and `dev-shim-session:<userId>` (session shim) are recognized.

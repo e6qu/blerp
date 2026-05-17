@@ -31,7 +31,7 @@ export function requirePermission(permission: Permission) {
     // can't do owner things" pass trivially since the shim grants
     // every scope. Filter the shim out so RBAC behavior is faithful
     // in dev.
-    if (req.m2m && !req.m2m.clientId.startsWith("dev-shim:")) {
+    if (req.m2m && !req.m2m.clientId.startsWith("dev-shim")) {
       if (!req.m2m.scopes.includes(permission)) {
         return next(new ForbiddenError(`M2M token is missing the required scope: ${permission}`));
       }

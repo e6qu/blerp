@@ -20,7 +20,7 @@ interface DBWebhook {
 // `req.body.project_id` (create only) for the shim, falling back to
 // "default" so existing data without project_id remains accessible.
 function projectIdForOp(req: Request, fallback?: string): string {
-  if (req.m2m && !req.m2m.clientId.startsWith("dev-shim:")) {
+  if (req.m2m && !req.m2m.clientId.startsWith("dev-shim")) {
     return req.m2m.projectId;
   }
   return fallback ?? "default";
