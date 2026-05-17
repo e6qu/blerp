@@ -3,7 +3,6 @@
 import { useState, type SyntheticEvent } from "react";
 import { setSessionCookies } from "../session-cookies";
 import { useAuth, useBlerpClient } from "../BlerpProvider";
-import { getSignUpUrl } from "@blerp/shared";
 
 // BUG-116 (codex r20): add a "totp" second-factor step. The API
 // returns `needs_second_factor` for users with TOTP enabled; without
@@ -20,7 +19,12 @@ interface SignInProps {
   appearance?: Record<string, unknown>;
 }
 
-const SIGN_UP_URL = getSignUpUrl();
+// BUG-214 (codex r63): module-level `getSignUpUrl()` was resolved
+// once at import from the build-time env, so the SignIn footer
+// "Sign up" link ignored `/v1/public-config` `CLERK_SIGN_UP_URL`
+// overrides. The component now reads the URL from the runtime-
+// hydrated `useAuth().signUpUrl` instead, and only falls back to
+// a caller-supplied prop. The constant is gone.
 
 // BUG-109 (codex r19): honor `?redirect_url=...` injected by the
 // middleware/openSignIn redirect chain. Reading inside the handler
@@ -60,11 +64,14 @@ function readRedirectQueryParam(): string | undefined {
   return isSafeRedirect(v) ? v : undefined;
 }
 
-export function SignIn({ afterSignInUrl, signUpUrl = SIGN_UP_URL }: SignInProps) {
+export function SignIn({ afterSignInUrl, signUpUrl: signUpUrlProp }: SignInProps) {
   const client = useBlerpClient();
   // BUG-185 (codex r50): runtime-resolver from BlerpProvider — see
   // session-verify / runtime-config rationale in BlerpProvider.tsx.
-  const { resolveSignInRedirect } = useAuth();
+  // BUG-214 (codex r63): also pull `signUpUrl` from the runtime
+  // context. Caller-supplied prop still wins.
+  const { resolveSignInRedirect, signUpUrl: contextSignUpUrl } = useAuth();
+  const signUpUrl = signUpUrlProp ?? contextSignUpUrl;
   const [step, setStep] = useState<SignInStep>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

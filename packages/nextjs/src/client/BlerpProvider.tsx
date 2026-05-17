@@ -134,6 +134,13 @@ interface BlerpContextType {
   // while the rendered form silently ignored them on submit.
   resolveSignInRedirect: (callerSupplied?: string) => string;
   resolveSignUpRedirect: (callerSupplied?: string) => string;
+  // BUG-214 (codex r63): expose the runtime-resolved sign-in / sign-
+  // up URLs so embedded cross-links (the "Sign up" footer in <SignIn>
+  // and the "Sign in" footer in <SignUp>) honor /v1/public-config
+  // overrides. Pre-r63 those links used a module-level constant
+  // resolved once from build-time env.
+  signInUrl: string;
+  signUpUrl: string;
 }
 
 const BlerpContext = createContext<BlerpContextType | undefined>(undefined);
@@ -557,6 +564,11 @@ export function BlerpProvider({
       openOrganizationProfile,
       resolveSignInRedirect,
       resolveSignUpRedirect,
+      // BUG-214 (codex r63): runtime-resolved URLs for embedded
+      // cross-links. Read from `config`, not the build-time helpers,
+      // so /v1/public-config overrides are honored.
+      signInUrl: config.sign_in_url,
+      signUpUrl: config.sign_up_url,
     }),
     [
       apiClient,
@@ -574,6 +586,8 @@ export function BlerpProvider({
       openOrganizationProfile,
       resolveSignInRedirect,
       resolveSignUpRedirect,
+      config.sign_in_url,
+      config.sign_up_url,
     ],
   );
 

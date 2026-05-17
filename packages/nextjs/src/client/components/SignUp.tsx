@@ -3,7 +3,6 @@
 import { useState, type SyntheticEvent } from "react";
 import { setSessionCookies } from "../session-cookies";
 import { useAuth, useBlerpClient } from "../BlerpProvider";
-import { getSignInUrl } from "@blerp/shared";
 
 // BUG-114 (codex r20): real three-step flow — email → password → verify.
 // Previously the "password" step sent the password as the verification
@@ -19,7 +18,9 @@ interface SignUpProps {
   appearance?: Record<string, unknown>;
 }
 
-const SIGN_IN_URL = getSignInUrl();
+// BUG-214 (codex r63): removed module-level `getSignInUrl()` —
+// see Auth.tsx for the rationale. The component now reads
+// `useAuth().signInUrl` (runtime-hydrated).
 
 // BUG-109 (codex r19): honor `?redirect_url=...` — see Auth.tsx.
 // BUG-208 (codex r60): validate before returning — open-redirect
@@ -43,11 +44,14 @@ function readRedirectQueryParam(): string | undefined {
   return isSafeRedirect(v) ? v : undefined;
 }
 
-export function SignUp({ afterSignUpUrl, signInUrl = SIGN_IN_URL }: SignUpProps) {
+export function SignUp({ afterSignUpUrl, signInUrl: signInUrlProp }: SignUpProps) {
   const client = useBlerpClient();
   // BUG-185 (codex r50): runtime-resolver from BlerpProvider — see
   // BlerpProvider.tsx for rationale.
-  const { resolveSignUpRedirect } = useAuth();
+  // BUG-214 (codex r63): also pull `signInUrl` from the runtime
+  // context for the footer cross-link. Caller-supplied prop wins.
+  const { resolveSignUpRedirect, signInUrl: contextSignInUrl } = useAuth();
+  const signInUrl = signInUrlProp ?? contextSignInUrl;
   const [step, setStep] = useState<SignUpStep>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

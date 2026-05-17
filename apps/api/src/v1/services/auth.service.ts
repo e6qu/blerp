@@ -157,6 +157,15 @@ export class AuthService {
     });
 
     // Domain Auto-enrollment
+    // BUG-213 (codex r63): track the auto-enrolled org's project so
+    // the `user.created` event emitted below is routed to that
+    // project's webhook endpoints and shows up in project-scoped
+    // audit reads. Pre-r63 the event always emitted with
+    // `projectId: null` even when the user was auto-enrolled into an
+    // org, so the project's BUG-163 webhook bucket missed it (only
+    // the BUG-182 'default' wildcard endpoints saw it) and the
+    // BUG-161 project-scoped audit list filter hid it.
+    let enrolledProjectId: string | null = null;
     const domain = email.split("@")[1];
     if (domain) {
       const verifiedDomain = await this.db.query.organizationDomains.findFirst({
@@ -173,15 +182,23 @@ export class AuthService {
           userId,
           role: "member",
         });
+        const org = await this.db.query.organizations.findFirst({
+          where: eq(schema.organizations.id, verifiedDomain.organizationId),
+        });
+        if (org) {
+          enrolledProjectId = org.projectId;
+        }
       }
     }
 
-    // BUG-166 (codex r42): sign-up is genuinely tenant-system level —
-    // the new user isn't yet enrolled in any project. Pass `null`
-    // explicitly so the worker's project filter routes this to the
-    // legacy "default" bucket (matches pre-r41 behaviour) rather
-    // than silently dropping it.
-    await eventBus.emit("user.created", this.tenantId, { userId }, null);
+    // BUG-166 (codex r42): sign-up is genuinely tenant-system level
+    // by default — the new user isn't yet enrolled in any project.
+    // BUG-213 (codex r63): when domain auto-enrollment matched a
+    // verified org, pass the enrolled org's projectId so the event
+    // reaches that project's webhook endpoints. Otherwise pass
+    // `null` so the worker routes to the legacy 'default' bucket
+    // (BUG-182).
+    await eventBus.emit("user.created", this.tenantId, { userId }, enrolledProjectId);
 
     // BUG-114 (codex r20): always return snake_case `user_id` to match
     // OpenAPI + the Clerk-shaped convention used everywhere else.

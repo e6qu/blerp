@@ -2238,3 +2238,19 @@ Anything else (different host, `javascript:`, `data:`, malformed) returns false,
 3. **API route**: New middleware that runs after `authMiddleware` and before `requireProjectAccess` — when `project_id` is missing, derives it from the auth context: real M2M token's `projectId`, or session user's first owned project. If neither yields a project, `requireProjectAccess` still 400s with "project_id is required" so behavior degrades safely. Explicit `project_id` in the body still wins (caller chooses the destination project).
 
 Schema types regenerated; typecheck + lint + openapi:lint all green.
+
+### BUG-213 (codex r63): Auto-enrolled `user.created` event was emitted with `projectId: null` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — webhook + audit invisibility. `attemptSignup` does domain auto-enrollment (inserts a membership into the verified-domain org), then emits `user.created`. Pre-r63 the emit hardcoded `null` for projectId, so the project's BUG-163 webhook bucket missed the event (only the BUG-182 `'default'` wildcard endpoints saw it) and the BUG-161 project-scoped audit list filter hid the row from project-scoped admin reads.
+**Files:** `apps/api/src/v1/services/auth.service.ts`
+
+**Fix applied:** Look up the enrolled org's `projectId` immediately after inserting the membership. Pass it to `eventBus.emit("user.created", …)` in place of the hardcoded `null`. Non-enrolled signups (no matching verified domain) keep emitting with `null` — they're genuinely tenant-system events.
+
+### BUG-214 (codex r63): Module-level `getSignUpUrl()` / `getSignInUrl()` in `<SignIn>` / `<SignUp>` defeated runtime-config for footer cross-links (FIXED)
+
+**Status:** Fixed
+**Severity:** P3 — same regression class as BUG-203, missed surface. `Auth.tsx` had `const SIGN_UP_URL = getSignUpUrl()` and `SignUp.tsx` had `const SIGN_IN_URL = getSignInUrl()` resolved once at import time from build-time env. The footers ("Don't have an account? Sign up" / "Already have one? Sign in") rendered stale URLs even when `/v1/public-config` overrode `CLERK_SIGN_*_URL` at runtime.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`, `packages/nextjs/src/client/components/Auth.tsx`, `packages/nextjs/src/client/components/SignUp.tsx`
+
+**Fix applied:** Exposed `signInUrl` and `signUpUrl` on the BlerpContextType backed by runtime-hydrated `config.sign_in_url` / `config.sign_up_url`. Auth.tsx and SignUp.tsx consume them via `useAuth()` (caller-supplied prop still wins). Module-level constants and the `getSign*Url` imports are gone.
