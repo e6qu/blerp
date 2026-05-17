@@ -14,12 +14,28 @@ import { getKeyPair } from "../../lib/keys";
 import { jwt } from "../../lib/jwt";
 import { resolvePermissions } from "../../lib/rbac";
 
-interface PendingSignin {
+// BUG-132 (codex r26): track sign-in attempts in two phases so the
+// `signin_id` is enforced end-to-end. Without this, a caller could
+// skip the createSignin step and POST credentials straight to
+// `/v1/auth/signins/sin_fake/attempt` — the service used to accept any
+// path-id for non-MFA users. Now the first-factor branch validates the
+// id exists + matches the supplied identifier + hasn't expired. The
+// elevated `PendingSecondFactor` keeps the same shape as before so the
+// MFA flow is unchanged.
+interface PendingFirstFactor {
+  stage: "first_factor";
+  identifier: string;
+  strategy: string;
+  createdAt: number;
+}
+interface PendingSecondFactor {
+  stage: "second_factor";
   userId: string;
   identifier: string;
   ipAddress?: string;
   userAgent?: string;
 }
+type PendingSignin = PendingFirstFactor | PendingSecondFactor;
 
 interface PendingSignup {
   code: string;
@@ -271,6 +287,18 @@ export class AuthService {
     const signinId = `sin_${nanoid()}`;
     const mfaRequired = user.totpEnabled ?? false;
 
+    // BUG-132 (codex r26): persist the pending first-factor attempt so
+    // attemptSignin can enforce that `signin_id` came from a real
+    // createSignin call. Without this, anyone with valid credentials
+    // could POST straight to /v1/auth/signins/sin_fake/attempt and
+    // bypass Clerk's documented sign-in lifecycle.
+    pendingSignins.set(signinId, {
+      stage: "first_factor",
+      identifier: data.identifier,
+      strategy: data.strategy,
+      createdAt: Date.now(),
+    });
+
     // BUG-127 (codex r23): only advertise first-factor strategies the
     // service actually implements. Echoing whatever the caller sent
     // led SDK consumers into 400-only flows (email_code / passkey have
@@ -292,8 +320,32 @@ export class AuthService {
     signinId: string,
     identifier: string,
     password: string,
+    strategy: string | undefined,
     metadata?: { ipAddress?: string; userAgent?: string },
   ) {
+    // BUG-132 (codex r26): require the signin_id to map to a pending
+    // first-factor attempt. Rejects bogus / expired ids and asserts
+    // the identifier hasn't been swapped between create and attempt
+    // (mitigates a confused-deputy scenario where a stolen signin_id
+    // gets reused with a different account).
+    const pending = pendingSignins.get(signinId);
+    if (!pending || pending.stage !== "first_factor") {
+      throw new Error("Sign-in attempt expired or not found");
+    }
+    if (pending.identifier !== identifier) {
+      throw new Error("Identifier does not match the original sign-in attempt");
+    }
+
+    // BUG-133 (codex r26): same factor-name semantics as BUG-126/131
+    // on the second factor. The service today only implements password
+    // first-factor verification; explicit-but-unsupported strategies
+    // must fail loudly rather than silently fall through to password
+    // verification. Undefined falls back to password for back-compat
+    // with older callers that don't send strategy.
+    if (strategy !== undefined && strategy !== "password") {
+      throw new Error(`Unsupported first-factor strategy: "${strategy}". Expected "password".`);
+    }
+
     // Look up user by email
     const emailRecord = await this.db.query.emailAddresses.findFirst({
       where: eq(schema.emailAddresses.emailAddress, identifier),
@@ -317,9 +369,14 @@ export class AuthService {
       throw new Error("Invalid email or password");
     }
 
+    // First-factor done — consume the pending entry. If TOTP is enabled
+    // we immediately replace it with a second-factor entry below.
+    pendingSignins.delete(signinId);
+
     // If TOTP is enabled, defer session creation until 2FA is verified
     if (user.totpEnabled) {
       pendingSignins.set(signinId, {
+        stage: "second_factor",
         userId: user.id,
         identifier,
         ipAddress: metadata?.ipAddress,
@@ -343,6 +400,12 @@ export class AuthService {
     const pending = pendingSignins.get(signinId);
     if (!pending) {
       throw new Error("Sign-in attempt expired or not found");
+    }
+    // BUG-132 (codex r26): require the attempt to have completed first
+    // factor before second-factor verification. Otherwise a caller
+    // could skip straight to second factor with a stolen signin_id.
+    if (pending.stage !== "second_factor") {
+      throw new Error("Sign-in attempt is not at the second-factor stage");
     }
 
     const user = await this.getUser(pending.userId);

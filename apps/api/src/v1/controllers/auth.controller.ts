@@ -92,10 +92,19 @@ export async function attemptSignin(req: Request, res: Response) {
       res.status(400).json({ error: { message: "identifier is required" } });
       return;
     }
-    const result = await authService.attemptSignin(signinId, identifier, password, {
-      ipAddress: req.ip,
-      userAgent: req.headers["user-agent"],
-    });
+    // BUG-133 (codex r26): forward `strategy` so the service can fail
+    // loudly on unsupported first-factor strategies instead of silently
+    // verifying a password regardless of the requested factor name.
+    const result = await authService.attemptSignin(
+      signinId,
+      identifier,
+      password,
+      strategy as string | undefined,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      },
+    );
     res.status(200).json(result);
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });

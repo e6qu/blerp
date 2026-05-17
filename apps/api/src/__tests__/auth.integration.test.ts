@@ -93,6 +93,69 @@ describe("Auth Integration", () => {
     expect(userRes.body.password_enabled).toBe(true);
   });
 
+  it("BUG-132 (codex r26): attempt-id is enforced — a forged signin_id is rejected even with valid credentials", async () => {
+    // Make sure a user with a valid password exists.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "lifecycle@blerp.dev",
+        password: "supersecret789",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    // POST straight to attempt with a forged signin_id — must 400
+    // even with valid credentials. Pre-BUG-132 this would have
+    // returned a session.
+    const forgedRes = await request(app)
+      .post(`/v1/auth/signins/sin_forged123/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "lifecycle@blerp.dev",
+        password: "supersecret789",
+        strategy: "password",
+        stage: "first_factor",
+      });
+    expect(forgedRes.status).toBe(400);
+    expect(forgedRes.body.error?.message).toMatch(/Sign-in attempt expired or not found/);
+  });
+
+  it("BUG-133 (codex r26): unsupported explicit first-factor strategy is rejected, not silently password-verified", async () => {
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "firststrat@blerp.dev",
+        password: "supersecret321",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "firststrat@blerp.dev", strategy: "password" });
+
+    const badStrategyRes = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "firststrat@blerp.dev",
+        password: "supersecret321",
+        strategy: "email_code", // not supported as a first factor today
+        stage: "first_factor",
+      });
+    expect(badStrategyRes.status).toBe(400);
+    expect(badStrategyRes.body.error?.message).toMatch(/Unsupported first-factor strategy/);
+  });
+
   it("BUG-129 / BUG-131 (codex r24 / r25): explicit strategy:null at the second-factor step is rejected, not silently fallback-verified", async () => {
     // Provision a user with TOTP enabled by going through signup +
     // sign-in to exercise the second-factor route.

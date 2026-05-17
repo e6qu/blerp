@@ -1479,3 +1479,19 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 **Files:** `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/__tests__/auth.integration.test.ts`
 
 **Fix applied:** Branch tightened to `strategy === undefined` only. Explicit `null` (and any other unrecognized value) now throws `"Unsupported second-factor strategy: ..."`. Regression test provisions a TOTP-enabled user via the full signup → first-factor flow and submits `strategy: null` at the second-factor step, asserting the 400 error rather than a silent verify.
+
+### BUG-132 (codex r26): `attemptSignin` accepted any `signin_id` — sign-in lifecycle could be bypassed entirely (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — `createSignin` returned `sin_*` IDs without persisting them, and `attemptSignin` never validated the ID. A caller with valid credentials could skip `POST /v1/auth/signins` and hit `POST /v1/auth/signins/sin_anything/attempt` directly — for non-MFA users they'd get a session token. This silently bypassed Clerk's documented sign-in attempt lifecycle and any rate limit / audit logic keyed to creating a sign-in attempt.
+**Files:** `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/auth.controller.ts`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:** Split `PendingSignin` into a discriminated union `PendingFirstFactor | PendingSecondFactor`. `createSignin` now writes a `first_factor` entry into the transient store keyed by `signin_id`. `attemptSignin` requires the entry to exist, asserts `stage === "first_factor"`, and verifies the supplied `identifier` matches what was captured at create time (mitigates confused-deputy reuse of a leaked id with a different account). On success the first-factor entry is consumed; if TOTP is enabled, an elevated `second_factor` entry replaces it. `attemptSecondFactor` correspondingly checks `stage === "second_factor"`. Regression test forges a `signin_id` and asserts the 400.
+
+### BUG-133 (codex r26): First-factor `strategy` was ignored — same class as BUG-126/131 for second factor (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — controller destructured `strategy` from the body but never passed it to `attemptSignin`, so `strategy: "email_code"`, `strategy: "passkey"`, or a typo plus a valid password still completed as password auth. Factor-name semantics were fiction on the first factor (the same bug class BUG-126/131 closed for the second factor).
+**Files:** `apps/api/src/v1/controllers/auth.controller.ts`, `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:** Controller forwards `strategy`. Service adds `strategy: string | undefined` parameter and the same shape of branch BUG-129/131 ship for second factor: `undefined` → password (back-compat for older callers); `"password"` → password; anything else → `throw new Error('Unsupported first-factor strategy: "${strategy}". Expected "password".')`. Regression test asserts `strategy: "email_code"` produces a 400 rather than silently succeeding.
