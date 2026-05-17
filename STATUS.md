@@ -1,6 +1,6 @@
 # Status Log
 
-> **Now (2026-05-17)** — Branch `chore/run-skills-audit-2026-05-17` open as PR #52, in review. All BUG-30..BUG-45 fixed in same PR (2 self-sweeps + 2 codex review rounds).
+> **Now (2026-05-17)** — Branch `chore/run-skills-audit-2026-05-17` open as PR #52, ready to merge. All BUG-30..BUG-45 fixed in same PR. Codex review round 3 returned clean (no new findings).
 > **Tests**: API 90/90 · E2E 152/152 · Storybook 15/15 · lint + typecheck + openapi:lint clean.
 > **Active blockers**: M9 Production Infrastructure waits on AWS credentials. No others.
 > **Next action**: see `DO_NEXT.md`. Open bugs: see `BUGS.md`. Milestone history: see `PLAN.md`.
