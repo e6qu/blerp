@@ -47,7 +47,7 @@ export async function createSignin(req: Request, res: Response) {
 
 export async function attemptSignin(req: Request, res: Response) {
   const signinId = req.params.signin_id as string;
-  const { password, identifier, code, stage } = req.body;
+  const { password, identifier, code, stage, strategy } = req.body;
   const authService = new AuthService(req.tenantDb!, req.tenantId!);
 
   try {
@@ -69,10 +69,21 @@ export async function attemptSignin(req: Request, res: Response) {
       !isExplicitFirstFactor && (isExplicitSecondFactor || (code && !password && !identifier));
 
     if (looksLikeSecondFactor) {
-      const result = await authService.attemptSecondFactor(signinId, String(code), {
-        ipAddress: req.ip,
-        userAgent: req.headers["user-agent"],
-      });
+      // BUG-126 (codex r23): forward `strategy` so the service can
+      // route correctly — `totp` only verifies against TOTP, `backup_code`
+      // only against backup codes. Without this, factor-name semantics
+      // were fiction (TOTP attempts could silently consume backup codes
+      // and vice versa). Undefined `strategy` falls back to permissive
+      // try-both for back-compat with older callers.
+      const result = await authService.attemptSecondFactor(
+        signinId,
+        String(code),
+        strategy as string | undefined,
+        {
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"],
+        },
+      );
       res.status(200).json(result);
       return;
     }

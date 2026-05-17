@@ -1106,6 +1106,15 @@ paths:
                   type: string
                 strategy:
                   type: string
+                  description: |
+                    First-factor strategy. Currently only `password` is
+                    implemented end-to-end (BUG-127 codex r23). The other
+                    enum values are reserved for future implementation;
+                    sending them today produces a sign-in attempt whose
+                    `available_strategies` is `["password"]`, so the
+                    caller knows the service won't honour the requested
+                    factor. Strategy support is gated server-side, not by
+                    the spec, to keep the enum forward-compatible.
                   enum: [password, magic_link, otp, passkey, oauth]
       responses:
         "201":

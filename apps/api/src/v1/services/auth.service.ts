@@ -271,13 +271,20 @@ export class AuthService {
     const signinId = `sin_${nanoid()}`;
     const mfaRequired = user.totpEnabled ?? false;
 
+    // BUG-127 (codex r23): only advertise first-factor strategies the
+    // service actually implements. Echoing whatever the caller sent
+    // led SDK consumers into 400-only flows (email_code / passkey have
+    // no first-factor verification path today). When/if those land,
+    // include them here. The `strategy` field echoes the request as
+    // before for Clerk parity, but `available_strategies` is the
+    // source of truth.
     return {
       id: signinId,
       identifier: data.identifier,
       status: "needs_first_factor" as const,
       strategy: data.strategy,
       mfa_required: mfaRequired,
-      available_strategies: [data.strategy],
+      available_strategies: ["password"],
     };
   }
 
@@ -330,6 +337,7 @@ export class AuthService {
   async attemptSecondFactor(
     signinId: string,
     code: string,
+    strategy: string | undefined,
     metadata?: { ipAddress?: string; userAgent?: string },
   ) {
     const pending = pendingSignins.get(signinId);
@@ -342,27 +350,40 @@ export class AuthService {
       throw new Error("User not found");
     }
 
-    // Try TOTP verification
-    let verified = false;
-    if (user.totpSecret) {
+    // BUG-126 (codex r23): respect the requested factor name. Before
+    // this, the verifier tried TOTP first then backup codes regardless
+    // of `strategy`, so a `strategy: "totp"` attempt could consume a
+    // backup code (silent reduction in security) and a `strategy:
+    // "backup_code"` attempt could verify against TOTP (mis-attribution
+    // in audit logs). When strategy is omitted, fall back to the old
+    // permissive try-both behavior so existing callers don't break.
+    const tryTotp = async (): Promise<boolean> => {
+      if (!user.totpSecret) return false;
       const totp = new TOTP();
       const result = await totp.verify(code, { secret: user.totpSecret });
-      verified = result.valid;
-    }
-
-    // Try backup codes if TOTP didn't match
-    if (!verified) {
+      return result.valid;
+    };
+    const tryBackupCode = async (): Promise<boolean> => {
       const backupCodes = (user.backupCodes ?? []) as string[];
       const codeIndex = backupCodes.indexOf(code);
-      if (codeIndex >= 0) {
-        verified = true;
-        const updatedCodes = [...backupCodes];
-        updatedCodes.splice(codeIndex, 1);
-        await this.db
-          .update(schema.users)
-          .set({ backupCodes: updatedCodes, updatedAt: new Date() })
-          .where(eq(schema.users.id, user.id));
-      }
+      if (codeIndex < 0) return false;
+      const updatedCodes = [...backupCodes];
+      updatedCodes.splice(codeIndex, 1);
+      await this.db
+        .update(schema.users)
+        .set({ backupCodes: updatedCodes, updatedAt: new Date() })
+        .where(eq(schema.users.id, user.id));
+      return true;
+    };
+
+    let verified: boolean;
+    if (strategy === "totp") {
+      verified = await tryTotp();
+    } else if (strategy === "backup_code") {
+      verified = await tryBackupCode();
+    } else {
+      // Permissive fallback (no strategy supplied) — try TOTP first.
+      verified = (await tryTotp()) || (await tryBackupCode());
     }
 
     if (!verified) {

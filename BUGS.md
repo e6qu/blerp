@@ -1423,3 +1423,27 @@ Regression tests cover `PUBLIC_/EXPO_PUBLIC_/NUXT_PUBLIC_` reads for publishable
 **Files:** `packages/shared/package.json`
 
 **Fix applied:** The `generate` script now post-processes the file to replace `T extends any[]` with `T extends unknown[]` — functionally identical for the OneOf helper (it just constrains to a tuple), but eslint-clean. The `/* eslint-disable */` prepend is removed. Schema lints clean even when lint-staged invokes eslint directly on the path.
+
+### BUG-125 (codex r23): `mapUser()` omitted `backup_code_enabled` + `two_factor_enabled` — OpenAPI advertised them, DB had the data (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — Clerk's Backend User exposes `twoFactorEnabled` and `backupCodeEnabled`. OpenAPI advertised both; the DB had `backupCodes` (json array) and `totpEnabled` (bool); but `mapUser()` only serialised `password_enabled` (BUG-123) and `totp_enabled`. Dashboard / SDK UIs that condition on these flags showed stale state after MFA enrolment.
+**Files:** `apps/api/src/v1/controllers/user.controller.ts`
+
+**Fix applied:** Added `backup_code_enabled: Array.isArray(user.backupCodes) && user.backupCodes.length > 0` and the derived `two_factor_enabled: user.totpEnabled || (backup_codes_present)` to `mapUser()`. The aggregate `two_factor_enabled` matches Clerk's documented semantics (true if any 2FA factor is available).
+
+### BUG-126 (codex r23): `attemptSecondFactor` ignored the requested `strategy` — TOTP attempts could consume backup codes and vice versa (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — the service tried TOTP first, then backup codes, regardless of `strategy`. So `strategy: "totp"` could consume a backup code (silent reduction in available recovery codes), and `strategy: "backup_code"` could verify against TOTP (mis-attribution in audit logs). Factor-name semantics weren't real server-side, only on paper in the OpenAPI spec.
+**Files:** `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/v1/controllers/auth.controller.ts`
+
+**Fix applied:** Controller pulls `strategy` from the request body and forwards it. Service routes verification by strategy: `"totp"` → only `tryTotp()`; `"backup_code"` → only `tryBackupCode()`; undefined → permissive try-both for back-compat with older callers. Backup-code consumption (deleting the code from the user record) now only happens on the backup-code branch.
+
+### BUG-127 (codex r23): `createSignin` echoed any requested strategy as `available_strategies` — pushed SDK consumers into broken flows (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — `available_strategies: [data.strategy]` blindly echoed the caller, even though the service only implements password first factor. A caller doing `strategy: "magic_link"` got a sign-in attempt that advertised `magic_link` as available, then 400'd on every attempt because no first-factor magic-link verification exists.
+**Files:** `apps/api/src/v1/services/auth.service.ts`, `openapi/blerp.v1.yaml`
+
+**Fix applied:** `available_strategies` is now hard-coded to `["password"]` until/unless additional first-factor verifications are wired. The `strategy` field on the response still echoes the request (Clerk parity — the caller's chosen factor name round-trips) but `available_strategies` is the source of truth for what will actually succeed. OpenAPI description on `/v1/auth/signins` `strategy` field updated to call this out; enum stays inclusive of future strategies to keep the spec forward-compatible.

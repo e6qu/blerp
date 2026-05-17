@@ -25,12 +25,17 @@ function mapUser(user: UserWithRelations): User {
     public_metadata: (user.publicMetadata as Record<string, unknown>) || {},
     private_metadata: (user.privateMetadata as Record<string, unknown>) || {},
     unsafe_metadata: (user.unsafeMetadata as Record<string, unknown>) || {},
-    // BUG-123 (codex r22): expose the credential flag so dashboard
-    // and SDK UIs can render "Set a password" CTAs accurately.
-    // Matches Clerk's `passwordEnabled` field (snake_case on the wire
-    // to match the rest of the API).
+    // BUG-123 / BUG-125 (codex r22 / r23): expose the full Clerk-style
+    // credential flag set. `hasPassword` (snake_case `password_enabled`
+    // on the wire), TOTP, backup-code presence, and the derived
+    // `two_factor_enabled` aggregate (true if any 2FA factor is
+    // available). Dashboard / SDK UIs read these to decide which CTAs
+    // to render; omitting any of them made the UI report stale state.
     password_enabled: user.hasPassword,
     totp_enabled: user.totpEnabled,
+    backup_code_enabled: Array.isArray(user.backupCodes) && user.backupCodes.length > 0,
+    two_factor_enabled:
+      user.totpEnabled || (Array.isArray(user.backupCodes) && user.backupCodes.length > 0),
     email_addresses: (user.emailAddresses || []).map((e: DBEmailAddress) => ({
       id: e.id,
       email: e.emailAddress,
