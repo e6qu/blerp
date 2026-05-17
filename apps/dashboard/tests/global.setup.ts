@@ -1,10 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getApiUrl, getTenantId } from "@blerp/shared";
 
-const API_URL = getApiUrl();
-const TENANT_ID = getTenantId();
+// BUG-66 (codex r7): Playwright loads global.setup.ts outside the
+// turbo `^build` graph, so a runtime import of `@blerp/shared` would
+// fail on a fresh checkout where `packages/shared/dist` is missing.
+// Inline the env reads here. Same dual-name semantics as the shared
+// helper (BLERP_* > CLERK_* > default).
+const API_URL = process.env.BLERP_API_URL ?? process.env.CLERK_API_URL ?? "http://localhost:3000";
+const TENANT_ID = process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant";
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
 export interface E2ESession {

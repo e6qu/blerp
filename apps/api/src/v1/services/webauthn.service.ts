@@ -3,16 +3,27 @@ import {
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { getApiUrl } from "@blerp/shared";
 import * as schema from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { TransientStore } from "../../lib/transient-store";
 
+// BUG-65 (codex r7): this service is loaded eagerly by auth.routes
+// (auth.routes → webauthn.controller → webauthn.service) during API
+// boot. Importing `@blerp/shared`'s value exports here resolves through
+// the gitignored `packages/shared/dist/index.js`, so `cd apps/api &&
+// bun run dev` on a fresh checkout (Playwright's webServer pattern)
+// fails to start before /health is available. Inline the env reads
+// here — same dual-name semantics (BLERP_* > CLERK_* > default) as the
+// shared helper. Trade-off: a tiny duplication at module load time.
+function readApiUrl(): string {
+  return process.env.BLERP_API_URL ?? process.env.CLERK_API_URL ?? "http://localhost:3000";
+}
+
 function getRpId(): string {
   if (process.env.WEBAUTHN_RP_ID) return process.env.WEBAUTHN_RP_ID;
   try {
-    return new URL(getApiUrl()).hostname;
+    return new URL(readApiUrl()).hostname;
   } catch {
     return "localhost";
   }
@@ -23,7 +34,7 @@ function getRpName(): string {
 }
 
 function getOrigin(): string {
-  return process.env.WEBAUTHN_ORIGIN ?? getApiUrl();
+  return process.env.WEBAUTHN_ORIGIN ?? readApiUrl();
 }
 
 const challengeStore = new TransientStore<string>(5 * 60 * 1000);

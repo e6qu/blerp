@@ -640,6 +640,39 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-65 (codex round 7): API boot transitively imports `@blerp/shared` at module load, still breaking direct `bun run dev` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same class as BUG-64 but at a deeper transitive site I missed in that fix
+**Files:** `apps/api/src/v1/services/webauthn.service.ts`
+
+BUG-64 inlined env reads in `apps/api/src/index.ts` and `apps/dashboard/vite.config.ts`, but missed that `webauthn.service.ts` (loaded eagerly by `auth.routes` → `webauthn.controller`) still imported `getApiUrl` from `@blerp/shared`. On a clean checkout where `packages/shared/dist` doesn't exist, `cd apps/api && bun run dev` (Playwright's webServer pattern) failed before `/health` was reachable.
+
+**Fix applied:** Dropped the `@blerp/shared` import; inlined a local `readApiUrl()` helper that does `process.env.BLERP_API_URL ?? process.env.CLERK_API_URL ?? "http://localhost:3000"`. Comment notes the eager-load chain so future "centralise this" temptations preserve the fix.
+
+### BUG-66 (codex round 7): Dashboard Playwright `global.setup.ts` still imports `@blerp/shared` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same dist-resolution failure as BUG-64/65, hits `bun run test:e2e` on a fresh checkout because Playwright loads `global.setup.ts` outside turbo
+**Files:** `apps/dashboard/tests/global.setup.ts`
+
+**Fix applied:** Inlined `API_URL` and `TENANT_ID` reads with the dual-name pattern. Identical fix to BUG-64's dashboard/vite.config.ts treatment.
+
+### BUG-67 (codex round 7): `auth()` permission lookup denies custom-role users without `members:read` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — functional regression introduced by BUG-61's always-fetch-permissions design
+**Files:** `apps/api/src/v1/routes/organization.routes.ts`, `apps/api/src/v1/controllers/membership.controller.ts`, `packages/nextjs/src/server/auth.ts`, `apps/api/src/__tests__/membership.integration.test.ts`
+
+BUG-61 made `auth()` always re-resolve `org_permissions` from the API for security. The fetched endpoint was `/v1/organizations/:id/memberships` (LIST), which is gated by `requirePermission("members:read")`. A custom-role user with `org:read` but NOT `members:read` got 403 from that call, so `orgPermissions` stayed empty and `auth().has({ permission: "org:read" })` returned false for users who genuinely had that permission.
+
+**Fix applied:**
+
+1. Added `GET /v1/organizations/:organization_id/memberships/me` route, gated by `authMiddleware` only. Returns the caller's own membership + resolved permissions, no RBAC check (the user is always allowed to learn their OWN role + permissions). Declared before the `:id` route so the literal "me" doesn't collide.
+2. New `getOwnMembership` controller method finds the caller's membership in the org and returns it via the existing `mapMembershipWithPermissions` helper. 404 if the caller isn't a member.
+3. `@blerp/nextjs auth()` now calls `/memberships/me` instead of `/memberships`. The response is a single membership object (not a wrapper); the SDK reads `role` + `permissions` directly.
+4. Integration test asserts the new route returns 200 with the caller's own permissions even when they have no membership-listing rights, and 404 for non-members.
+
 ### BUG-63 (codex round 6): `@blerp/nextjs auth().has()` overgrants admins because the SDK derives permissions from `role` via a wrong map (FIXED)
 
 **Status:** Fixed

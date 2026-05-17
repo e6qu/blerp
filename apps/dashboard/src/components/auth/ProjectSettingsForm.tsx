@@ -85,7 +85,7 @@ export function ProjectSettingsForm() {
           </label>
           {project.allowed_origins && project.allowed_origins.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-2">
-              {project.allowed_origins.map((origin, idx) => (
+              {project.allowed_origins.map((origin: string, idx: number) => (
                 <span
                   key={idx}
                   className="inline-flex items-center rounded-md bg-gray-100 dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200"

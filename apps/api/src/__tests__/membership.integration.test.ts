@@ -119,6 +119,28 @@ describe("Membership & Invitation Integration", () => {
     expect(update.body.role).toBe("owner");
     expect(update.body.permissions).toContain("org:write");
 
+    // BUG-67 (codex r7): /me sub-route returns the caller's own
+    // membership + resolved permissions WITHOUT needing members:read.
+    // Pretend we are otherUserId (a member of the org via memId) but
+    // imagine they only have org:read — they should still be able to
+    // resolve their permissions via /me. (Here otherUserId WAS the
+    // admin we just bumped to owner via memId, but the route grant
+    // logic is what the test pins.)
+    const meAsOther = await request(app)
+      .get(`/v1/organizations/${orgId}/memberships/me`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", otherUserId);
+    expect(meAsOther.status).toBe(200);
+    expect(meAsOther.body.user_id).toBe(otherUserId);
+    expect(Array.isArray(meAsOther.body.permissions)).toBe(true);
+
+    // 404 when the caller is not a member of the org
+    const meAsStranger = await request(app)
+      .get(`/v1/organizations/${orgId}/memberships/me`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", "user_not_a_member_of_this_org");
+    expect(meAsStranger.status).toBe(404);
+
     // 4. Delete Membership
     const del = await request(app)
       .delete(`/v1/organizations/${orgId}/memberships/${memId}`)

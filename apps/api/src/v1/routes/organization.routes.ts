@@ -41,6 +41,19 @@ router.post(
 );
 
 // Memberships
+//
+// BUG-67 (codex r7): the /me route is gated only by authMiddleware so a
+// custom-role user with `org:read` but not `members:read` can still
+// discover their own membership row + resolved permissions. Without this
+// path, `@blerp/nextjs auth()` would 403 against the LIST endpoint and
+// leave `orgPermissions` empty, making `has({ permission: "org:read" })`
+// return false for users who genuinely have that permission. Must be
+// declared before the `:id` route so the literal "me" doesn't collide.
+router.get(
+  "/organizations/:organization_id/memberships/me",
+  authMiddleware,
+  membershipController.getOwnMembership,
+);
 router.post(
   "/organizations/:organization_id/memberships",
   authMiddleware,

@@ -75,7 +75,14 @@ export async function auth() {
       try {
         const apiUrl = getApiUrl();
         const tenantId = getTenantId();
-        const res = await fetch(`${apiUrl}/v1/organizations/${orgId}/memberships`, {
+        // BUG-67 (codex r7): use the /me sub-route instead of the LIST
+        // endpoint. LIST is gated by `members:read`, which a custom
+        // role with only `org:read` doesn't have — so the previous
+        // call 403'd for those users and left `orgPermissions` empty,
+        // breaking `auth().has({ permission: "org:read" })`. /me is
+        // gated only by authMiddleware so every authenticated member
+        // can resolve their own permission set.
+        const res = await fetch(`${apiUrl}/v1/organizations/${orgId}/memberships/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "X-Tenant-Id": tenantId,
@@ -83,25 +90,15 @@ export async function auth() {
           cache: "no-store",
         });
         if (res.ok) {
-          const body = await res.json();
-          const membership = (body.data ?? []).find(
-            (m: { user_id?: string }) => m.user_id === userId,
-          );
-          if (membership) {
-            orgRole = membership.role ?? null;
-            // BUG-63 (codex r6): consume API-returned `permissions`
-            // verbatim. The membership controller (BUG-63 fix) now
-            // resolves the canonical permission set server-side
-            // (defaults + custom roles). Previously this branch
-            // derived permissions from `role` via a hard-coded map
-            // that disagreed with `apps/api/src/lib/rbac.ts` — `admin`
-            // here had `org:write` but the API's `admin` does NOT, so
-            // single-org admins passed `auth().has("org:write")`
-            // checks the API would reject. Real server-side overgrant.
-            orgPermissions = Array.isArray(membership.permissions)
-              ? (membership.permissions as string[])
-              : [];
-          }
+          const membership = (await res.json()) as {
+            role?: string;
+            permissions?: string[];
+          };
+          orgRole = membership.role ?? null;
+          // BUG-63 (codex r6): consume API-returned `permissions`
+          // verbatim — the membership controller resolves the canonical
+          // permission set server-side (defaults + custom roles).
+          orgPermissions = Array.isArray(membership.permissions) ? membership.permissions : [];
         }
       } catch {
         // Membership lookup failed — continue without role
