@@ -97,44 +97,83 @@ router.post(
   userController.unlockUser,
 );
 
+// BUG-150 (codex r34): nested user routes were left on bare
+// authMiddleware so any signed-in user could read/write another
+// user's email_addresses / identities / phone_numbers / mfa. Gate
+// with requireSelfOrM2M — same self-or-admin model as the main
+// /v1/users/:user_id routes (BUG-147).
+const readUserResource = requireSelfOrM2M("users:read", userIdFromParams);
+const writeUserResource = requireSelfOrM2M("users:write", userIdFromParams);
+
 // User Email Addresses
-router.get("/users/:user_id/email_addresses", authMiddleware, emailController.listEmails);
-router.post("/users/:user_id/email_addresses", authMiddleware, emailController.addEmail);
+router.get(
+  "/users/:user_id/email_addresses",
+  authMiddleware,
+  readUserResource,
+  emailController.listEmails,
+);
+router.post(
+  "/users/:user_id/email_addresses",
+  authMiddleware,
+  writeUserResource,
+  emailController.addEmail,
+);
 router.delete(
   "/users/:user_id/email_addresses/:email_address_id",
   authMiddleware,
+  writeUserResource,
   emailController.deleteEmail,
 );
 router.post(
   "/users/:user_id/email_addresses/:email_address_id/set_primary",
   authMiddleware,
+  writeUserResource,
   emailController.setPrimaryEmail,
 );
 
 // User Identities
-router.get("/users/:user_id/identities", authMiddleware, identityController.listIdentities);
+router.get(
+  "/users/:user_id/identities",
+  authMiddleware,
+  readUserResource,
+  identityController.listIdentities,
+);
 router.post(
   "/users/:user_id/identities/oauth",
   authMiddleware,
+  writeUserResource,
   identityController.linkOAuthIdentity,
 );
 router.delete(
   "/users/:user_id/identities/oauth/:oauth_account_id",
   authMiddleware,
+  writeUserResource,
   identityController.unlinkOAuthIdentity,
 );
 
 // User Phone Numbers
-router.get("/users/:user_id/phone_numbers", authMiddleware, phoneController.listPhoneNumbers);
-router.post("/users/:user_id/phone_numbers", authMiddleware, phoneController.addPhoneNumber);
+router.get(
+  "/users/:user_id/phone_numbers",
+  authMiddleware,
+  readUserResource,
+  phoneController.listPhoneNumbers,
+);
+router.post(
+  "/users/:user_id/phone_numbers",
+  authMiddleware,
+  writeUserResource,
+  phoneController.addPhoneNumber,
+);
 router.delete(
   "/users/:user_id/phone_numbers/:phone_number_id",
   authMiddleware,
+  writeUserResource,
   phoneController.deletePhoneNumber,
 );
 router.post(
   "/users/:user_id/phone_numbers/:phone_number_id/set_primary",
   authMiddleware,
+  writeUserResource,
   phoneController.setPrimaryPhone,
 );
 
@@ -166,15 +205,31 @@ router.delete(
   webauthnController.deletePasskey,
 );
 
-// TOTP/MFA
-router.post("/users/:user_id/mfa/totp", authMiddleware, totpController.enrollTotp);
-router.post("/users/:user_id/mfa/totp/verify", authMiddleware, totpController.verifyTotp);
+// TOTP/MFA — BUG-150 (codex r34): self-or-admin per BUG-147 pattern.
+router.post(
+  "/users/:user_id/mfa/totp",
+  authMiddleware,
+  writeUserResource,
+  totpController.enrollTotp,
+);
+router.post(
+  "/users/:user_id/mfa/totp/verify",
+  authMiddleware,
+  writeUserResource,
+  totpController.verifyTotp,
+);
 router.post(
   "/users/:user_id/mfa/backup_codes/regenerate",
   authMiddleware,
+  writeUserResource,
   totpController.regenerateBackupCodes,
 );
-router.delete("/users/:user_id/mfa/totp", authMiddleware, totpController.disableTotp);
+router.delete(
+  "/users/:user_id/mfa/totp",
+  authMiddleware,
+  writeUserResource,
+  totpController.disableTotp,
+);
 
 // Signup Restrictions (Allowlist/Blocklist)
 router.get("/signup-restrictions", authMiddleware, restrictionController.listRestrictions);

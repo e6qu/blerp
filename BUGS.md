@@ -1641,3 +1641,32 @@ Dev-shim: the X-User-Id header has always been the dev-only auth fallback for te
 **Files:** `apps/api/src/v1/services/auth.service.ts`
 
 **Fix applied:** Conditional INSERT using a raw SQL `INSERT … SELECT … FROM users WHERE users.id = ? AND users.locked = false RETURNING id`. SQLite serialises writes per connection so the `SELECT … FROM users WHERE locked = false` evaluates the row at write time. If any concurrent wrong attempt locked the user between the upstream atomic reset and this INSERT, the FROM clause returns 0 rows, the INSERT inserts nothing, and `RETURNING` is empty — the caller throws the same "Account is locked" error. No transaction needed; the conditional INSERT is itself atomic at the SQLite level.
+
+### BUG-149 (codex r34): M2M JWTs were not tenant-bound — token from tenant A could be replayed against tenant B (FIXED)
+
+**Status:** Fixed
+**Severity:** Critical — multi-tenancy bypass. M2M JWTs are signed by a shared service keypair (not per-tenant) and `authMiddleware` only verified the JWT signature + claims, then trusted whatever `client_id` / `scope` / `project_id` the JWT carried. The middleware never confirmed the token belonged to the **requested** tenant. An attacker holding tenant A's M2M token (or merely an admin of tenant A) could send `X-Tenant-Id: tenantB` plus the same `Authorization: Bearer <tenantA-token>` and gain admin access to tenant B — listing users, reading private_metadata, unlocking accounts, etc.
+**Files:** `apps/api/src/v1/services/m2m.service.ts`, `apps/api/src/v1/controllers/m2m.controller.ts`, `apps/api/src/middleware/auth.ts`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+**Fix applied:**
+
+- `M2MService.generateJwt` now takes `tenantId` and bakes it into the JWT payload as `tenant_id`. The mint path (`clientCredentialsGrant`) reads `req.tenantId` at exchange time.
+- `authMiddleware` reads `payload.tenant_id` and 401s if it doesn't match `req.tenantId`.
+- For tokens minted before this change (no `tenant_id` claim), the existing DB-lookup fallback for legacy `project_id`-less tokens doubles as a tenant binding check — the lookup runs against `req.tenantDb`, so the `clientId` simply doesn't resolve in the wrong tenant's DB and the request is rejected.
+
+Regression test creates an M2M token in tenant A, exchanges it for a JWT, confirms it works against tenant A, then replays it with `X-Tenant-Id: tenantB` and asserts a 401. Pre-fix the replay returned 200 with admin access.
+
+### BUG-150 (codex r34): Nested user routes (email / phone / identity / MFA) were left on bare authMiddleware — any session could manage another user's resources (FIXED)
+
+**Status:** Fixed
+**Severity:** High — BUG-147 gated `/v1/users/:user_id` and the bulk/delete/restore/unlock surfaces, but the nested resource routes still used bare `authMiddleware`. Controllers trust `req.params.user_id` directly, so any signed-in user could `POST /v1/users/<victim>/email_addresses` to take over an account, `POST /v1/users/<victim>/mfa/totp` to enroll an attacker-controlled second factor, etc.
+**Files:** `apps/api/src/v1/routes/auth.routes.ts`
+
+**Fix applied:** All nested user-resource routes now chain `authMiddleware` → `requireSelfOrM2M("users:read" | "users:write", userIdFromParams)`. Helpers `readUserResource` / `writeUserResource` constants applied to:
+
+- `/v1/users/:user_id/email_addresses` (+ deep paths)
+- `/v1/users/:user_id/identities` + `/identities/oauth` (+ deep)
+- `/v1/users/:user_id/phone_numbers` (+ deep)
+- `/v1/users/:user_id/mfa/totp` (+ verify, disable, regenerate)
+
+Self can manage their own resources; arbitrary cross-user access requires an M2M token with the appropriate scope.

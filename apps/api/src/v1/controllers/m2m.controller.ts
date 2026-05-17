@@ -193,9 +193,13 @@ export async function clientCredentialsGrant(req: Request, res: Response) {
   const keyPair = await getKeyPair();
   // BUG-142 (codex r31): pass the token's project so it gets baked
   // into the JWT and downstream checks can enforce project scoping.
+  // BUG-149 (codex r34): also pass the tenant so the JWT is bound to
+  // the tenant it was minted in. Without this, a tenant-A token could
+  // be replayed with X-Tenant-Id: tenantB.
   const accessToken = await m2mService.generateJwt(
     client_id,
     tokenRecord.projectId,
+    req.tenantId!,
     grantedScopes,
     keyPair.privateKey,
   );

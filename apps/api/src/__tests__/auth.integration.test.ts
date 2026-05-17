@@ -93,6 +93,56 @@ describe("Auth Integration", () => {
     expect(userRes.body.password_enabled).toBe(true);
   });
 
+  it("BUG-149 (codex r34): an M2M token minted in tenant A cannot be replayed against tenant B", async () => {
+    // Create a project + admin M2M token in tenant A via the dev-shim.
+    const tenantA = `bug149_${Date.now()}_a`;
+    const tenantB = `bug149_${Date.now()}_b`;
+    const dbA = await getTenantDb(tenantA);
+    await dbA.insert(schema.projects).values({
+      id: `proj_${tenantA}`,
+      ownerUserId: "owner",
+      name: "A",
+      slug: tenantA,
+    });
+    await getTenantDb(tenantB); // initialize so /v1/users hits the tenant
+
+    const mintRes = await request(app)
+      .post("/v1/m2m-tokens")
+      .set("X-Tenant-Id", tenantA)
+      .set("X-User-Id", "owner") // dev-shim grants users:admin scope
+      .send({
+        name: "tenant-a admin",
+        project_id: `proj_${tenantA}`,
+        scopes: ["users:admin", "users:read"],
+      });
+    expect(mintRes.status).toBe(201);
+    const { client_id, client_secret } = mintRes.body;
+
+    // Exchange for JWT.
+    const tokenRes = await request(app).post("/v1/oauth/token").set("X-Tenant-Id", tenantA).send({
+      grant_type: "client_credentials",
+      client_id,
+      client_secret,
+      scope: "users:admin users:read",
+    });
+    expect(tokenRes.status).toBe(200);
+    const m2mJwt = tokenRes.body.access_token;
+
+    // Use the token IN ITS OWN TENANT — should work.
+    const sameTenantRes = await request(app)
+      .get("/v1/users")
+      .set("X-Tenant-Id", tenantA)
+      .set("Authorization", `Bearer ${m2mJwt}`);
+    expect(sameTenantRes.status).toBe(200);
+
+    // Replay against tenant B — must be rejected.
+    const replayRes = await request(app)
+      .get("/v1/users")
+      .set("X-Tenant-Id", tenantB)
+      .set("Authorization", `Bearer ${m2mJwt}`);
+    expect(replayRes.status).toBe(401);
+  });
+
   it("BUG-138 (codex r29): unlock endpoint rejects session JWTs and requires an M2M token", async () => {
     // Provision a user + session.
     const signupRes = await request(app)
