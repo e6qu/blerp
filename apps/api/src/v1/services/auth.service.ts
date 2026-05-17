@@ -358,27 +358,25 @@ export class AuthService {
       .set({ lastSignInAt: new Date(), updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
 
-    // BUG-49: include the user's active org context as JWT claims when one
-    // exists. Clerk's session JWT carries org_id / org_role / org_slug /
-    // org_permissions whenever a user has an active organization, so
-    // server-rendered consumers (our @blerp/nextjs auth()) can read the
-    // role without a network round-trip. Without an active org, omit the
-    // org_* claims entirely (matches Clerk's behaviour for users in zero
-    // organizations).
-    const activeMembership = await this.db.query.memberships.findFirst({
+    // BUG-49 + codex-followup: stamp org_* JWT claims ONLY when the user
+    // has exactly one membership (unambiguous active org). For multi-org
+    // users the sign-in flow has no input telling us which org the user
+    // wants active, so picking `findFirst` would pin a random one into
+    // the JWT and the org-switcher's `__blerp_org` cookie would never
+    // take effect server-side (because the JWT claim takes precedence in
+    // @blerp/nextjs `auth()` for permissions resolution). Users in zero
+    // organizations never get the org claims (matches Clerk).
+    const memberships = await this.db.query.memberships.findMany({
       where: eq(schema.memberships.userId, userId),
       with: { organization: true },
     });
     const orgClaims: Record<string, unknown> = {};
-    if (activeMembership) {
-      const permissions = await resolvePermissions(
-        this.db,
-        activeMembership.organizationId,
-        activeMembership.role,
-      );
-      orgClaims.org_id = activeMembership.organizationId;
-      orgClaims.org_role = activeMembership.role;
-      orgClaims.org_slug = activeMembership.organization?.slug ?? null;
+    if (memberships.length === 1) {
+      const m = memberships[0];
+      const permissions = await resolvePermissions(this.db, m.organizationId, m.role);
+      orgClaims.org_id = m.organizationId;
+      orgClaims.org_role = m.role;
+      orgClaims.org_slug = m.organization?.slug ?? null;
       orgClaims.org_permissions = permissions;
     }
 

@@ -44,13 +44,29 @@ export async function auth() {
 
     const sessionPayload = payload as BlerpSessionPayload;
     const userId = (sessionPayload.sub as string) || null;
-    // org_id can come from JWT claims OR from the __blerp_org cookie (set by OrganizationSwitcher)
-    const orgIdFromCookie = cookieStore.get("__blerp_org")?.value;
-    const orgId = (sessionPayload.org_id as string) || orgIdFromCookie || null;
 
-    // If org comes from cookie (not JWT), fetch the membership role from the API
-    let orgRole = (sessionPayload.org_role as string) || null;
-    let orgPermissions = (sessionPayload.org_permissions as string[]) || [];
+    // Active-org resolution order (BUG-49 + codex-followup):
+    //   1. `__blerp_org` cookie if set — reflects the user's explicit
+    //      OrganizationSwitcher choice and must win over any stale JWT
+    //      claim. Otherwise switching orgs mid-session would never take
+    //      effect server-side.
+    //   2. JWT claim if present — issued by AuthService only when the
+    //      user has exactly one membership (unambiguous active org).
+    //   3. null — no active org.
+    const orgIdFromCookie = cookieStore.get("__blerp_org")?.value;
+    const orgIdFromClaim = (sessionPayload.org_id as string) || null;
+    const orgId = orgIdFromCookie || orgIdFromClaim || null;
+
+    // Trust the JWT role / permissions only when the JWT and the cookie
+    // agree on the active org. If the cookie says a different org, we
+    // need fresh role + permissions for *that* org — fall through to
+    // the API fetch below.
+    const claimsMatchActiveOrg = orgIdFromClaim && orgIdFromClaim === orgId;
+    let orgRole = claimsMatchActiveOrg ? (sessionPayload.org_role as string) || null : null;
+    let orgPermissions = claimsMatchActiveOrg
+      ? (sessionPayload.org_permissions as string[]) || []
+      : [];
+
     if (orgId && !orgRole && userId && token) {
       try {
         const apiUrl = getApiUrl();

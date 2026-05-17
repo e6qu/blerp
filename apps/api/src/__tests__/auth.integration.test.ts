@@ -165,7 +165,7 @@ describe("Auth Integration", () => {
     expect(userinfoRes.body.email).toBe(email);
   });
 
-  it("BUG-49: session JWT carries org_id / org_role / org_slug / org_permissions when the user has an active membership", async () => {
+  it("BUG-49: session JWT carries org_id / org_role / org_slug / org_permissions when the user has exactly one membership", async () => {
     const email = "jwt-orgclaims@blerp.dev";
     const password = "SecurePass123!";
 
@@ -234,6 +234,65 @@ describe("Auth Integration", () => {
     expect(Array.isArray(payload.org_permissions)).toBe(true);
     expect(payload.org_permissions).toContain("org:write");
     expect(payload.org_permissions).toContain("members:write");
+  });
+
+  it("BUG-49 (codex-followup): session JWT omits org_* claims when the user has multiple memberships — avoids pinning an arbitrary org and breaking server-side org switching", async () => {
+    const email = "jwt-multiorg@blerp.dev";
+    const password = "SecurePass123!";
+
+    // Sign up + set password
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({ email, strategy: "password" });
+    const attemptRes = await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+    const userId = attemptRes.body.userId;
+    await request(app)
+      .patch(`/v1/users/${userId}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", userId)
+      .send({ password });
+
+    // Seed TWO memberships in different orgs (project reused from the prior
+    // test — same beforeAll fixture; we only need fresh org rows).
+    const db = await getTenantDb(tenantId);
+    const orgA = `org_multi_a_${Date.now()}`;
+    const orgB = `org_multi_b_${Date.now()}`;
+    await db.insert(schema.organizations).values([
+      { id: orgA, projectId: "proj_orgclaims", name: "Org A", slug: `org-a-${Date.now()}` },
+      { id: orgB, projectId: "proj_orgclaims", name: "Org B", slug: `org-b-${Date.now()}` },
+    ]);
+    await db.insert(schema.memberships).values([
+      { id: `mem_a_${Date.now()}`, organizationId: orgA, userId, role: "owner" },
+      { id: `mem_b_${Date.now()}`, organizationId: orgB, userId, role: "admin" },
+    ]);
+
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: email, strategy: "password" });
+    const signinAttempt = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: email, password });
+    expect(signinAttempt.status).toBe(200);
+
+    const accessToken = signinAttempt.body.tokens.access_token as string;
+    const [, payloadB64] = accessToken.split(".");
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf-8"));
+
+    expect(payload.sub).toBe(userId);
+    expect(payload.sid).toBeTruthy();
+    // Multi-org users get NO org_* claims at sign-in — the
+    // OrganizationSwitcher's `__blerp_org` cookie decides the active
+    // org and @blerp/nextjs `auth()` resolves the role via API.
+    expect(payload).not.toHaveProperty("org_id");
+    expect(payload).not.toHaveProperty("org_role");
+    expect(payload).not.toHaveProperty("org_slug");
+    expect(payload).not.toHaveProperty("org_permissions");
   });
 
   it("should reject invalid JWT with 401", async () => {

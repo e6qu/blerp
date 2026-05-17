@@ -640,6 +640,20 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-53 (codex): BUG-49 fix regressed multi-org users — arbitrary membership stamped into JWT broke org switching (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — `auth()` reported the wrong org/role/permissions after a user switched orgs via `OrganizationSwitcher`
+**Files:** `apps/api/src/v1/services/auth.service.ts`, `packages/nextjs/src/server/auth.ts`, `apps/api/src/__tests__/auth.integration.test.ts`
+
+Codex review of PR #53 caught that BUG-49's `findFirst` membership lookup picked an arbitrary org for multi-org users and stamped it into the JWT. Since `@blerp/nextjs auth()` preferred the JWT `org_id` over the `__blerp_org` cookie, switching orgs via `OrganizationSwitcher` never took effect server-side.
+
+**Fix applied:**
+
+1. `AuthService.createSessionForUser`: only stamp `org_*` JWT claims when the user has **exactly one** membership (unambiguous active org). Zero or multi membership users get a claim-free JWT and fall through to the existing API-fetch path in `auth()`.
+2. `@blerp/nextjs/server/auth.ts`: reordered active-org resolution to (a) `__blerp_org` cookie first (reflects user intent), (b) JWT claim, (c) null. JWT role / permissions are trusted only when the claim matches the cookie-derived active org; otherwise we re-fetch from the API for the _current_ org. The result is forward-compatible: single-org users still get the JWT fast-path; multi-org switches stay accurate; future "stamp on org switch" re-mint would just hit the matching path automatically.
+3. New `auth.integration.test.ts` case asserts `org_*` claims are absent when the user has two memberships.
+
 ### BUG-49: Session JWT missing `org_id` / `org_role` / `org_slug` / `org_permissions` claims when an active org is in scope (FIXED)
 
 **Status:** Fixed
