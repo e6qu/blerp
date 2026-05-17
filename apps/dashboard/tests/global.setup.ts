@@ -6,15 +6,23 @@ import { fileURLToPath } from "node:url";
 // turbo `^build` graph, so a runtime import of `@blerp/shared` would
 // fail on a fresh checkout where `packages/shared/dist` is missing.
 // Inline the env reads here. Same dual-name semantics as the shared
-// helper (BLERP_* > CLERK_* > default). BUG-74 (codex r11): strip a
-// trailing `/v1` so Clerk-style URLs don't compound into `/v1/v1/...`
-// when callers append the version path.
+// helper (BLERP_* > CLERK_* > default).
+// BUG-74 (codex r11): strip trailing `/v1` so Clerk-style URLs don't
+// compound into `/v1/v1/...`.
+// BUG-79/80 (codex r15): coerce blank-string env vars to undefined
+// (so `BLERP_API_URL=` doesn't short-circuit CLERK_API_URL) and strip
+// any remaining trailing slash so the appended `/v1/...` paths don't
+// become `//v1/...`.
+const nonBlank = (v: string | undefined) => (v && v.trim() !== "" ? v : undefined);
 const API_URL = (
-  process.env.BLERP_API_URL ??
-  process.env.CLERK_API_URL ??
+  nonBlank(process.env.BLERP_API_URL) ??
+  nonBlank(process.env.CLERK_API_URL) ??
   "http://localhost:3000"
-).replace(/\/v1\/?$/i, "");
-const TENANT_ID = process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant";
+)
+  .replace(/\/v1\/?$/i, "")
+  .replace(/\/+$/, "");
+const TENANT_ID =
+  nonBlank(process.env.BLERP_TENANT_ID) ?? nonBlank(process.env.CLERK_TENANT_ID) ?? "demo-tenant";
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
 export interface E2ESession {

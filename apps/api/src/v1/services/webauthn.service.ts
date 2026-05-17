@@ -19,11 +19,17 @@ import { TransientStore } from "../../lib/transient-store";
 function readApiUrl(): string {
   // BUG-74 (codex r11): strip a trailing `/v1` so Clerk-style URLs
   // (`https://api.example.com/v1`) don't compound into `/v1/v1/...`.
+  // BUG-79/80 (codex r15): coerce blank-string vars to undefined so
+  // an empty BLERP_API_URL doesn't short-circuit the CLERK fallback;
+  // strip a trailing slash to avoid `//v1/...` on bare-host URLs.
+  const nonBlank = (v: string | undefined) => (v && v.trim() !== "" ? v : undefined);
   return (
-    process.env.BLERP_API_URL ??
-    process.env.CLERK_API_URL ??
+    nonBlank(process.env.BLERP_API_URL) ??
+    nonBlank(process.env.CLERK_API_URL) ??
     "http://localhost:3000"
-  ).replace(/\/v1\/?$/i, "");
+  )
+    .replace(/\/v1\/?$/i, "")
+    .replace(/\/+$/, "");
 }
 
 function getRpId(): string {

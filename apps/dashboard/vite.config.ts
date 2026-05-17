@@ -20,10 +20,17 @@ const dirname =
 // expects the dashboard proxy to follow. The dual-name read still strips
 // a trailing `/v1` (BUG-74). When only a port-style env var is set, build
 // the localhost URL ourselves.
+function nonBlank(v: string | undefined): string | undefined {
+  return v && v.trim() !== "" ? v : undefined;
+}
 function resolveApiTarget(): string {
-  const rawUrl = process.env.BLERP_API_URL ?? process.env.CLERK_API_URL;
-  if (rawUrl) return rawUrl.replace(/\/v1\/?$/i, "");
-  const port = process.env.BLERP_API_PORT ?? process.env.PORT ?? "3000";
+  // BUG-79 (codex r15): coerce blank-string env vars to undefined so
+  // an empty BLERP_API_URL doesn't short-circuit the CLERK_API_URL
+  // fallback. BUG-80: strip a trailing slash as well as `/v1` so the
+  // `/v1/...` paths callers append don't produce `//v1/...`.
+  const rawUrl = nonBlank(process.env.BLERP_API_URL) ?? nonBlank(process.env.CLERK_API_URL);
+  if (rawUrl) return rawUrl.replace(/\/v1\/?$/i, "").replace(/\/+$/, "");
+  const port = nonBlank(process.env.BLERP_API_PORT) ?? nonBlank(process.env.PORT) ?? "3000";
   return `http://localhost:${port}`;
 }
 

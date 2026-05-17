@@ -6,14 +6,20 @@ import { fileURLToPath } from "node:url";
 // turbo build graph, so importing `@blerp/nextjs/server` (which
 // resolves to packages/nextjs/dist) would fail on a clean checkout.
 // Same inlining pattern as apps/dashboard/tests/global.setup.ts.
-// BUG-74 (codex r11): strip a trailing `/v1` so Clerk-style URLs
-// don't compound into `/v1/v1/...` when callers append the version.
+// BUG-74/79/80 (codex r11/r15): strip trailing `/v1` AND any other
+// trailing slashes so Clerk-style URLs (`.../v1`, `.../`) don't
+// compound to `//v1/...`. Coerce blank-string env vars to undefined
+// so `BLERP_API_URL=` doesn't short-circuit CLERK_API_URL.
+const nonBlank = (v: string | undefined) => (v && v.trim() !== "" ? v : undefined);
 const API_URL = (
-  process.env.BLERP_API_URL ??
-  process.env.CLERK_API_URL ??
+  nonBlank(process.env.BLERP_API_URL) ??
+  nonBlank(process.env.CLERK_API_URL) ??
   "http://localhost:3000"
-).replace(/\/v1\/?$/i, "");
-const TENANT_ID = process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant";
+)
+  .replace(/\/v1\/?$/i, "")
+  .replace(/\/+$/, "");
+const TENANT_ID =
+  nonBlank(process.env.BLERP_TENANT_ID) ?? nonBlank(process.env.CLERK_TENANT_ID) ?? "demo-tenant";
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
 export interface E2ESession {
