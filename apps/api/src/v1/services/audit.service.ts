@@ -32,6 +32,12 @@ export class AuditLogService {
   async list(filters?: {
     userId?: string;
     organizationId?: string;
+    // BUG-161 (codex r40): project scope. Controllers pass the
+    // authenticated M2M token's project_id; events with a different
+    // project_id (or system-level events with NULL project_id) are
+    // hidden from project-scoped callers. Dev shim passes undefined
+    // so it sees the full tenant stream.
+    projectId?: string;
     action?: string;
     actorId?: string;
     startDate?: string;
@@ -46,6 +52,9 @@ export class AuditLogService {
     }
     if (filters?.organizationId) {
       whereClauses.push(eq(schema.auditLogs.organizationId, filters.organizationId));
+    }
+    if (filters?.projectId) {
+      whereClauses.push(eq(schema.auditLogs.projectId, filters.projectId));
     }
     if (filters?.action) {
       whereClauses.push(eq(schema.auditLogs.action, filters.action));

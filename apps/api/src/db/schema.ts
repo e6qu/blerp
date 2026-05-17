@@ -238,6 +238,13 @@ export const auditLogs = sqliteTable(
     id: text("id").primaryKey(),
     userId: text("user_id"),
     organizationId: text("organization_id"),
+    // BUG-161 (codex r40): project_id for project-scoped audit reads.
+    // Populated at write time when the action is project-scoped
+    // (derivable from organization_id → org.project_id, or supplied
+    // directly by callers acting on project-level resources). NULL for
+    // tenant-system-level events (only visible to dev-shim / non-
+    // project-scoped admin tokens).
+    projectId: text("project_id"),
     action: text("action").notNull(),
     actor: text("actor", { mode: "json" }).notNull(),
     payload: text("payload", { mode: "json" }).notNull().default("{}"),
@@ -250,11 +257,18 @@ export const auditLogs = sqliteTable(
   (table) => ({
     userIdIdx: index("audit_logs_user_id_idx").on(table.userId),
     organizationIdIdx: index("audit_logs_org_id_idx").on(table.organizationId),
+    projectIdIdx: index("audit_logs_project_id_idx").on(table.projectId),
   }),
 );
 
 export const webhookEndpoints = sqliteTable("webhook_endpoints", {
   id: text("id").primaryKey(),
+  // BUG-162 (codex r40): project-scope webhook endpoints. Pre-fix
+  // endpoints were tenant-wide, so a project-A M2M token with
+  // webhooks:* could list/read (incl. signing secrets!) / update /
+  // delete project-B's endpoints. Now every endpoint belongs to one
+  // project; admin ops are gated by `req.m2m.projectId === project_id`.
+  projectId: text("project_id").notNull().default("default"),
   url: text("url").notNull(),
   secret: text("secret").notNull(),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),

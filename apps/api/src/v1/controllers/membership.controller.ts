@@ -92,12 +92,22 @@ export async function listMemberships(req: Request, res: Response) {
 }
 
 export async function updateMembership(req: Request, res: Response) {
+  // BUG-160 (codex r40): require the membership to belong to the org
+  // from the path before updating. Pre-fix the service updated by id
+  // alone, so a caller with `members:write` on org A could update a
+  // membership belonging to org B by passing org A in the path and
+  // org B's membership id.
+  const organizationId = req.params.organization_id as string;
   const id = req.params.id as string;
   const { role } = req.body;
   const service = new MembershipService(req.tenantDb!);
 
   try {
-    const membership = await service.update(id, { role });
+    const membership = await service.updateInOrg(organizationId, id, { role });
+    if (!membership) {
+      res.status(404).json({ error: { message: "Membership not found in this organization" } });
+      return;
+    }
     res
       .status(200)
       .json(await mapMembershipWithPermissions(req.tenantDb!, membership as DBMembership));
@@ -107,11 +117,17 @@ export async function updateMembership(req: Request, res: Response) {
 }
 
 export async function deleteMembership(req: Request, res: Response) {
+  // BUG-160 (codex r40): same org-binding check as updateMembership.
+  const organizationId = req.params.organization_id as string;
   const id = req.params.id as string;
   const service = new MembershipService(req.tenantDb!);
 
   try {
-    await service.delete(id);
+    const ok = await service.deleteInOrg(organizationId, id);
+    if (!ok) {
+      res.status(404).json({ error: { message: "Membership not found in this organization" } });
+      return;
+    }
     res.status(204).send();
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });

@@ -59,8 +59,35 @@ export class MembershipService {
     return this.get(id);
   }
 
+  // BUG-160 (codex r40): scoped variants used by controllers that have
+  // an organization_id in the path. The legacy id-only methods stay so
+  // internal callers that already verified the org don't pay the cost
+  // twice.
+  async updateInOrg(organizationId: string, id: string, data: { role: string }) {
+    const row = await this.db.query.memberships.findFirst({
+      where: and(
+        eq(schema.memberships.id, id),
+        eq(schema.memberships.organizationId, organizationId),
+      ),
+    });
+    if (!row) return null;
+    return this.update(id, data);
+  }
+
   async delete(id: string) {
     await this.db.delete(schema.memberships).where(eq(schema.memberships.id, id));
+  }
+
+  async deleteInOrg(organizationId: string, id: string): Promise<boolean> {
+    const row = await this.db.query.memberships.findFirst({
+      where: and(
+        eq(schema.memberships.id, id),
+        eq(schema.memberships.organizationId, organizationId),
+      ),
+    });
+    if (!row) return false;
+    await this.delete(id);
+    return true;
   }
 
   async leaveOrganization(organizationId: string, userId: string) {

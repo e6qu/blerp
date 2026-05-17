@@ -1760,3 +1760,27 @@ The dev X-User-Id shim was extended to grant the full scope set (`webhooks:*`, `
 **Files:** `apps/api/src/middleware/rbac.ts`
 
 **Fix applied:** In the M2M branch, after the scope check, also resolve the organization (from `req.params.organization_id` / body / query — the route's own middleware sets `req.params.organization_id` before this gate runs, per BUG-158's pattern) and require `org.projectId === req.m2m.projectId`. Dev shim wildcard preserved (clientId starts with "dev-shim:" → skipped). Returns `ForbiddenError` with a clear "M2M token is scoped to a different project than this organization" message.
+
+### BUG-160 (codex r40): Membership PATCH/DELETE didn't verify org match — cross-org membership mutation by id (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `MembershipService.update(id)` / `.delete(id)` mutated by membership id alone. A caller with `members:write` on org A could update or delete an org-B membership by hitting org A's nested route with org B's membership id. The RBAC gate authorized the path org but the service didn't enforce the binding.
+**Files:** `apps/api/src/v1/services/membership.service.ts`, `apps/api/src/v1/controllers/membership.controller.ts`
+
+**Fix applied:** New `updateInOrg(organizationId, id, data)` and `deleteInOrg(organizationId, id): Promise<boolean>` service methods that find the row scoped to the org and only mutate when it matches. Controllers wired through. 404 when the id doesn't exist in the path's org.
+
+### BUG-161 (codex r40): Audit logs were tenant-wide for project-scoped M2M (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `requireM2M("audit_logs:read")` only checked scope. Controller and service had no concept of project — any project-scoped M2M with the scope read the full tenant's audit stream including other projects' events.
+**Files:** `apps/api/src/db/schema.ts`, `apps/api/drizzle/0016_harsh_sersi.sql`, `apps/api/src/v1/services/audit.service.ts`, `apps/api/src/v1/controllers/audit.controller.ts`
+
+**Fix applied:** Added `project_id` (nullable, indexed) column to `audit_logs`. Service `.list({ projectId? })` filters on it when supplied; null when omitted (dev shim sees the full stream). Controller passes `req.m2m.projectId` for real M2M tokens, undefined for the dev shim. Tenant-system-level events (project_id NULL) are visible only to the dev shim — project-scoped tokens won't see them. Writers (the audit worker) should be updated in a follow-up to populate project_id from the action's context; existing rows have NULL and are invisible to project-scoped readers until they're back-filled or new events accrue.
+
+### BUG-162 (codex r40): Webhook endpoints had no `project_id` — admin scopes were tenant-wide; signing secrets leaked across projects (FIXED)
+
+**Status:** Fixed
+**Severity:** High — `webhook_endpoints` schema had no project association. A project-A M2M token with `webhooks:read` could list every webhook in the tenant — and the list response includes the signing `secret`. `webhooks:write` could update/delete other projects' endpoints. Direct cross-project privilege escalation.
+**Files:** `apps/api/src/db/schema.ts`, `apps/api/drizzle/0016_harsh_sersi.sql`, `apps/api/src/v1/services/webhook.service.ts`, `apps/api/src/v1/controllers/webhook.controller.ts`
+
+**Fix applied:** Added `project_id` (NOT NULL, default `"default"` so existing rows remain accessible to the bootstrap project) to `webhook_endpoints`. Every service method takes `projectId` and filters/binds against it. Controllers derive the project from `req.m2m.projectId` (or "default" for the dev shim / unscoped callers). Reads return only the project's endpoints; updates/deletes verify the endpoint belongs to the project before mutating (404 otherwise).
