@@ -256,14 +256,22 @@ describe("Auth Integration", () => {
       .set("X-User-Id", userId)
       .send({ password });
 
-    // Seed TWO memberships in different orgs (project reused from the prior
-    // test — same beforeAll fixture; we only need fresh org rows).
+    // Seed TWO memberships in different orgs. Self-contained — do not
+    // depend on the prior test's `proj_orgclaims` insert because
+    // tests can run in isolation (codex r5 BUG-62).
     const db = await getTenantDb(tenantId);
+    const projectId = `proj_multi_${Date.now()}`;
+    await db.insert(schema.projects).values({
+      id: projectId,
+      ownerUserId: userId,
+      name: "Multi-Org Project",
+      slug: `multi-org-project-${Date.now()}`,
+    });
     const orgA = `org_multi_a_${Date.now()}`;
     const orgB = `org_multi_b_${Date.now()}`;
     await db.insert(schema.organizations).values([
-      { id: orgA, projectId: "proj_orgclaims", name: "Org A", slug: `org-a-${Date.now()}` },
-      { id: orgB, projectId: "proj_orgclaims", name: "Org B", slug: `org-b-${Date.now()}` },
+      { id: orgA, projectId, name: "Org A", slug: `org-a-${Date.now()}` },
+      { id: orgB, projectId, name: "Org B", slug: `org-b-${Date.now()}` },
     ]);
     await db.insert(schema.memberships).values([
       { id: `mem_a_${Date.now()}`, organizationId: orgA, userId, role: "owner" },

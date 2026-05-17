@@ -45,29 +45,33 @@ export async function auth() {
     const sessionPayload = payload as BlerpSessionPayload;
     const userId = (sessionPayload.sub as string) || null;
 
-    // Active-org resolution order (BUG-49 + codex-followup):
+    // Active-org resolution order (BUG-49 + codex r1/r5 followups):
     //   1. `__blerp_org` cookie if set — reflects the user's explicit
     //      OrganizationSwitcher choice and must win over any stale JWT
     //      claim. Otherwise switching orgs mid-session would never take
     //      effect server-side.
     //   2. JWT claim if present — issued by AuthService only when the
-    //      user has exactly one membership (unambiguous active org).
+    //      user has exactly one membership at sign-in (unambiguous
+    //      active org). Treated as a hint, not authoritative data.
     //   3. null — no active org.
     const orgIdFromCookie = cookieStore.get("__blerp_org")?.value;
     const orgIdFromClaim = (sessionPayload.org_id as string) || null;
     const orgId = orgIdFromCookie || orgIdFromClaim || null;
 
-    // Trust the JWT role / permissions only when the JWT and the cookie
-    // agree on the active org. If the cookie says a different org, we
-    // need fresh role + permissions for *that* org — fall through to
-    // the API fetch below.
-    const claimsMatchActiveOrg = orgIdFromClaim && orgIdFromClaim === orgId;
-    let orgRole = claimsMatchActiveOrg ? (sessionPayload.org_role as string) || null : null;
-    let orgPermissions = claimsMatchActiveOrg
-      ? (sessionPayload.org_permissions as string[]) || []
-      : [];
+    // BUG-61 (codex r5): never trust `org_role` / `org_permissions` from
+    // the JWT for authorization. Our session JWTs are 7-day; a demoted
+    // or deleted membership would otherwise grant revoked permissions
+    // for the rest of the token's lifetime because `has()` reads from
+    // claims. ALWAYS re-resolve role + permissions from the API for
+    // the active org. The JWT claims are still useful as a fast-path
+    // hint that the user has SOME active membership, but the
+    // authoritative permissions check goes back to the membership
+    // table on every request. (Clerk emits the same claims because
+    // Clerk's session JWTs are short-lived ~60s; ours are not.)
+    let orgRole: string | null = null;
+    let orgPermissions: string[] = [];
 
-    if (orgId && !orgRole && userId && token) {
+    if (orgId && userId && token) {
       try {
         const apiUrl = getApiUrl();
         const tenantId = getTenantId();

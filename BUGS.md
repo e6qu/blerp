@@ -640,6 +640,26 @@ Clerk's REST always returns the `errors` plural array. Even on a single-error re
 
 **Fix applied:** `listOrganizations` and `listAuditLogs` now emit `{ data, total_count, meta: { total } }` — `total_count` is the new canonical Clerk-compat field; `meta.total` stays as a one-release legacy alias. Other list controllers (users, m2m tokens, sessions, invitations, webhooks, domains) already returned `{ data: [...] }` without total (no pagination metadata in the response at all); they're untouched in this PR. Integration test `audit controller` block in `controllers-audit.integration.test.ts` now asserts `body.total_count` AND that it equals `body.meta.total` (back-compat).
 
+### BUG-61 (codex round 5): JWT-claim shortcut grants stale org permissions for up to 7 days after a role change (FIXED)
+
+**Status:** Fixed
+**Severity:** **P1 — security** — `auth().has(...)` returned true for revoked permissions until the JWT naturally expired
+**Files:** `packages/nextjs/src/server/auth.ts`
+
+Codex round 5 caught that BUG-49's optimization (skip the API fetch in `auth()` when JWT claims match the active org) creates a stale-authorization vulnerability for our long-lived (7-day) session JWTs. If an admin demotes a user, removes their membership, or shrinks the permissions of a custom role, the user's existing sessions keep returning the OLD `org_role` / `org_permissions` from the JWT — so `auth().has("org:write")` keeps returning `true` long after the permission was revoked. Clerk doesn't have this problem because Clerk's session JWTs are short-lived (~60 seconds) and re-minted continuously; ours aren't.
+
+**Fix applied:** `auth()` now ALWAYS re-resolves `org_role` + `org_permissions` from the membership API when an active org is in scope, ignoring the corresponding JWT claims. The `org_id` JWT claim is still useful as a hint (single-org users get a free active-org identifier without needing the `__blerp_org` cookie), but role + permissions go through the membership lookup every time so revocation takes effect immediately. The right long-term fix is either short-lived JWTs with refresh tokens (Clerk's model) or session-invalidation-on-membership-change — both bigger projects tracked separately. Comment in the file calls out the trade-off explicitly so future "optimize this fetch" temptations don't reintroduce the bug.
+
+### BUG-62 (codex round 5): Multi-org integration test relied on a project seeded by the previous test (FIXED)
+
+**Status:** Fixed
+**Severity:** P3 — would fail if tests run in isolation (e.g. `vitest -t multi-org`) or in shuffled order
+**Files:** `apps/api/src/__tests__/auth.integration.test.ts`
+
+The BUG-53 regression test inserted orgs with `projectId: "proj_orgclaims"` but never seeded that project itself — it relied on the prior BUG-49 single-org test having seeded it earlier in the same file. Running the multi-org test alone would fail with a foreign-key violation.
+
+**Fix applied:** The multi-org test now seeds its own project (`proj_multi_${Date.now()}`) before inserting the orgs. Self-contained — order-independent. 8/8 auth tests still pass.
+
 ### BUG-59 (codex round 4): `app.listen(getApiPort())` bound a Unix socket instead of a TCP port on default startup (FIXED)
 
 **Status:** Fixed
