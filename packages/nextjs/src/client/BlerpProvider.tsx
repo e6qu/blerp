@@ -15,6 +15,7 @@ import {
   getSignUpUrl,
   getTenantId,
 } from "@blerp/shared";
+import { clearSessionCookies, readSessionCookie } from "./session-cookies";
 
 // BUG-99 / BUG-107 (codex r18): full runtime-config shape served by
 // /v1/public-config. Validates an unknown JSON payload via a type
@@ -44,7 +45,6 @@ function isPublicConfig(value: unknown): value is PublicConfig {
     typeof v.telemetry_disabled === "boolean"
   );
 }
-import { clearSessionCookies, readSessionCookie } from "./session-cookies";
 
 const queryClient = new QueryClient();
 
