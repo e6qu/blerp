@@ -88,6 +88,29 @@ export async function listOrganizations(req: Request, res: Response) {
   // (per-tenant counter that mutations increment).
   const projectId = typeof project_id === "string" ? project_id : undefined;
 
+  // BUG-178 (codex r48): when no explicit `project_id` is supplied,
+  // derive the scope from the auth context. Mirrors Clerk's session
+  // semantics: `clerkClient.organizations.list()` returns orgs the
+  // caller can actually see.
+  //   * Real M2M token with a project scope → restrict to that project.
+  //   * Session JWT (or X-User-Id dev shim) → restrict to orgs the
+  //     user is a member of, or projects the user owns.
+  //   * Tenant-root M2M (only mintable via the chain-of-trust gate, see
+  //     `createM2MToken`) → no filter; returns every org in the tenant.
+  // The route only attaches `requireProjectAccess` when `project_id`
+  // is explicit, so the auth-context scope below is the sole defence
+  // against tenant-wide enumeration for the "no project_id" path.
+  let derivedProjectId: string | undefined;
+  let accessibleToUserId: string | undefined;
+  if (!projectId && !domain) {
+    const isDevShimM2M = req.m2m?.clientId.startsWith("dev-shim") ?? false;
+    if (req.m2m && !isDevShimM2M && req.m2m.projectId) {
+      derivedProjectId = req.m2m.projectId;
+    } else if (req.user) {
+      accessibleToUserId = req.user.id;
+    }
+  }
+
   const parsedLimit = limit ? parseInt(limit, 10) : undefined;
   const parsedOffset = offset ? parseInt(offset, 10) : undefined;
 
@@ -96,7 +119,8 @@ export async function listOrganizations(req: Request, res: Response) {
   const result = await service.list({
     domain,
     query,
-    projectId,
+    projectId: projectId ?? derivedProjectId,
+    accessibleToUserId,
     limit: parsedLimit,
     offset: parsedOffset,
   });

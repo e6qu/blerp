@@ -141,4 +141,88 @@ describe("Organization Integration", () => {
 
     expect(deleteMissing.status).toBe(403);
   });
+
+  it("BUG-178 (codex r48): GET /v1/organizations without project_id scopes to caller's accessible orgs, not the whole tenant", async () => {
+    const tenant = "org_tenant_bug178";
+    const projectA = "proj_bug178_a";
+    const projectB = "proj_bug178_b";
+    const userA = "user_bug178_a";
+    const userB = "user_bug178_b";
+
+    clearDbCache();
+    const tenantsDir = path.resolve(process.cwd(), "tenants");
+    if (!fs.existsSync(tenantsDir)) fs.mkdirSync(tenantsDir, { recursive: true });
+    const dbPath = path.join(tenantsDir, `${tenant}.db`);
+    if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+
+    const db = await getTenantDb(tenant);
+    await db.insert(schema.projects).values([
+      { id: projectA, name: "Project A", slug: "proj-a", ownerUserId: userA },
+      { id: projectB, name: "Project B", slug: "proj-b", ownerUserId: userB },
+    ]);
+    await db.insert(schema.users).values([
+      { id: userA, firstName: "Alpha", lastName: "User" },
+      { id: userB, firstName: "Beta", lastName: "User" },
+    ]);
+
+    const orgA1Res = await request(app)
+      .post("/v1/organizations")
+      .set("X-Tenant-Id", tenant)
+      .set("X-User-Id", userA)
+      .send({ name: "Org A1", slug: "org-a1", project_id: projectA });
+    expect(orgA1Res.status).toBe(201);
+    const orgA1Id = orgA1Res.body.id;
+    await db.insert(schema.memberships).values({
+      id: "mem_bug178_a1",
+      organizationId: orgA1Id,
+      userId: userA,
+      role: "owner",
+    });
+
+    const orgB1Res = await request(app)
+      .post("/v1/organizations")
+      .set("X-Tenant-Id", tenant)
+      .set("X-User-Id", userB)
+      .send({ name: "Org B1", slug: "org-b1", project_id: projectB });
+    expect(orgB1Res.status).toBe(201);
+    await db.insert(schema.memberships).values({
+      id: "mem_bug178_b1",
+      organizationId: orgB1Res.body.id,
+      userId: userB,
+      role: "owner",
+    });
+
+    const orgB2Res = await request(app)
+      .post("/v1/organizations")
+      .set("X-Tenant-Id", tenant)
+      .set("X-User-Id", userB)
+      .send({ name: "Org B2", slug: "org-b2", project_id: projectB });
+    expect(orgB2Res.status).toBe(201);
+
+    // User A lists without project_id. Pre-BUG-178 the dev-shim
+    // wildcard returned all three; the fix scopes by accessible-orgs
+    // (membership ∪ owned-project orgs). User A should see only Org A1,
+    // not the two Project-B orgs they have no relationship to.
+    const listAsA = await request(app)
+      .get("/v1/organizations")
+      .set("X-Tenant-Id", tenant)
+      .set("X-User-Id", userA);
+    expect(listAsA.status).toBe(200);
+    expect(listAsA.body.data).toHaveLength(1);
+    expect(listAsA.body.data[0].id).toBe(orgA1Id);
+    expect(listAsA.body.total_count).toBe(1);
+
+    // Sanity: user B sees only their two orgs (Org B1 via membership,
+    // Org B2 via project-ownership of Project B), not Org A1.
+    const listAsB = await request(app)
+      .get("/v1/organizations")
+      .set("X-Tenant-Id", tenant)
+      .set("X-User-Id", userB);
+    expect(listAsB.status).toBe(200);
+    expect(listAsB.body.data).toHaveLength(2);
+    const idsForB = listAsB.body.data.map((o: { id: string }) => o.id).sort();
+    expect(idsForB).toEqual([orgB1Res.body.id, orgB2Res.body.id].sort());
+
+    if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+  });
 });

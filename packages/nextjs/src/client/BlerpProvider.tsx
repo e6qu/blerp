@@ -205,6 +205,26 @@ export function BlerpProvider({
   const [orgPermissions, setOrgPermissions] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // BUG-180 (codex r48): the openapi-fetch Request is built at
+  // `client.GET(...)` call time with the headers from `createClient`'s
+  // `headers` option. A child that fires a request before runtime
+  // config lands captures the placeholder publishable key into the
+  // Authorization header; awaiting the readyPromise in the middleware
+  // only delays the send, it doesn't refresh the headers. Use a ref
+  // that mirrors the latest resolved values so the middleware can
+  // re-stamp Authorization + X-Tenant-Id after the gate resolves.
+  const latestAuthRef = useRef<{ authHeader: string; tenantId: string }>({
+    authHeader: `Bearer ${key}`,
+    tenantId: resolvedTenantId,
+  });
+  useEffect(() => {
+    const sessionToken = readSessionCookie();
+    latestAuthRef.current = {
+      authHeader: sessionToken ? `Bearer ${sessionToken}` : `Bearer ${key}`,
+      tenantId: resolvedTenantId,
+    };
+  }, [key, resolvedTenantId]);
+
   const apiClient = useMemo(() => {
     const sessionToken = readSessionCookie();
     const authHeader = sessionToken ? `Bearer ${sessionToken}` : `Bearer ${key}`;
@@ -220,9 +240,18 @@ export function BlerpProvider({
     // ready. Without this, a child component that fires `client.GET(...)`
     // on mount would issue the request with the placeholder publishable
     // key in the Authorization header.
+    //
+    // BUG-180 (codex r48): after the gate resolves, re-stamp the auth +
+    // tenant headers from the latest ref. Without the re-stamp, the
+    // in-flight Request still carries the headers it was constructed
+    // with (often the placeholder `pk_build_placeholder` Authorization
+    // and the build-time tenant id), and the first call after gate
+    // resolution ships stale credentials.
     c.use({
       async onRequest({ request }) {
         if (readyPromiseRef.current) await readyPromiseRef.current;
+        request.headers.set("Authorization", latestAuthRef.current.authHeader);
+        request.headers.set("X-Tenant-Id", latestAuthRef.current.tenantId);
         return request;
       },
     });

@@ -1924,3 +1924,33 @@ Updated all dev-shim prefix matchers from `"dev-shim:"` to `"dev-shim"` so both 
 **Files:** `apps/api/src/middleware/auth.ts` (one line)
 
 **Fix applied:** Dropped the trailing colon so the matcher covers both `dev-shim:<userId>` and `dev-shim-session:<userId>`. Tests: 159/159 pass; lint + typecheck + openapi:lint clean across all 17 turbo tasks.
+
+### BUG-178 (codex r48): `GET /v1/organizations` 400'd in production for every authenticated caller without `project_id` (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — dashboard `useOrganizations`, `useGlobalSearch`, Next.js SDK `OrganizationSwitcher` / `CreateOrganization` suggested-orgs, and the backend SDK all call `GET /v1/organizations` without `?project_id=`. In dev, the X-User-Id shim's wildcard `dev-shim` clientId hid this (BUG-167/176/177). In production no shim is attached, so `requireProjectAccess` returned 400 and the entire org list / org switcher / global search broke.
+**Files:** `apps/api/src/v1/routes/organization.routes.ts`, `apps/api/src/v1/controllers/organization.controller.ts`, `apps/api/src/v1/services/organization.service.ts`
+
+**Fix applied:** Reshaped the LIST contract to match Clerk's session semantics. `requireProjectAccess` now runs only when `?project_id=` is supplied (validating the caller can access that project). Otherwise the controller derives the scope from the auth context:
+
+- M2M token with a real project scope → restrict to that project.
+- Session JWT (or X-User-Id dev shim) → restrict to orgs the user is a member of, or projects the user owns. New `accessibleToUserId` filter in `OrganizationService.list()` joins on memberships + project ownership.
+- Tenant-root M2M (only mintable via the chain-of-trust gate in `createM2MToken`) → no filter; returns every org in the tenant.
+
+Cross-tenant enumeration is still impossible (auth is required outside the `?domain=` pre-session discovery path). Cross-project enumeration is still impossible (auto-scoping). The dev-shim wildcard behavior is preserved for tests.
+
+### BUG-179 (codex r48): `discovery.controller.ts` re-introduced the `@blerp/shared` value-import that breaks fresh-checkout API startup (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — `apps/api/src/app.ts:19` imports `discoveryController` eagerly during boot. A value import from `@blerp/shared` resolves through the gitignored `packages/shared/dist/index.js`. On a clean checkout (`cd apps/api && bun run dev`, Playwright's `webServer` pattern, contributor first-run) the API failed to start before `/health` was reachable — same failure mode BUG-65/67/69 fixed for `webauthn.service.ts`, `auth.service.ts`, the dashboard `vite.config.ts`, and the Monite example.
+**Files:** `apps/api/src/v1/controllers/discovery.controller.ts`
+
+**Fix applied:** Inlined the env reads (`getPublishableKey`, `getTenantId`, `getSignInUrl`, `getSignUpUrl`, `getSignInForceRedirectUrl`, `getSignInFallbackRedirectUrl`, `getSignUpForceRedirectUrl`, `getSignUpFallbackRedirectUrl`, `getProxyUrl`, `getTelemetryDisabled`) with a small `firstEnv` + `publicAliases` helper pair that reproduces the same dual-name (BLERP*\* / CLERK*_) and cross-framework (NEXT*PUBLIC*_ / VITE*\* / PUBLIC*_ / EXPO*PUBLIC*_ / NUXT*PUBLIC*\*) precedence chain. Behaviour is pinned by `public-config.integration.test.ts` and `env-clerk-compat.test.ts`.
+
+### BUG-180 (codex r48): `BlerpProvider` runtime-config gate awaited the promise but kept stale Authorization / X-Tenant-Id headers on the in-flight Request (FIXED)
+
+**Status:** Fixed
+**Severity:** Medium — when the build-time publishable key is `pk_build_placeholder` and a child component fires `client.GET(...)` on mount (the common case in single-image multi-env Docker deploys, BUG-96), the openapi-fetch Request is constructed with the placeholder Authorization and build-time tenant id. The pre-existing `onRequest` middleware awaited `/v1/public-config` but only DELAYED the send — the Request's headers were never refreshed, so the first call after gate resolution still shipped stale credentials and a wrong-tenant id.
+**Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** Added a `latestAuthRef` mirror, updated by effect on `[key, resolvedTenantId]`. The `onRequest` middleware re-stamps Authorization + X-Tenant-Id from the ref after awaiting `readyPromise`, so the request sent to the network always carries the latest resolved values regardless of when the Request object was constructed.

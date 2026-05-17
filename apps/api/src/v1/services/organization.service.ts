@@ -1,7 +1,7 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { eventBus } from "../../lib/events";
 import * as schema from "../../db/schema";
-import { eq, and, count, like, or } from "drizzle-orm";
+import { eq, and, count, like, or, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { deepMerge, Metadata } from "../../lib/metadata";
 
@@ -43,6 +43,13 @@ export class OrganizationService {
     // requested project but the service then ignored it — anyone with
     // access to ANY project could list ALL projects' orgs.
     projectId?: string;
+    // BUG-178 (codex r48): when no explicit project_id is supplied,
+    // an authenticated session must still get a non-empty, scoped
+    // result instead of 400. Restrict to orgs reachable by this user
+    // — either they have a membership in the org, or they own the
+    // org's project. Matches Clerk's `clerkClient.organizations.list()`
+    // semantics for a session-authenticated caller.
+    accessibleToUserId?: string;
     limit?: number;
     offset?: number;
   }) {
@@ -75,6 +82,24 @@ export class OrganizationService {
       conditions.push(
         or(like(schema.organizations.name, pattern), like(schema.organizations.slug, pattern))!,
       );
+    }
+    if (filters?.accessibleToUserId) {
+      const userId = filters.accessibleToUserId;
+      const membershipOrgIds = await this.db
+        .select({ id: schema.memberships.organizationId })
+        .from(schema.memberships)
+        .where(eq(schema.memberships.userId, userId));
+      const ownedProjectIds = await this.db
+        .select({ id: schema.projects.id })
+        .from(schema.projects)
+        .where(eq(schema.projects.ownerUserId, userId));
+      const orgIds = membershipOrgIds.map((r) => r.id);
+      const projectIds = ownedProjectIds.map((r) => r.id);
+      const reachability = or(
+        orgIds.length ? inArray(schema.organizations.id, orgIds) : sql`0`,
+        projectIds.length ? inArray(schema.organizations.projectId, projectIds) : sql`0`,
+      );
+      if (reachability) conditions.push(reachability);
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

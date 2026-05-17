@@ -33,16 +33,32 @@ router.get(
   // BUG-167 (codex r43): domain-discovery (?domain=) is a pre-session
   // lookup (the OAuth sign-in flow uses it to resolve "which org owns
   // this email domain" before the user is authenticated). For that
-  // narrow path, skip auth entirely. For everything else, require
-  // session/M2M + project access so tenant-wide enumeration is
-  // impossible.
+  // narrow path, skip auth entirely.
+  //
+  // BUG-178 (codex r48): only require explicit project access when
+  // `?project_id=` is supplied. Pre-r48 the gate 400'd when no
+  // project_id was passed, which broke every authenticated caller
+  // that the dashboard / Next.js SDK / backend SDK use today
+  // (`useOrganizations`, `useGlobalSearch`, `OrganizationSwitcher`,
+  // `CreateOrganization`'s suggested-orgs lookup). In dev the
+  // X-User-Id shim was hiding this because dev-shim was a wildcard
+  // (BUG-167/176/177). In production the same callers returned 400.
+  //
+  // New contract: auth required (session JWT or M2M); the controller
+  // scopes the result to what the caller can actually see — orgs the
+  // user is a member of, projects the user owns, or the M2M token's
+  // project — so cross-project / cross-tenant enumeration is still
+  // impossible. When `?project_id=` is supplied we additionally run
+  // `requireProjectAccess` so the caller can't request a project they
+  // don't own.
   (req, res, next) => {
     if (typeof req.query?.domain === "string") return next();
-    return authMiddleware(req, res, () =>
-      requireProjectAccess((r) =>
-        typeof r.query?.project_id === "string" ? r.query.project_id : undefined,
-      )(req, res, next),
-    );
+    return authMiddleware(req, res, () => {
+      if (typeof req.query?.project_id === "string") {
+        return requireProjectAccess((r) => r.query.project_id as string)(req, res, next);
+      }
+      return next();
+    });
   },
   organizationController.listOrganizations,
 );
