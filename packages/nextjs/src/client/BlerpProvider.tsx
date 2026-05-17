@@ -131,10 +131,18 @@ export function BlerpProvider({
           setOrgRole(data.org_role ?? null);
           setOrgPermissions(data.org_permissions ?? []);
 
-          // If an org is selected and userinfo didn't include role, fetch membership
+          // BUG-76 (codex r12): use the /me sub-route (BUG-67) and
+          // consume the API-returned `permissions` field verbatim. The
+          // previous LIST-then-filter path had two problems mirrored
+          // from the server side: (a) it required `members:read`, which
+          // custom read-only roles lack (BUG-67), and (b) it derived
+          // permissions locally via a hard-coded role→permission map
+          // that disagreed with `apps/api/src/lib/rbac.ts` (admin had
+          // `org:write` here but not server-side — BUG-63), causing
+          // client-side `useAuth().has()` / `<Protect>` to overgrant.
           if (uid && activeOrgId && !data.org_role) {
             try {
-              const memRes = await fetch(`/v1/organizations/${activeOrgId}/memberships`, {
+              const memRes = await fetch(`/v1/organizations/${activeOrgId}/memberships/me`, {
                 credentials: "include",
                 headers: {
                   Authorization: authHeader,
@@ -142,19 +150,14 @@ export function BlerpProvider({
                 },
               });
               if (memRes.ok) {
-                const memData = await memRes.json();
-                const membership = (memData.data ?? []).find(
-                  (m: { user_id?: string }) => m.user_id === uid,
+                const membership = (await memRes.json()) as {
+                  role?: string;
+                  permissions?: string[];
+                };
+                setOrgRole(membership.role ?? null);
+                setOrgPermissions(
+                  Array.isArray(membership.permissions) ? membership.permissions : [],
                 );
-                if (membership) {
-                  const role = membership.role ?? null;
-                  setOrgRole(role);
-                  if (role === "owner" || role === "admin") {
-                    setOrgPermissions(["org:read", "org:write", "org:manage_members"]);
-                  } else {
-                    setOrgPermissions(["org:read"]);
-                  }
-                }
               }
             } catch {
               // Membership lookup failed — continue without role
