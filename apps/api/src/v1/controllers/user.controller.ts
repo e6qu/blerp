@@ -1,8 +1,9 @@
-import { Request, Response } from "express";
+import { Request, NextFunction, Response } from "express";
 import { eq, inArray } from "drizzle-orm";
 import { AuthService } from "../services/auth.service";
 import type { components } from "@blerp/shared";
 import * as schema from "../../db/schema";
+import { NotFoundError } from "../../lib/errors";
 
 type User = components["schemas"]["User"];
 type DBUser = typeof schema.users.$inferSelect;
@@ -175,14 +176,19 @@ export async function restoreUser(req: Request, res: Response) {
 // to issue new attempts. An admin clears the flag + counter via
 // `POST /v1/users/:user_id/unlock`. No public endpoint exists for a
 // user to self-unlock (matches Clerk's behavior).
-export async function unlockUser(req: Request, res: Response) {
+export async function unlockUser(req: Request, res: Response, next: NextFunction) {
   const id = (req.params.user_id || req.params.id) as string;
   const service = new AuthService(req.tenantDb!, req.tenantId!);
   try {
     const user = await service.getUser(id);
     if (!user) {
-      res.status(404).json({ error: { message: "User not found" } });
-      return;
+      // BUG-237 (codex r76): route through `NotFoundError` so the
+      // central error handler emits the dual `{ error, errors[] }`
+      // envelope (BUG-47). Pre-r76 this site wrote
+      // `res.status(404).json({ error: { message } })` directly, so
+      // generated clients / `throwIfError()` saw `body.error.code`
+      // as undefined.
+      return next(new NotFoundError("User"));
     }
     await req
       .tenantDb!.update(schema.users)
@@ -190,8 +196,7 @@ export async function unlockUser(req: Request, res: Response) {
       .where(eq(schema.users.id, id));
     const refreshed = await service.getUser(id);
     if (!refreshed) {
-      res.status(404).json({ error: { message: "User not found after unlock" } });
-      return;
+      return next(new NotFoundError("User"));
     }
     res.status(200).json(mapUser(refreshed));
   } catch (error) {

@@ -2434,3 +2434,19 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/middleware/auth.ts`
 
 **Fix applied:** Both 403 sites swapped to `next(new ForbiddenError(message))`. Central error handler now formats them through the dual `{ error, errors[] }` envelope.
+
+### BUG-236 (codex r76): `setSessionCookies` left a stale `__blerp_org` cookie when the new JWT had no `org_id` claim (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — auth-state divergence + cross-account leakage in shared-machine scenarios. BUG-72 mirrored `org_id` to `__blerp_org` so single-org users hydrated with the right `useAuth().orgId`. But the mirror only WROTE — it never cleared the cookie when a new session JWT didn't carry `org_id` (multi-org users, accounts with no current active org, sessions minted before BUG-49/BUG-53). A user who previously signed in single-org left `__blerp_org` set; signing into a multi-org account (or a different user entirely) inherited that stale cookie. `BlerpProvider` initialised `orgId` from it; client and server auth diverged until the user switched orgs via `<OrganizationSwitcher>`.
+**Files:** `packages/nextjs/src/client/session-cookies.ts`
+
+**Fix applied:** Treat every `setSessionCookies()` call as a session replacement. If the JWT carries `org_id`, write the mirror as before. Otherwise CLEAR `__blerp_org` (passing the cookie's `path` so removal targets the right scope). Multi-org and no-active-org sessions now start clean; `<OrganizationSwitcher>` repopulates the cookie when the user picks an org.
+
+### BUG-237 (codex r76): `unlockUser` 404 bypassed the central error envelope (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — companion to BUG-223/235. The unlock controller wrote `res.status(404).json({ error: { message: "User not found" } })` directly when the target user didn't exist. Generated openapi-fetch clients + `throwIfError()` paths read `body.error.code` and `body.errors[0]` as undefined — same envelope mismatch class as BUG-223 (`requireM2M`) and BUG-235 (`requireScopeOrTenantAdmin`).
+**Files:** `apps/api/src/v1/controllers/user.controller.ts`
+
+**Fix applied:** Both 404 branches now route through `next(new NotFoundError("User"))`. Central error handler formats them through the dual `{ error, errors[] }` envelope. Signature gained `next: NextFunction` (Express's third middleware arg).

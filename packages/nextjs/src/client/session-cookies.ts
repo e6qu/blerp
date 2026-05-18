@@ -76,10 +76,23 @@ export function setSessionCookies(accessToken: string, options: SessionCookieOpt
   // `__blerp_org` cookie so client and server agree on the active org
   // immediately after sign-in. AuthService only stamps the claim for
   // single-org users (BUG-53), so for multi-org users this is a no-op
-  // and the OrganizationSwitcher still drives cookie state as before.
+  // and the OrganizationSwitcher drives cookie state.
+  //
+  // BUG-236 (codex r76): clear a stale `__blerp_org` cookie when the
+  // new session token does NOT carry `org_id`. Pre-r76 a previous
+  // single-org session left `__blerp_org` set; signing in to a multi-
+  // org account (no `org_id` claim) or a different account inherited
+  // the previous user's org cookie. `BlerpProvider` then initialised
+  // `orgId` from that stale value and client/server auth state
+  // diverged until the user manually switched orgs. Conservative
+  // semantic: every call to `setSessionCookies()` is treated as a
+  // session replacement — clear the org cookie unless the new JWT
+  // explicitly carries `org_id`.
   const payload = decodeJwtPayload(accessToken);
   if (payload && typeof payload.org_id === "string" && payload.org_id) {
     Cookies.set(BLERP_ORG, payload.org_id, opts);
+  } else {
+    Cookies.remove(BLERP_ORG, { path: opts.path });
   }
 }
 
