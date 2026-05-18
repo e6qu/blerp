@@ -2458,3 +2458,11 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/v1/services/webauthn.service.ts`
 
 **Fix applied:** Both helpers now coerce blank strings to undefined before applying the fallback — same `nonBlank` pattern already used by `readApiUrl()` in the same file and by every other env helper in this PR (BUG-79 / BUG-224).
+
+### BUG-239 (codex r79): Password-strategy signup accepted missing / blank password — minted a signed-in passwordless account (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — auth-flow contract bug. `createSignup` checked `if (data.password)` and skipped hashing when omitted. `attemptSignup` then inserted the user with no `passwordDigest` and (per BUG-114's auto-session) returned a signed-in session. The user was now signed in but had no password set; any later password-sign-in 401'd with "No password set for this account". There's no signup-update step to supply the credential after the fact, so the user was effectively locked out of password auth without a manual admin PATCH. Pre-PR the test harness papered over this by PATCHing the password post-signup, but that's an admin-only route — not a real-user flow.
+**Files:** `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/__tests__/auth.integration.test.ts`, `apps/api/src/__tests__/server-smoke.test.ts`
+
+**Fix applied:** `createSignup` now requires a non-blank `password` whenever `strategy === "password"` and throws `"Password is required for strategy='password'"` otherwise. Non-password strategies (e.g. magic-link, social) still allow an optional password. Updated five auth-test signups + the server-smoke test to supply a password at signup time; removed the now-redundant post-signup PATCH workarounds from the BUG-49 tests.

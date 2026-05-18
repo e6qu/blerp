@@ -74,8 +74,27 @@ export class AuthService {
     // user can immediately sign in afterwards. Without this, sign-up
     // succeeded but every subsequent sign-in 401'd with "No password
     // set for this account" (auth.service.ts line ~261).
+    //
+    // BUG-239 (codex r79): require a non-blank password for the
+    // password strategy. Pre-r79 a missing / empty `password` slipped
+    // through this branch, `attemptSignup` inserted the user with no
+    // `passwordDigest`, and the BUG-114 auto-session minted a signed-in
+    // passwordless account that could never use password sign-in (it
+    // 401'd with "No password set"). There's no later signup-update
+    // step to supply the credential, so the only safe path is to
+    // reject blank passwords at create-time.
     let passwordDigest: string | undefined;
-    if (data.password) {
+    if (data.strategy === "password") {
+      if (!data.password || data.password.trim() === "") {
+        throw new Error("Password is required for strategy='password'");
+      }
+      if (data.password.length < 8) {
+        throw new Error("Password must be at least 8 characters");
+      }
+      passwordDigest = await crypto.hashPassword(data.password);
+    } else if (data.password) {
+      // Non-password strategies (e.g. magic-link, social) — still
+      // accept an optional password the caller wants to set.
       if (data.password.length < 8) {
         throw new Error("Password must be at least 8 characters");
       }

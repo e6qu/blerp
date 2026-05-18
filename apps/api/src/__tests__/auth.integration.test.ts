@@ -455,12 +455,14 @@ describe("Auth Integration", () => {
 
   it("should handle full signup flow", async () => {
     // 1. Create Signup
+    // BUG-239 (codex r79): password is required for strategy="password".
     const signupRes = await request(app)
       .post("/v1/auth/signups")
       .set("X-Tenant-Id", tenantId)
       .send({
         email: "test@blerp.dev",
         strategy: "password",
+        password: "Test_Pass_42!",
       });
 
     expect(signupRes.status).toBe(201);
@@ -485,12 +487,14 @@ describe("Auth Integration", () => {
 
   it("should fail verification with wrong code", async () => {
     // First create a valid signup so we have a real pending entry
+    // BUG-239 (codex r79): password is required for strategy="password".
     const signupRes = await request(app)
       .post("/v1/auth/signups")
       .set("X-Tenant-Id", tenantId)
       .send({
         email: "wrong-code@blerp.dev",
         strategy: "password",
+        password: "Test_Pass_42!",
       });
 
     const signupId = signupRes.body.id;
@@ -518,11 +522,11 @@ describe("Auth Integration", () => {
     const email = "jwt-test@blerp.dev";
     const password = "SecurePass123!";
 
-    // 1. Signup
+    // 1. Signup — BUG-239: password required at create-time.
     const signupRes = await request(app)
       .post("/v1/auth/signups")
       .set("X-Tenant-Id", tenantId)
-      .send({ email, strategy: "password" });
+      .send({ email, strategy: "password", password });
 
     expect(signupRes.status).toBe(201);
 
@@ -582,11 +586,11 @@ describe("Auth Integration", () => {
     const email = "jwt-orgclaims@blerp.dev";
     const password = "SecurePass123!";
 
-    // 1. Sign up
+    // 1. Sign up — BUG-239: password required at create-time.
     const signupRes = await request(app)
       .post("/v1/auth/signups")
       .set("X-Tenant-Id", tenantId)
-      .send({ email, strategy: "password" });
+      .send({ email, strategy: "password", password });
     expect(signupRes.status).toBe(201);
     const attemptRes = await request(app)
       .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
@@ -594,11 +598,8 @@ describe("Auth Integration", () => {
       .send({ code: signupRes.body.verification_code });
     expect(attemptRes.status).toBe(200);
     const userId = attemptRes.body.user_id;
-    await request(app)
-      .patch(`/v1/users/${userId}`)
-      .set("X-Tenant-Id", tenantId)
-      .set("X-User-Id", userId)
-      .send({ password });
+    // BUG-239 (codex r79): password is set at signup; the post-signup
+    // PATCH to install it is no longer necessary.
 
     // 2. Seed an organization + owner membership for this user.
     const db = await getTenantDb(tenantId);
@@ -653,21 +654,17 @@ describe("Auth Integration", () => {
     const email = "jwt-multiorg@blerp.dev";
     const password = "SecurePass123!";
 
-    // Sign up + set password
+    // Sign up — BUG-239: password required at create-time, no
+    // post-signup PATCH needed.
     const signupRes = await request(app)
       .post("/v1/auth/signups")
       .set("X-Tenant-Id", tenantId)
-      .send({ email, strategy: "password" });
+      .send({ email, strategy: "password", password });
     const attemptRes = await request(app)
       .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
       .set("X-Tenant-Id", tenantId)
       .send({ code: signupRes.body.verification_code });
     const userId = attemptRes.body.user_id;
-    await request(app)
-      .patch(`/v1/users/${userId}`)
-      .set("X-Tenant-Id", tenantId)
-      .set("X-User-Id", userId)
-      .send({ password });
 
     // Seed TWO memberships in different orgs. Self-contained — do not
     // depend on the prior test's `proj_orgclaims` insert because

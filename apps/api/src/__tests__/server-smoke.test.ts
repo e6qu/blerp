@@ -63,7 +63,12 @@ describe("Server Smoke Tests", () => {
         "X-Tenant-Id": TENANT_ID,
         "X-User-Id": "smoke_admin",
       },
-      body: JSON.stringify({ email: "smoke@test.dev", strategy: "password" }),
+      // BUG-239 (codex r79): password is required for strategy="password".
+      body: JSON.stringify({
+        email: "smoke@test.dev",
+        strategy: "password",
+        password: "Smoke_Pass_42!",
+      }),
     });
 
     expect([200, 201]).toContain(res.status);
