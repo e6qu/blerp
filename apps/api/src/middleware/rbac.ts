@@ -9,6 +9,7 @@ import {
 } from "../lib/rbac";
 import { ForbiddenError } from "../lib/errors";
 import * as schema from "../db/schema";
+import { isTenantRootM2M } from "./auth";
 
 const DEFAULT_ROLES = ["owner", "admin", "member"];
 
@@ -42,23 +43,36 @@ export function requirePermission(permission: Permission) {
       // `organization_id` in path/body/query (set by the route's
       // own middleware before this runs), resolve the org's project
       // and require it equal the token's project.
-      const orgId =
-        (req.params.organization_id as string | undefined) ??
-        (req.body?.organization_id as string | undefined) ??
-        (req.query?.organization_id as string | undefined);
-      if (orgId && req.tenantDb) {
-        const org = await req.tenantDb.query.organizations.findFirst({
-          where: eq(schema.organizations.id, orgId),
-        });
-        if (!org) {
-          return next(new ForbiddenError("Organization not found"));
-        }
-        if (org.projectId !== req.m2m.projectId) {
-          return next(
-            new ForbiddenError(
-              "M2M token is scoped to a different project than this organization.",
-            ),
-          );
+      //
+      // BUG-220 (codex r68): tenant-root callers (raw `sk_` secret
+      // keys per BUG-195, M2M with a tenant-wide `:admin` scope per
+      // BUG-186/207) are exempt. Without this, BUG-219's tenant-wide
+      // org list returned cross-project orgs that the immediate
+      // follow-up GET / PATCH / DELETE then 403'd on this binding
+      // check. `isTenantRootM2M(req, { devShimIsTenantRoot: false })`
+      // matches the org-list controller's discriminator so the two
+      // surfaces stay in sync (dev-shim still goes through membership-
+      // based RBAC so the "member can't do owner things" tests stay
+      // faithful — see the BUG-154 comment above).
+      if (!isTenantRootM2M(req, { devShimIsTenantRoot: false })) {
+        const orgId =
+          (req.params.organization_id as string | undefined) ??
+          (req.body?.organization_id as string | undefined) ??
+          (req.query?.organization_id as string | undefined);
+        if (orgId && req.tenantDb) {
+          const org = await req.tenantDb.query.organizations.findFirst({
+            where: eq(schema.organizations.id, orgId),
+          });
+          if (!org) {
+            return next(new ForbiddenError("Organization not found"));
+          }
+          if (org.projectId !== req.m2m.projectId) {
+            return next(
+              new ForbiddenError(
+                "M2M token is scoped to a different project than this organization.",
+              ),
+            );
+          }
         }
       }
       next();

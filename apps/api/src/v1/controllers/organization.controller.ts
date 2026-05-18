@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import type { components } from "@blerp/shared";
 import { Metadata } from "../../lib/metadata";
 import { NotFoundError, BadRequestError } from "../../lib/errors";
+import { isTenantRootM2M } from "../../middleware/auth";
 
 type Organization = components["schemas"]["Organization"];
 
@@ -131,32 +132,17 @@ export async function listOrganizations(req: Request, res: Response) {
   // bound project. So `clerkClient.organizations.list()` returned
   // only orgs in the seed project, not the whole tenant — wrong
   // contract for a tenant-root credential.
-  // BUG-219 (codex r67): identify ONLY production tenant-root
-  // credentials. Unlike audit.controller's `isTenantRootM2M`, we do
-  // NOT include the dev-shim here — dev-shim is a TEST-mode session
-  // shortcut, and the BUG-178 contract for the org list is that
-  // sessions get user-scoped results (so dev-shim sessions behave
-  // like real sessions in test). Real tenant-root credentials in
-  // production are: an `sk_` secret key (BUG-195 attaches
-  // `api_key:` clientId), or an M2M carrying a tenant-wide `:admin`
-  // scope (mintable only via chain-of-trust per BUG-186/207).
-  const TENANT_ROOT_ADMIN_SCOPES = new Set([
-    "users:admin",
-    "signup_restrictions:admin",
-    "redirect_urls:admin",
-    "usage:admin",
-  ]);
-  function isProductionTenantRoot(): boolean {
-    const m2m = req.m2m;
-    if (!m2m) return false;
-    if (m2m.clientId.startsWith("dev-shim")) return false; // test-mode session shortcut
-    if (m2m.clientId.startsWith("api_key:")) return true; // sk_ secret key
-    return m2m.scopes.some((s) => TENANT_ROOT_ADMIN_SCOPES.has(s));
-  }
+  // BUG-219 (codex r67): tenant-root callers see the whole tenant.
+  // BUG-220 (cleanup): use the shared `isTenantRootM2M` helper with
+  // `devShimIsTenantRoot: false` because BUG-178's contract for the
+  // org list is that dev-shim sessions behave like production
+  // sessions (filter to accessible orgs by user). Production
+  // tenant-root remains: `sk_` secret keys (BUG-195) or M2M with a
+  // TENANT_ROOT_ADMIN_SCOPES scope (BUG-186/207).
   let derivedProjectId: string | undefined;
   let accessibleToUserId: string | undefined;
   if (!projectId && !domain) {
-    if (isProductionTenantRoot()) {
+    if (isTenantRootM2M(req, { devShimIsTenantRoot: false })) {
       // No filter — tenant-root sees everything.
     } else if (req.m2m && !req.m2m.clientId.startsWith("dev-shim") && req.m2m.projectId) {
       // Real project-scoped M2M token (non-dev-shim) — filter by

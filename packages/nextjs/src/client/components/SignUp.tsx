@@ -3,6 +3,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { setSessionCookies } from "../session-cookies";
 import { useAuth, useBlerpClient } from "../BlerpProvider";
+import { readRedirectQueryParam } from "../safe-redirect";
 
 // BUG-114 (codex r20): real three-step flow — email → password → verify.
 // Previously the "password" step sent the password as the verification
@@ -22,27 +23,9 @@ interface SignUpProps {
 // see Auth.tsx for the rationale. The component now reads
 // `useAuth().signInUrl` (runtime-hydrated).
 
-// BUG-109 (codex r19): honor `?redirect_url=...` — see Auth.tsx.
-// BUG-208 (codex r60): validate before returning — open-redirect
-// guard, same rule as Auth.tsx (relative path OR same-origin URL).
-function isSafeRedirect(value: string): boolean {
-  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) {
-    return true;
-  }
-  try {
-    const url = new URL(value, window.location.origin);
-    return url.origin === window.location.origin;
-  } catch {
-    return false;
-  }
-}
-
-function readRedirectQueryParam(): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  const v = new URLSearchParams(window.location.search).get("redirect_url");
-  if (!v || v.trim() === "") return undefined;
-  return isSafeRedirect(v) ? v : undefined;
-}
+// BUG-109 (codex r19) / BUG-208 (codex r60): `readRedirectQueryParam`
+// lives in `safe-redirect.ts` (lifted post-r68 from per-component
+// duplicates). See Auth.tsx for the rationale.
 
 export function SignUp({ afterSignUpUrl, signInUrl: signInUrlProp }: SignUpProps) {
   const client = useBlerpClient();

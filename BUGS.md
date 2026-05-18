@@ -2298,3 +2298,19 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/v1/controllers/organization.controller.ts`
 
 **Fix applied:** Added a controller-local `isProductionTenantRoot()` predicate mirroring BUG-205/207's pattern: `api_key:` clientId (BUG-195's `sk_` path) OR M2M holding a tenant-wide `:admin` scope. Tenant-root callers see all orgs in the tenant (no project filter). Critically, `dev-shim` is EXCLUDED from the tenant-root set in this controller (unlike audit.controller's variant) because the BUG-178 contract for the org list is that dev-shim sessions behave like real sessions in test (filter to accessible orgs). Real project-scoped M2M tokens still get the project filter; sessions still get the membership/owner filter.
+
+### BUG-220 (codex r68): `requirePermission` rejected cross-project orgs from tenant-root `sk_` callers — BUG-219's list returned orgs the immediate follow-up couldn't fetch (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — consistency gap exposed by BUG-219. BUG-219 made tenant-root callers (`sk_` secret keys, M2M with tenant-wide `:admin` scope) see every org in the tenant on `GET /v1/organizations`. But the per-org follow-up routes (`GET /v1/organizations/:id`, `PATCH`, `DELETE`, members CRUD, etc.) go through `requirePermission(...)`, which compares `org.projectId === req.m2m.projectId`. For an `sk_` minted in project-A reading a project-B org, that check 403'd — defeating the Clerk-style "list orgs then fetch one by id" flow for backend SDK callers.
+**Files:** `apps/api/src/middleware/rbac.ts`
+
+**Fix applied:** Exempt tenant-root callers from the project-binding check inside `requirePermission`. Uses the shared `isTenantRootM2M(req, { devShimIsTenantRoot: false })` predicate (same discriminator as the org list controller, so the two surfaces stay in sync). Dev-shim still goes through membership-based RBAC so the "member can't do owner things" tests stay faithful — see the BUG-154 comment in `rbac.ts`. Non-tenant-root project-scoped M2M tokens still get the BUG-159 binding check.
+
+### BUG-220 cleanup (post-r68): consolidated duplicated `isTenantRootM2M` + `isSafeRedirect` helpers
+
+**Status:** Completed
+**Severity:** N/A — refactor only, no behavior change.
+**Files:** `apps/api/src/middleware/auth.ts` (new exports `TENANT_ROOT_ADMIN_SCOPES` + `isTenantRootM2M(req, { devShimIsTenantRoot?: boolean })`), `apps/api/src/v1/controllers/audit.controller.ts`, `apps/api/src/v1/controllers/organization.controller.ts`, `packages/nextjs/src/client/safe-redirect.ts` (new), `packages/nextjs/src/client/components/Auth.tsx`, `packages/nextjs/src/client/components/SignUp.tsx`.
+
+**Notes:** Audit + organization controllers had near-identical `isTenantRootM2M` helpers differing only on dev-shim treatment — lifted to `middleware/auth.ts` with an `options.devShimIsTenantRoot` toggle (audit defaults `true`, org-list passes `false`). `isSafeRedirect` + `readRedirectQueryParam` from Auth.tsx + SignUp.tsx lifted to a new `packages/nextjs/src/client/safe-redirect.ts`.

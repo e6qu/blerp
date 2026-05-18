@@ -411,6 +411,50 @@ export function requireM2M(
 }
 
 /**
+ * BUG-220 (cleanup, post-r67): consolidate the duplicated
+ * tenant-root predicate that lived in audit.controller (BUG-205/207)
+ * and organization.controller (BUG-219). Both encode the same idea
+ * — "this caller has tenant-wide authority and the per-project
+ * scope filter should be skipped" — but differ on dev-shim
+ * treatment, which is opt-in via the `devShimIsTenantRoot` option.
+ *
+ * Signals that imply tenant-root:
+ *   1. `api_key:` clientId — a raw `sk_…` secret key per BUG-195.
+ *      Clerk's `sk_` contract is admin-equivalent.
+ *   2. Any scope in TENANT_ROOT_ADMIN_SCOPES — these are the four
+ *      tenant-wide admin scopes mintable only via the chain-of-
+ *      trust gate (BUG-186/187/207), so possession already implies
+ *      tenant authority.
+ *   3. The dev X-User-Id shim, OPTIONALLY (default `true`) so tests
+ *      don't have to mint a real `sk_` for every admin operation.
+ *      The org-list controller passes `{ devShimIsTenantRoot: false }`
+ *      because BUG-178's contract is that dev-shim sessions behave
+ *      like production sessions for that surface.
+ *
+ * Returns `false` for the absence of `req.m2m` — callers admit
+ * session-only callers through their own helper (e.g.
+ * `requireScopeOrTenantAdmin` uses `isSessionTenantAdmin`).
+ */
+export const TENANT_ROOT_ADMIN_SCOPES: ReadonlySet<string> = new Set([
+  "users:admin",
+  "signup_restrictions:admin",
+  "redirect_urls:admin",
+  "usage:admin",
+]);
+
+export function isTenantRootM2M(
+  req: Request,
+  options: { devShimIsTenantRoot?: boolean } = {},
+): boolean {
+  const m2m = req.m2m;
+  if (!m2m) return false;
+  const devShimIsTenantRoot = options.devShimIsTenantRoot ?? true;
+  if (m2m.clientId.startsWith("dev-shim")) return devShimIsTenantRoot;
+  if (m2m.clientId.startsWith("api_key:")) return true;
+  return m2m.scopes.some((s) => TENANT_ROOT_ADMIN_SCOPES.has(s));
+}
+
+/**
  * BUG-209 (codex r61): admit session-authenticated tenant admins to
  * tenant-wide endpoints that the dashboard needs (e.g. `users:read`,
  * `users:write`). Pre-r61 `/v1/users` was strict `requireM2M(...)`,

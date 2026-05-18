@@ -3,6 +3,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { setSessionCookies } from "../session-cookies";
 import { useAuth, useBlerpClient } from "../BlerpProvider";
+import { readRedirectQueryParam } from "../safe-redirect";
 
 // BUG-116 (codex r20): add a "totp" second-factor step. The API
 // returns `needs_second_factor` for users with TOTP enabled; without
@@ -26,43 +27,12 @@ interface SignInProps {
 // hydrated `useAuth().signUpUrl` instead, and only falls back to
 // a caller-supplied prop. The constant is gone.
 
-// BUG-109 (codex r19): honor `?redirect_url=...` injected by the
-// middleware/openSignIn redirect chain. Reading inside the handler
-// (not at module load) so server-side `next build` doesn't crash on
-// the missing `window`.
-//
-// BUG-208 (codex r60): validate before returning. An attacker can
-// link to `https://yourapp.com/sign-in?redirect_url=https://evil.com`
-// and the post-auth navigation in `handlePasswordSubmit` /
-// `handleTotpSubmit` would otherwise send the authenticated user
-// to the attacker's domain — open-redirect / phishing. The
-// middleware-generated values are always relative paths, so the
-// safe set is: relative paths (start with `/` and NOT `//`, which
-// is protocol-relative and could escape origin) OR absolute URLs
-// whose origin matches `window.location.origin`. Anything else is
-// dropped to undefined so the caller falls through to the runtime-
-// config redirect resolution (BUG-201).
-function isSafeRedirect(value: string): boolean {
-  // Relative path. Reject `//host` (protocol-relative) and `/\…`
-  // (path that some browsers treat as protocol-relative too).
-  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) {
-    return true;
-  }
-  // Absolute URL — must match current origin.
-  try {
-    const url = new URL(value, window.location.origin);
-    return url.origin === window.location.origin;
-  } catch {
-    return false;
-  }
-}
-
-function readRedirectQueryParam(): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  const v = new URLSearchParams(window.location.search).get("redirect_url");
-  if (!v || v.trim() === "") return undefined;
-  return isSafeRedirect(v) ? v : undefined;
-}
+// BUG-109 (codex r19) / BUG-208 (codex r60): `readRedirectQueryParam`
+// lives in `safe-redirect.ts` (lifted post-r68 from the duplicated
+// per-component copies). Honors `?redirect_url=…` if it's a safe
+// relative or same-origin URL; returns `undefined` for missing,
+// blank, or unsafe values so the caller falls through to the
+// runtime-config redirect resolution (BUG-201).
 
 export function SignIn({ afterSignInUrl, signUpUrl: signUpUrlProp }: SignInProps) {
   const client = useBlerpClient();
