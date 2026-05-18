@@ -2474,3 +2474,11 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `packages/nextjs/src/client/hooks.ts`
 
 **Fix applied:** Made `password` required in the `create` parameter type. Added a runtime guard that throws a clear error message ("`useSignUp.create({ password })` requires a non-blank password. useSignUp wraps the password sign-up flow; for magic-link / social, use the dedicated hook.") before posting — so JS callers bypassing the type get a descriptive error instead of a network 400.
+
+### BUG-241 (codex r81): BUG-184's `'default'` webhook bucket wildcard leaked cross-project signing secrets to any project-scoped `webhooks:read` token (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — credential-exposure regression worse than the BUG-232 family. BUG-184 widened `projectIdMatch` so admins could manage legacy `'default'`-bucket endpoints after migration 0016 stamped them. But the wildcard fired for ANY project-scoped caller, not just tenant-root. Migration 0016 puts every pre-existing endpoint into `'default'`, so a project-A `webhooks:read` token could `GET /v1/webhooks/endpoints` and read every other project's legacy endpoint rows — `mapWebhook` returns `secret` (the signing key). `webhooks:write` could mutate/delete those legacy endpoints too. The worker (BUG-182) already delivers `'default'` events tenant-wide, so the data exposure also enabled real-world tampering.
+**Files:** `apps/api/src/v1/services/webhook.service.ts`, `apps/api/src/v1/controllers/webhook.controller.ts`
+
+**Fix applied:** Threaded an `includeDefault: boolean` arg through every webhook service method (`list`, `get`, `update`, `delete`, `listDeliveries`). `projectIdMatch(projectId, includeDefault)` only ORs the `'default'` bucket when the flag is true. The controller passes `includeDefault = isTenantRootM2M(req)` so only tenant-root credentials (sk* per BUG-195, M2M with a tenant-wide `:admin` scope per BUG-186/207) see the legacy bucket. Project-scoped tokens are pinned to their own project and can't read or touch other projects' legacy endpoints. The migration path stays the same — tenant admins (or sk*) edit each legacy endpoint to its real `project_id` once.

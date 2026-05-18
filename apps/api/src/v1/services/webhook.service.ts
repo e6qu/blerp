@@ -13,21 +13,31 @@ import { nanoid } from "nanoid";
 // endpoint with `project_id = 'default'`. Production M2M tokens are
 // minted for real projects (`demo-project`, `proj_xyz`, ...), never
 // for `'default'`, so after the migration legacy endpoints become
-// unmanageable — admins can't list/get/update/delete them even
-// though the worker (BUG-182) still delivers events. Mirror BUG-182's
-// wildcard pattern in the admin paths: any project-scoped admin
-// caller can also see/manage `'default'`-bucket endpoints. The
-// expected migration path is "list, identify, edit each to its real
-// project_id once, leave the rest on `'default'` only if you actually
-// want tenant-wide delivery". Per-tenant DB scoping is unaffected.
-function projectIdMatch(projectId: string) {
+// unmanageable — admins couldn't list/get/update/delete them even
+// though the worker (BUG-182) still delivered events.
+//
+// BUG-241 (codex r81): only tenant-root callers get the `'default'`
+// wildcard. Pre-r81 every project-scoped admin call also saw the
+// `'default'` bucket — which meant a project-A `webhooks:read` token
+// could read every other project's legacy endpoints INCLUDING their
+// signing secrets (mapWebhook returns `secret`). The migration moves
+// ALL legacy endpoints into that bucket, so the leak covered the
+// entire tenant. Restrict the wildcard to tenant-root credentials
+// (the controller passes `includeDefault: true` only when
+// `isTenantRootM2M(req)`); project-scoped callers see only their own
+// project's endpoints and must edit each legacy row to their real
+// `project_id` to manage it.
+function projectIdMatch(projectId: string, includeDefault: boolean) {
   if (projectId === "default") {
     return eq(schema.webhookEndpoints.projectId, "default");
   }
-  return or(
-    eq(schema.webhookEndpoints.projectId, projectId),
-    eq(schema.webhookEndpoints.projectId, "default"),
-  );
+  if (includeDefault) {
+    return or(
+      eq(schema.webhookEndpoints.projectId, projectId),
+      eq(schema.webhookEndpoints.projectId, "default"),
+    );
+  }
+  return eq(schema.webhookEndpoints.projectId, projectId);
 }
 
 export class WebhookService {
@@ -48,13 +58,16 @@ export class WebhookService {
     return this.get(projectId, id);
   }
 
-  async list(projectId: string) {
-    return this.db.select().from(schema.webhookEndpoints).where(projectIdMatch(projectId));
+  async list(projectId: string, includeDefault = false) {
+    return this.db
+      .select()
+      .from(schema.webhookEndpoints)
+      .where(projectIdMatch(projectId, includeDefault));
   }
 
-  async get(projectId: string, id: string) {
+  async get(projectId: string, id: string, includeDefault = false) {
     return this.db.query.webhookEndpoints.findFirst({
-      where: and(eq(schema.webhookEndpoints.id, id), projectIdMatch(projectId)),
+      where: and(eq(schema.webhookEndpoints.id, id), projectIdMatch(projectId, includeDefault)),
     });
   }
 
@@ -62,19 +75,20 @@ export class WebhookService {
     projectId: string,
     id: string,
     data: Partial<{ url: string; enabled: boolean; eventTypes: string[] }>,
+    includeDefault = false,
   ) {
-    const existing = await this.get(projectId, id);
+    const existing = await this.get(projectId, id, includeDefault);
     if (!existing) return null;
     await this.db
       .update(schema.webhookEndpoints)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(schema.webhookEndpoints.id, id));
 
-    return this.get(projectId, id);
+    return this.get(projectId, id, includeDefault);
   }
 
-  async delete(projectId: string, id: string): Promise<boolean> {
-    const existing = await this.get(projectId, id);
+  async delete(projectId: string, id: string, includeDefault = false): Promise<boolean> {
+    const existing = await this.get(projectId, id, includeDefault);
     if (!existing) return false;
     await this.db.delete(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, id));
     return true;
@@ -83,9 +97,9 @@ export class WebhookService {
   async listDeliveries(
     projectId: string,
     endpointId: string,
-    options?: { limit?: number; offset?: number },
+    options?: { limit?: number; offset?: number; includeDefault?: boolean },
   ) {
-    const endpoint = await this.get(projectId, endpointId);
+    const endpoint = await this.get(projectId, endpointId, options?.includeDefault ?? false);
     if (!endpoint) return [];
     const limit = options?.limit ?? 50;
     const offset = options?.offset ?? 0;

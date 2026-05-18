@@ -103,12 +103,20 @@ export async function createWebhook(req: Request, res: Response) {
   }
 }
 
+// BUG-241 (codex r81): only tenant-root callers see the `'default'`
+// bucket alongside their project's endpoints. Project-scoped tokens
+// stick to their own project — preventing cross-project signing-
+// secret exposure via legacy default-bucket endpoints.
+function includeDefaultBucket(req: Request): boolean {
+  return isTenantRootM2M(req);
+}
+
 export async function listWebhooks(req: Request, res: Response) {
   const service = new WebhookService(req.tenantDb!);
   const projectId = await projectIdForOp(req);
 
   try {
-    const webhooks = await service.list(projectId);
+    const webhooks = await service.list(projectId, includeDefaultBucket(req));
     res.status(200).json({ data: webhooks.map((w) => mapWebhook(w as DBWebhook)) });
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
@@ -121,7 +129,7 @@ export async function getWebhook(req: Request, res: Response) {
   const projectId = await projectIdForOp(req);
 
   try {
-    const webhook = await service.get(projectId, id);
+    const webhook = await service.get(projectId, id, includeDefaultBucket(req));
     if (!webhook) {
       res.status(404).json({ error: { message: "Webhook not found" } });
       return;
@@ -156,7 +164,7 @@ export async function updateWebhook(req: Request, res: Response) {
   if (Array.isArray(eventTypes)) safe.eventTypes = eventTypes;
 
   try {
-    const webhook = await service.update(projectId, id, safe);
+    const webhook = await service.update(projectId, id, safe, includeDefaultBucket(req));
     if (!webhook) {
       res.status(404).json({ error: { message: "Webhook not found" } });
       return;
@@ -173,7 +181,7 @@ export async function deleteWebhook(req: Request, res: Response) {
   const projectId = await projectIdForOp(req);
 
   try {
-    const ok = await service.delete(projectId, id);
+    const ok = await service.delete(projectId, id, includeDefaultBucket(req));
     if (!ok) {
       res.status(404).json({ error: { message: "Webhook not found" } });
       return;
@@ -192,7 +200,11 @@ export async function listDeliveries(req: Request, res: Response) {
   const projectId = await projectIdForOp(req);
 
   try {
-    const deliveries = await service.listDeliveries(projectId, endpointId, { limit, offset });
+    const deliveries = await service.listDeliveries(projectId, endpointId, {
+      limit,
+      offset,
+      includeDefault: includeDefaultBucket(req),
+    });
     res.json({
       data: deliveries.map((d) => ({
         id: d.id,
