@@ -228,16 +228,22 @@ export function BlerpProvider({
   // only delays the send, it doesn't refresh the headers. Use a ref
   // that mirrors the latest resolved values so the middleware can
   // re-stamp Authorization + X-Tenant-Id after the gate resolves.
-  const latestAuthRef = useRef<{ authHeader: string; tenantId: string }>({
-    authHeader: `Bearer ${key}`,
+  //
+  // BUG-221 (codex r69): hold `publishableKey` + `tenantId` in the
+  // ref — NOT the pre-composed `authHeader`. The session token has
+  // to be read INSIDE the middleware on every request, because
+  // `signOut()` / `setSessionCookies()` mutate cookies without
+  // re-running the `[key, resolvedTenantId]` effect. Pre-r69 the
+  // ref kept the previous user's session-cookie-derived auth
+  // header even after signOut cleared the cookies, so subsequent
+  // client.GET calls were sent AS THE PREVIOUS USER until the next
+  // navigation.
+  const latestAuthRef = useRef<{ publishableKey: string; tenantId: string }>({
+    publishableKey: key,
     tenantId: resolvedTenantId,
   });
   useEffect(() => {
-    const sessionToken = readSessionCookie();
-    latestAuthRef.current = {
-      authHeader: sessionToken ? `Bearer ${sessionToken}` : `Bearer ${key}`,
-      tenantId: resolvedTenantId,
-    };
+    latestAuthRef.current = { publishableKey: key, tenantId: resolvedTenantId };
   }, [key, resolvedTenantId]);
 
   // BUG-201 (codex r57): same race-class as BUG-190 but for the
@@ -272,16 +278,25 @@ export function BlerpProvider({
     // key in the Authorization header.
     //
     // BUG-180 (codex r48): after the gate resolves, re-stamp the auth +
-    // tenant headers from the latest ref. Without the re-stamp, the
-    // in-flight Request still carries the headers it was constructed
-    // with (often the placeholder `pk_build_placeholder` Authorization
-    // and the build-time tenant id), and the first call after gate
-    // resolution ships stale credentials.
+    // tenant headers. Without the re-stamp, the in-flight Request still
+    // carries the headers it was constructed with (often the placeholder
+    // `pk_build_placeholder` Authorization and the build-time tenant id),
+    // and the first call after gate resolution ships stale credentials.
+    //
+    // BUG-221 (codex r69): read the session cookie ON EVERY REQUEST so
+    // a `signOut()` (which clears the cookies) immediately stops new
+    // requests from being authenticated as the previous user. The
+    // publishable-key fallback + tenantId come from the ref, which the
+    // runtime-config success path (BUG-190) and `[key, resolvedTenantId]`
+    // effect keep fresh.
     c.use({
       async onRequest({ request }) {
         if (readyPromiseRef.current) await readyPromiseRef.current;
-        request.headers.set("Authorization", latestAuthRef.current.authHeader);
-        request.headers.set("X-Tenant-Id", latestAuthRef.current.tenantId);
+        const { publishableKey, tenantId } = latestAuthRef.current;
+        const sessionToken = readSessionCookie();
+        const auth = sessionToken ? `Bearer ${sessionToken}` : `Bearer ${publishableKey}`;
+        request.headers.set("Authorization", auth);
+        request.headers.set("X-Tenant-Id", tenantId);
         return request;
       },
     });
@@ -324,11 +339,12 @@ export function BlerpProvider({
           // etc. instead of the stale closure's `config`.
           const resolvedKey = publishableKey ?? raw.publishable_key;
           const resolvedTenant = tenantId ?? raw.tenant_id;
-          const sessionToken = readSessionCookie();
+          // BUG-221 (codex r69): store publishableKey + tenantId, NOT
+          // a pre-composed authHeader. The session cookie is read per-
+          // request inside the onRequest middleware so signOut() is
+          // observed immediately.
           latestAuthRef.current = {
-            authHeader: sessionToken
-              ? `Bearer ${sessionToken}`
-              : `Bearer ${resolvedKey ?? "pk_build_placeholder"}`,
+            publishableKey: resolvedKey ?? "pk_build_placeholder",
             tenantId: resolvedTenant,
           };
           const nextConfig: PublicConfig = {
