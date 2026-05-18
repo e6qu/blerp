@@ -1,13 +1,12 @@
 # Do Next
 
-> **Snapshot (2026-05-18)** — All milestones M1–M8 + M12 complete. PR #52 merged. **PR #53 codex-clean (r85+r86) but had a hidden CI regression**: BUG-247 — dashboard `SignUp.tsx` never gathered password while BUG-239 had made it required at `/v1/auth/signups`, so every signup 400'd. Codex couldn't see it (the form predated the diff). Now fixed (password input + ≥8-char + 5 E2E tests updated; 7/7 signup tests pass locally). Branch is 98 commits ahead of `main`. Tests: 162/162 API · signup E2E 7/7 local · lint + typecheck + openapi:lint clean. **Immediate next action**: push BUG-247 fix, wait for CI green, then human review + merge.
+> **Snapshot (2026-05-18)** — All milestones M1–M8 + M12 complete. PR #52 merged. **PR #53 merge-ready**: 99 commits ahead of `main`, BUG-46..BUG-247 (202 bugs) fixed across 39 codex rounds + 1 CI E2E catchup (BUG-247 — dashboard `SignUp.tsx` predated BUG-239's password gate). CI green on `76133ea` (all 6 checks + "All Checks Passed" SUCCESS); codex r85+r86 clean. Tests: 162/162 API · 7/7 signup E2E local · CI E2E green · lint + typecheck + openapi:lint clean. PR title/body rewritten on GitHub. **Immediate next action**: human review + merge PR #53.
 
 ## Immediate — PR #53 merge
 
-1. **Watch CI** on the BUG-247 fix commit (push pending). E2E must come back green before claiming merge-ready. Three prior heads (24af12a, 8eb7da5, 47a74b5) failed only on `tests/auth/signup.spec.ts:84`.
-2. **Review PR #53** on GitHub: <https://github.com/e6qu/blerp/pull/53>. Once CI is green and the title/body reflect full BUG-46..BUG-247 scope, request human review.
-3. **Merge to `main`** when CI is green and the review is signed off. Branch is `MERGEABLE` per `gh pr view`.
-4. **After merge**, pick a new branch and start the next item below.
+1. **Review PR #53** on GitHub: <https://github.com/e6qu/blerp/pull/53>. Title is `chore(clerk-compliance): BUG-46..BUG-247 sweep (39 codex rounds)`; body is the category-grouped summary covering env compat, error envelope/RBAC, JWT/cookies/webhooks, M2M security model, auth UX, MFA/WebAuthn/audit, org-list races, dashboard infra, OIDC hygiene, and the BUG-247 CI catchup.
+2. **Merge to `main`** when the review is signed off. Branch is `MERGEABLE` per `gh pr view`, all CI green.
+3. **After merge**, pick a new branch and start the next item below.
 
 ## After PR #53 merges — pick one
 
