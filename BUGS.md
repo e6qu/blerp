@@ -2482,3 +2482,19 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/v1/services/webhook.service.ts`, `apps/api/src/v1/controllers/webhook.controller.ts`
 
 **Fix applied:** Threaded an `includeDefault: boolean` arg through every webhook service method (`list`, `get`, `update`, `delete`, `listDeliveries`). `projectIdMatch(projectId, includeDefault)` only ORs the `'default'` bucket when the flag is true. The controller passes `includeDefault = isTenantRootM2M(req)` so only tenant-root credentials (sk* per BUG-195, M2M with a tenant-wide `:admin` scope per BUG-186/207) see the legacy bucket. Project-scoped tokens are pinned to their own project and can't read or touch other projects' legacy endpoints. The migration path stays the same — tenant admins (or sk*) edit each legacy endpoint to its real `project_id` once.
+
+### BUG-242 (codex r82): Migration 0016 added `audit_logs.project_id` without backfilling — upgraded tenants lost historical audit visibility (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — upgrade-time data loss. `0016_harsh_sersi.sql` added `audit_logs.project_id` (nullable) but never populated existing rows. Combined with the BUG-161 project-scoped audit filter, every pre-migration audit row stayed invisible to project-scoped readers (backend SDK callers with a project-bound M2M, dashboard tenant admins reading their own project's events) even when `organization_id` linked the row to a known project.
+**Files:** `apps/api/drizzle/0016_harsh_sersi.sql`
+
+**Fix applied:** Added a backfill UPDATE between the `ADD COLUMN` and the index creation. Rows with a non-NULL `organization_id` get their `project_id` from `organizations.project_id` via subquery. Rows without an organization (tenant-system events like `user.created`) stay NULL — tenant-root callers still see them via BUG-205/207. Idempotent (`AND project_id IS NULL` skips already-backfilled rows on re-run).
+
+### BUG-243 (codex r82): BUG-241's `includeDefault` gate excluded session tenant admins — dashboard lost access to legacy webhook endpoints (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — half-finished BUG-241. Pre-r82 `includeDefaultBucket(req)` returned `isTenantRootM2M(req)`, which only inspects `req.m2m`. Pure session callers (the dashboard's normal admin path — BUG-209/218) returned false. Upgraded tenants logged in via the dashboard couldn't see ANY of their pre-r41 webhook endpoints — every legacy row was stuck in the `'default'` bucket which the controller hid from them. Tenant admins have project-owner authority over every project by definition; granting them visibility into the shared `'default'` bucket is consistent.
+**Files:** `apps/api/src/v1/controllers/webhook.controller.ts`, `apps/api/src/middleware/auth.ts` (exported `isSessionTenantAdmin`)
+
+**Fix applied:** Made `includeDefaultBucket` async; returns true when `isTenantRootM2M(req)` OR `isSessionTenantAdmin(req)`. Exported `isSessionTenantAdmin` from `middleware/auth.ts` (was previously module-local). All controller callers `await includeDefaultBucket(req)`. Pure project-scoped M2M tokens still don't see the bucket (preserves BUG-241's leak fix).

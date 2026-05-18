@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { eq } from "drizzle-orm";
 import { WebhookService } from "../services/webhook.service";
 import * as schema from "../../db/schema";
-import { isTenantRootM2M } from "../../middleware/auth";
+import { isSessionTenantAdmin, isTenantRootM2M } from "../../middleware/auth";
 
 interface DBWebhook {
   id: string;
@@ -107,8 +107,19 @@ export async function createWebhook(req: Request, res: Response) {
 // bucket alongside their project's endpoints. Project-scoped tokens
 // stick to their own project — preventing cross-project signing-
 // secret exposure via legacy default-bucket endpoints.
-function includeDefaultBucket(req: Request): boolean {
-  return isTenantRootM2M(req);
+//
+// BUG-243 (codex r82): session tenant admins (BUG-209 / BUG-218 —
+// the dashboard's normal admin path; owns every project in the
+// tenant) also see the legacy bucket. Pre-r82 they were excluded
+// (isTenantRootM2M only checks req.m2m, returns false for pure
+// sessions) so post-migration dashboard users lost access to every
+// pre-r41 webhook endpoint — couldn't list, edit, or delete them.
+// Tenant admins have project-owner authority over every project by
+// definition, so granting visibility into the shared 'default'
+// bucket is consistent with their existing reach.
+async function includeDefaultBucket(req: Request): Promise<boolean> {
+  if (isTenantRootM2M(req)) return true;
+  return isSessionTenantAdmin(req);
 }
 
 export async function listWebhooks(req: Request, res: Response) {
@@ -116,7 +127,7 @@ export async function listWebhooks(req: Request, res: Response) {
   const projectId = await projectIdForOp(req);
 
   try {
-    const webhooks = await service.list(projectId, includeDefaultBucket(req));
+    const webhooks = await service.list(projectId, await includeDefaultBucket(req));
     res.status(200).json({ data: webhooks.map((w) => mapWebhook(w as DBWebhook)) });
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
@@ -129,7 +140,7 @@ export async function getWebhook(req: Request, res: Response) {
   const projectId = await projectIdForOp(req);
 
   try {
-    const webhook = await service.get(projectId, id, includeDefaultBucket(req));
+    const webhook = await service.get(projectId, id, await includeDefaultBucket(req));
     if (!webhook) {
       res.status(404).json({ error: { message: "Webhook not found" } });
       return;
@@ -164,7 +175,7 @@ export async function updateWebhook(req: Request, res: Response) {
   if (Array.isArray(eventTypes)) safe.eventTypes = eventTypes;
 
   try {
-    const webhook = await service.update(projectId, id, safe, includeDefaultBucket(req));
+    const webhook = await service.update(projectId, id, safe, await includeDefaultBucket(req));
     if (!webhook) {
       res.status(404).json({ error: { message: "Webhook not found" } });
       return;
@@ -181,7 +192,7 @@ export async function deleteWebhook(req: Request, res: Response) {
   const projectId = await projectIdForOp(req);
 
   try {
-    const ok = await service.delete(projectId, id, includeDefaultBucket(req));
+    const ok = await service.delete(projectId, id, await includeDefaultBucket(req));
     if (!ok) {
       res.status(404).json({ error: { message: "Webhook not found" } });
       return;
@@ -203,7 +214,7 @@ export async function listDeliveries(req: Request, res: Response) {
     const deliveries = await service.listDeliveries(projectId, endpointId, {
       limit,
       offset,
-      includeDefault: includeDefaultBucket(req),
+      includeDefault: await includeDefaultBucket(req),
     });
     res.json({
       data: deliveries.map((d) => ({

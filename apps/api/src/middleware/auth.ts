@@ -494,7 +494,7 @@ export function isTenantRootM2M(
  *     `sk_` secret key (which has tenant-root semantics per BUG-195)
  *     or a chain-of-trust-minted tenant-wide M2M token (BUG-186).
  */
-async function isSessionTenantAdmin(req: Request): Promise<boolean> {
+export async function isSessionTenantAdmin(req: Request): Promise<boolean> {
   if (!req.user || !req.tenantDb) return false;
   // Tenant admin iff there is NO project in this tenant that
   // someone other than req.user owns. Implemented as "find any
