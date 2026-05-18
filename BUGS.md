@@ -2346,3 +2346,27 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `examples/monite-sdk-parity/scripts/dev-setup.ts`
 
 **Fix applied:** Wrap both `BLERP_TENANT_ID` and `CLERK_TENANT_ID` in `nonBlank()`. Same pattern as the surrounding `API_URL` chain and every other env helper in this PR.
+
+### BUG-225 (codex r71): Dashboard's Audit Logs + Usage tabs 403'd in production — `/v1/audit_logs` and `/v1/usage` still `requireM2M` (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — same class as BUG-209, missed surfaces. Both routes were strict `requireM2M("audit_logs:read")` / `requireM2M("usage:read")`. The in-repo dashboard's `useAuditLogs` and `useUsage` hooks send the user's session JWT and have no M2M token in the browser, so both tabs 403'd outside dev (masked by the X-User-Id shim).
+**Files:** `apps/api/src/app.ts`
+
+**Fix applied:** Swapped both to `requireScopeOrTenantAdmin(scope)` — admits an M2M with the scope OR a session user who's a tenant admin (owns every project in this tenant, per BUG-209 / BUG-218). Same trade-off as BUG-209: project owners are the tenant's designated admins, this is not an escalation.
+
+### BUG-226 (codex r71): Dashboard's Webhooks UI 403'd in production — all `/v1/webhooks/endpoints` routes still `requireM2M` (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — same class as BUG-225. The webhook admin routes (POST/GET/PATCH/DELETE on `/webhooks/endpoints`, GET deliveries) were locked to `requireM2M(webhooks:read|write)`. Dashboard's `useWebhooks` / `useCreateWebhook` / `useDeleteWebhook` / `useWebhookDeliveries` hooks send a session JWT — every webhook surface 403'd in prod.
+**Files:** `apps/api/src/v1/routes/webhook.routes.ts`
+
+**Fix applied:** Replaced `requireM2M` with `requireScopeOrTenantAdmin` for both `webhooksRead` and `webhooksWrite`.
+
+### BUG-227 (codex r71): Dashboard's Signup Restrictions + Redirect URLs tabs 403'd in production — same `requireM2M` regression (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same class as BUG-225/226. Both surfaces were strict `requireM2M(signup_restrictions:read|admin)` / `requireM2M(redirect_urls:read|admin)`. Dashboard's `useRestrictions` and `useRedirectUrls` hooks (list + create + delete) all use session JWTs. Per BUG-227's codex rationale: "either admit session tenant admins here or route the dashboard mutations through a server-side secret" — admit session tenant admins is the chosen path, consistent with BUG-209 / BUG-211 / BUG-225 / BUG-226.
+**Files:** `apps/api/src/v1/routes/auth.routes.ts`
+
+**Fix applied:** Swapped both read AND write paths for `/signup-restrictions` and `/redirect-urls` to `requireScopeOrTenantAdmin`. Tenant admins can already mint the `:admin` scope via chain-of-trust (BUG-186), so admitting them via session is no escalation. `requireM2M` import removed from `app.ts` (no longer used) and from auth.routes.ts (still used for `users:admin` unlock — kept).

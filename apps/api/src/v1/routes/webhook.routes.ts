@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as webhookController from "../controllers/webhook.controller";
-import { authMiddleware, requireM2M } from "../../middleware/auth";
+import { authMiddleware, requireScopeOrTenantAdmin } from "../../middleware/auth";
 
 const router = Router();
 
@@ -9,8 +9,17 @@ const router = Router();
 // tenant session could create / list / update / delete webhook
 // endpoints — list responses even leak the signing `secret`. Scope:
 // `webhooks:read` for GET, `webhooks:write` for create/update/delete.
-const webhooksRead = requireM2M("webhooks:read");
-const webhooksWrite = requireM2M("webhooks:write");
+//
+// BUG-226 (codex r71): admit session tenant admins (project owners,
+// see BUG-209 / BUG-218) here too. The in-repo dashboard's
+// `useWebhooks` / `useCreateWebhook` / `useDeleteWebhook` /
+// `useWebhookDeliveries` hooks send the user's session JWT — they
+// have no M2M token in the browser. Pre-r71 the dashboard's
+// Webhooks UI 403'd in production (masked in dev by the X-User-Id
+// shim). `requireScopeOrTenantAdmin` admits both an M2M with the
+// scope AND a session user who owns every project in the tenant.
+const webhooksRead = requireScopeOrTenantAdmin("webhooks:read");
+const webhooksWrite = requireScopeOrTenantAdmin("webhooks:write");
 
 router.post("/webhooks/endpoints", authMiddleware, webhooksWrite, webhookController.createWebhook);
 router.get("/webhooks/endpoints", authMiddleware, webhooksRead, webhookController.listWebhooks);

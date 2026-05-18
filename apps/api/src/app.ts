@@ -20,7 +20,7 @@ import * as discoveryController from "./v1/controllers/discovery.controller";
 import { httpLogger } from "./lib/logger";
 import { rateLimit } from "./middleware/rate-limit";
 import { doubleCsrfProtection } from "./middleware/csrf";
-import { authMiddleware, requireM2M, requireSelfOrM2M } from "./middleware/auth";
+import { authMiddleware, requireScopeOrTenantAdmin, requireSelfOrM2M } from "./middleware/auth";
 import { requirePermission } from "./middleware/rbac";
 import { errorHandler } from "./middleware/error-handler";
 
@@ -103,10 +103,14 @@ app.patch(
 // Audit Logs — BUG-156 (codex r37): admin-only per OpenAPI's SecretKey
 // security. Pre-fix any tenant user could read the full audit log
 // stream.
+// BUG-225 (codex r71): admit session tenant admins (project owners,
+// see BUG-209 / BUG-218) so the dashboard's `useAuditLogs` hook
+// works in production. Pre-r71 the Audit Logs tab 403'd outside
+// dev (masked by the X-User-Id shim).
 app.get(
   "/v1/audit_logs",
   authMiddleware,
-  requireM2M("audit_logs:read"),
+  requireScopeOrTenantAdmin("audit_logs:read"),
   auditController.listAuditLogs,
 );
 
@@ -114,7 +118,14 @@ app.get(
 app.post("/v1/uploads/avatar", authMiddleware, uploadController.uploadAvatar);
 
 // Quotas & Usage — admin-only (BUG-156).
-app.get("/v1/usage", authMiddleware, requireM2M("usage:read"), quotaController.getUsage);
+// BUG-225 (codex r71): same dashboard regression as audit_logs —
+// dashboard's `useUsage` hook needs session-tenant-admin admission.
+app.get(
+  "/v1/usage",
+  authMiddleware,
+  requireScopeOrTenantAdmin("usage:read"),
+  quotaController.getUsage,
+);
 
 // SCIM v2
 app.use("/scim/v2", scimRoutes);

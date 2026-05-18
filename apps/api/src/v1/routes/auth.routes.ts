@@ -259,22 +259,31 @@ router.delete(
 // (no per-project filter), so the threat is "project owner adds
 // themselves to the allowlist." `:admin` requires an existing
 // admin-scoped M2M to mint, bootstrapping via the install path.
+//
+// BUG-227 (codex r71): admit session tenant admins (project owners,
+// see BUG-209 / BUG-218) on both read and write. Dashboard's
+// `useRestrictions` hooks (list + create + delete) call these from
+// the browser with a session JWT. Pre-r71 the Signup Restrictions
+// UI 403'd in production (dev-shim hid it). "Tenant admin" is the
+// `isSessionTenantAdmin` definition: owns every project in this
+// tenant — same authority class that can mint `signup_restrictions:
+// admin` via chain-of-trust anyway, so no escalation.
 router.get(
   "/signup-restrictions",
   authMiddleware,
-  requireM2M("signup_restrictions:read"),
+  requireScopeOrTenantAdmin("signup_restrictions:read"),
   restrictionController.listRestrictions,
 );
 router.post(
   "/signup-restrictions",
   authMiddleware,
-  requireM2M("signup_restrictions:admin"),
+  requireScopeOrTenantAdmin("signup_restrictions:admin"),
   restrictionController.createRestriction,
 );
 router.delete(
   "/signup-restrictions/:id",
   authMiddleware,
-  requireM2M("signup_restrictions:admin"),
+  requireScopeOrTenantAdmin("signup_restrictions:admin"),
   restrictionController.deleteRestriction,
 );
 
@@ -289,22 +298,25 @@ router.post("/auth/testing-tokens", authController.createTestingToken);
 // `:admin` for the write scope per the same rationale as signup-
 // restrictions. Adding a redirect URL opens an OAuth-redirect
 // phishing path — tenant admin only.
+// BUG-227 (codex r71): admit session tenant admins. Same dashboard
+// regression class as signup-restrictions; dashboard's
+// `useRedirectUrls` hooks call these from the browser.
 router.get(
   "/redirect-urls",
   authMiddleware,
-  requireM2M("redirect_urls:read"),
+  requireScopeOrTenantAdmin("redirect_urls:read"),
   redirectController.listRedirectUrls,
 );
 router.post(
   "/redirect-urls",
   authMiddleware,
-  requireM2M("redirect_urls:admin"),
+  requireScopeOrTenantAdmin("redirect_urls:admin"),
   redirectController.createRedirectUrl,
 );
 router.delete(
   "/redirect-urls/:id",
   authMiddleware,
-  requireM2M("redirect_urls:admin"),
+  requireScopeOrTenantAdmin("redirect_urls:admin"),
   redirectController.deleteRedirectUrl,
 );
 
