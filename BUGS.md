@@ -2386,3 +2386,19 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/v1/controllers/webhook.controller.ts`
 
 **Fix applied:** Made `projectIdForOp` async; added a session-user derivation step that looks up the user's first owned project (same pattern as BUG-212's `<CreateOrganization>` route middleware). All six handlers updated to `await projectIdForOp(req, ...)`. Real M2M still takes precedence; explicit `project_id` in the body (create only) still wins; dev-shim still falls through to the `"default"` fallback (existing test data).
+
+### BUG-230 (codex r73): Webhook session admin's explicit `project_id` was silently dropped — multi-project tenant admins routed to first-owned project (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — multi-project follow-up to BUG-229. The pre-r73 `projectIdForOp` precedence was: M2M.projectId → session-user's first owned project → explicit fallback. So a multi-project tenant admin POSTing `/v1/webhooks/endpoints` with body `{ project_id: "proj_B", ... }` got the endpoint silently routed to project A (their first owned). Same first-project trap for list/get/update/delete — the dashboard could only ever see endpoints in one of their projects.
+**Files:** `apps/api/src/v1/controllers/webhook.controller.ts`
+
+**Fix applied:** Reordered `projectIdForOp` precedence: explicit `project_id` from body / query param wins FIRST, then M2M's `projectId`, then session user's first owned project, then `"default"`. The route gate is `requireScopeOrTenantAdmin` (BUG-226), so any value the caller supplies has already been authorised at the route boundary — tenant admins by definition own every project (BUG-218). `createWebhook` no longer pre-supplies the body's `project_id` as the fallback (which would have shadowed query-based callers).
+
+### BUG-231 (codex r73): `requireProjectAccess` still rejected tenant-root `sk_` callers on cross-project paths — same class as BUG-220 (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — consistency follow-up to BUG-220. BUG-220 exempted tenant-root callers from the project-binding check in `requirePermission`. `requireProjectAccess` (the other middleware doing the same comparison) was missed. So an `sk_` secret key minted in project-A still 403'd on `GET / PUT / DELETE /v1/projects/proj_B`, `POST /v1/projects/proj_B/keys`, etc. — the LIST returned project-B's data via BUG-219's tenant-root unscoping, but the per-project follow-ups rejected the same key.
+**Files:** `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Mirror the BUG-220 fix in `requireProjectAccess`: call `isTenantRootM2M(req, { devShimIsTenantRoot: false })` and skip the project-binding comparison when true. Same `devShimIsTenantRoot: false` discriminator as the org list controller and `requirePermission`, so all three tenant-root surfaces use the same predicate. Non-tenant-root project-scoped M2M tokens still get the BUG-142 binding check.

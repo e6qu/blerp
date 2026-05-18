@@ -29,7 +29,23 @@ interface DBWebhook {
 // scope from the session user's first owned project (same pattern as
 // BUG-212's <CreateOrganization>). Explicit `project_id` in the body
 // (create path) still wins.
+//
+// BUG-230 (codex r73): explicit `project_id` from the caller —
+// either body (create) or `?project_id=` query (read/update/delete) —
+// now wins BEFORE both M2M and session-owned derivation. Pre-r73 a
+// multi-project tenant admin POSTing with `project_id: "proj_B"`
+// silently got the endpoint routed to their first-owned project,
+// and the read paths only ever showed one project's endpoints. The
+// route gate is `requireScopeOrTenantAdmin` (BUG-226), so any value
+// the caller supplies has already been authorised at the route
+// boundary (M2M with scope OR session tenant admin who by
+// definition owns every project — BUG-218).
 async function projectIdForOp(req: Request, fallback?: string): Promise<string> {
+  const explicit =
+    fallback ??
+    (typeof req.body?.project_id === "string" ? req.body.project_id : undefined) ??
+    (typeof req.query?.project_id === "string" ? req.query.project_id : undefined);
+  if (explicit) return explicit;
   if (req.m2m && !req.m2m.clientId.startsWith("dev-shim")) {
     return req.m2m.projectId;
   }
@@ -39,7 +55,7 @@ async function projectIdForOp(req: Request, fallback?: string): Promise<string> 
     });
     if (owned) return owned.id;
   }
-  return fallback ?? "default";
+  return "default";
 }
 
 function mapWebhook(w: DBWebhook) {
@@ -55,9 +71,13 @@ function mapWebhook(w: DBWebhook) {
 }
 
 export async function createWebhook(req: Request, res: Response) {
-  const { url, events, event_types, project_id } = req.body;
+  const { url, events, event_types } = req.body;
   const service = new WebhookService(req.tenantDb!);
-  const projectId = await projectIdForOp(req, project_id ?? "default");
+  // BUG-230 (codex r73): projectIdForOp now reads body.project_id /
+  // query.project_id itself with precedence over derivation, so
+  // there's no need to pass the body value as a fallback (which would
+  // shadow query-based callers).
+  const projectId = await projectIdForOp(req);
 
   try {
     const webhook = await service.create(projectId, { url, eventTypes: events || event_types });

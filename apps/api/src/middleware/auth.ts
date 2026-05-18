@@ -638,7 +638,18 @@ export function requireProjectAccess(
       // routes via the dev shim) keep working. Production is
       // unaffected — the dev shim is gated by NODE_ENV.
       const isDevShim = req.m2m.clientId.startsWith("dev-shim");
-      if (!isDevShim && req.m2m.projectId !== projectId) {
+      // BUG-231 (codex r73): tenant-root callers (raw `sk_` secret
+      // keys per BUG-195; M2M with a tenant-wide `:admin` scope per
+      // BUG-186/207) are exempt from the project-binding check.
+      // Same exemption mirrors BUG-220 in `requirePermission` —
+      // without it, an sk_ minted in project-A could list orgs
+      // across the tenant (BUG-219) but then 403 on every cross-
+      // project follow-up. Use `devShimIsTenantRoot: false` so dev-
+      // shim continues through the wildcard branch (which is the
+      // case immediately above for `!projectId` and below via the
+      // `isDevShim` skip on the scope check).
+      const isTenantRoot = isTenantRootM2M(req, { devShimIsTenantRoot: false });
+      if (!isDevShim && !isTenantRoot && req.m2m.projectId !== projectId) {
         res.status(403).json({
           error: {
             message: "M2M token is scoped to a different project. Mint a token for this project.",
