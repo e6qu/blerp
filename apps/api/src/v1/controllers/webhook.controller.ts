@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { eq } from "drizzle-orm";
 import { WebhookService } from "../services/webhook.service";
 import * as schema from "../../db/schema";
+import { isTenantRootM2M } from "../../middleware/auth";
 
 interface DBWebhook {
   id: string;
@@ -30,22 +31,37 @@ interface DBWebhook {
 // BUG-212's <CreateOrganization>). Explicit `project_id` in the body
 // (create path) still wins.
 //
-// BUG-230 (codex r73): explicit `project_id` from the caller —
-// either body (create) or `?project_id=` query (read/update/delete) —
-// now wins BEFORE both M2M and session-owned derivation. Pre-r73 a
-// multi-project tenant admin POSTing with `project_id: "proj_B"`
-// silently got the endpoint routed to their first-owned project,
-// and the read paths only ever showed one project's endpoints. The
-// route gate is `requireScopeOrTenantAdmin` (BUG-226), so any value
-// the caller supplies has already been authorised at the route
-// boundary (M2M with scope OR session tenant admin who by
-// definition owns every project — BUG-218).
+// BUG-230 (codex r73): explicit `project_id` from the caller — either
+// body (create) or `?project_id=` query (read/update/delete) — wins
+// for callers with multi-project authority.
+//
+// BUG-232 (codex r74): scoped M2M tokens MUST NOT be able to override
+// their bound project via body / query. Pre-r74's explicit-first
+// ordering let a project-A `webhooks:read` token pass
+// `?project_id=proj_B` and read project-B's signing secrets. Now:
+// real project-scoped M2M (non-dev-shim, non-tenant-root) stays
+// pinned to `req.m2m.projectId` — the body/query is ignored. Only
+// tenant-root credentials (sk_ via BUG-195, M2M with tenant-wide
+// `:admin` scope via BUG-186/207) and dev-shim/session callers can
+// supply an override.
 async function projectIdForOp(req: Request, fallback?: string): Promise<string> {
+  // Project-scoped M2M is BOUND to its project. Refuse override.
+  if (
+    req.m2m &&
+    !req.m2m.clientId.startsWith("dev-shim") &&
+    !isTenantRootM2M(req, { devShimIsTenantRoot: false })
+  ) {
+    return req.m2m.projectId;
+  }
+  // Tenant-root / dev-shim / session: honor caller-supplied project.
   const explicit =
     fallback ??
     (typeof req.body?.project_id === "string" ? req.body.project_id : undefined) ??
     (typeof req.query?.project_id === "string" ? req.query.project_id : undefined);
   if (explicit) return explicit;
+  // No explicit project. Tenant-root M2M defaults to its bound
+  // project (api keys are minted under a real project); session
+  // tenant admin → first owned project; dev-shim → "default".
   if (req.m2m && !req.m2m.clientId.startsWith("dev-shim")) {
     return req.m2m.projectId;
   }

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { M2MService } from "../services/m2m.service";
 import { getKeyPair } from "../../lib/keys";
 import * as schema from "../../db/schema";
+import { isTenantRootM2M } from "../../middleware/auth";
 
 /**
  * BUG-140 (codex r30): privilege-escalation gate. Pre-fix any
@@ -24,13 +25,22 @@ async function assertProjectOwnerOrM2M(req: Request, projectId: string): Promise
     // M2M token from project A can no longer act on project B.
     // BUG-147 dev shim: see requireProjectAccess — dev-shim clientId
     // is a wildcard so tests using X-User-Id keep working.
+    // BUG-233 (codex r74): tenant-root callers (raw `sk_` secret keys
+    // per BUG-195, M2M with a tenant-wide `:admin` scope per
+    // BUG-186/207) are exempt from the project-binding check. Same
+    // exemption as BUG-220 (requirePermission) and BUG-231
+    // (requireProjectAccess) — without it, a single tenant secret key
+    // can't bootstrap M2M tokens for any project other than the one
+    // the api key was minted under, defeating the documented sk_
+    // "tenant-wide admin" contract.
     const isDevShim = req.m2m.clientId.startsWith("dev-shim");
-    if (!isDevShim && req.m2m.projectId !== projectId) {
+    const isTenantRoot = isTenantRootM2M(req, { devShimIsTenantRoot: false });
+    if (!isDevShim && !isTenantRoot && req.m2m.projectId !== projectId) {
       throw new ProjectAuthError(
         "M2M token is scoped to a different project. Mint a token for this project.",
       );
     }
-    return; // chain-of-trust within the same project (or dev shim).
+    return; // chain-of-trust within the same project (or dev shim / tenant-root).
   }
   const userId = req.user?.id;
   if (!userId) {

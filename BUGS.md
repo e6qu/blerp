@@ -2402,3 +2402,19 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/middleware/auth.ts`
 
 **Fix applied:** Mirror the BUG-220 fix in `requireProjectAccess`: call `isTenantRootM2M(req, { devShimIsTenantRoot: false })` and skip the project-binding comparison when true. Same `devShimIsTenantRoot: false` discriminator as the org list controller and `requirePermission`, so all three tenant-root surfaces use the same predicate. Non-tenant-root project-scoped M2M tokens still get the BUG-142 binding check.
+
+### BUG-232 (codex r74): BUG-230's explicit-wins ordering let project-scoped M2M tokens read other projects' webhook signing secrets (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — credential-exposure regression. My BUG-230 fix reordered `projectIdForOp` to honor body / query `project_id` BEFORE `req.m2m.projectId`. The intent was multi-project tenant-admin support, but the route gate only checks `webhooks:*` scope (not project binding), so a project-A `webhooks:read` M2M token could call `GET /v1/webhooks/endpoints?project_id=proj_B` and get back project-B's endpoint rows — INCLUDING their `secret` (webhook signing secret) which the controller maps verbatim. List/get/update/delete all affected.
+**Files:** `apps/api/src/v1/controllers/webhook.controller.ts`
+
+**Fix applied:** `projectIdForOp` now pins project-scoped M2M tokens (non-dev-shim, non-tenant-root) to `req.m2m.projectId` regardless of body/query input. Only tenant-root credentials (`sk_` per BUG-195, M2M with tenant-wide `:admin` per BUG-186/207) and dev-shim / session callers can supply an override. Session tenant admins keep the BUG-230 multi-project capability — they're authorised by definition (own every project). Real scoped M2M cannot escape its project boundary via this controller.
+
+### BUG-233 (codex r74): `assertProjectOwnerOrM2M` in m2m.controller still rejected tenant-root `sk_` cross-project (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same exemption pattern as BUG-220 / BUG-231, third missed surface. `assertProjectOwnerOrM2M` (gates `POST /v1/m2m-tokens`, list, revoke) compared `req.m2m.projectId !== projectId` for any M2M. A single tenant `sk_` secret key (api key bound to one project by definition) couldn't bootstrap M2M tokens for any other project in the tenant — defeating the documented "tenant-wide admin" contract for `sk_`. Backend SDK callers had to seed an admin token per project, which contradicts how `sk_` is supposed to work.
+**Files:** `apps/api/src/v1/controllers/m2m.controller.ts`
+
+**Fix applied:** Added the same `isTenantRootM2M(req, { devShimIsTenantRoot: false })` exemption as BUG-220 (`requirePermission`) and BUG-231 (`requireProjectAccess`). All three project-binding surfaces now use the same predicate. The downstream BUG-187 chain-of-trust check (`every requested scope must be held by the minter`) still applies — tenant-root `sk_` has the full scope set so it can mint into any project, but a project-scoped M2M still can't.
