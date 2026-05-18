@@ -2450,3 +2450,11 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/v1/controllers/user.controller.ts`
 
 **Fix applied:** Both 404 branches now route through `next(new NotFoundError("User"))`. Central error handler formats them through the dual `{ error, errors[] }` envelope. Signature gained `next: NextFunction` (Express's third middleware arg).
+
+### BUG-238 (codex r77): Blank `WEBAUTHN_ORIGIN` / `WEBAUTHN_RP_NAME` env returned empty string instead of falling back (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same blank-env regression class as BUG-79 / BUG-224. `webauthn.service.ts` used `process.env.WEBAUTHN_ORIGIN ?? readApiUrl()` and `process.env.WEBAUTHN_RP_NAME ?? "Blerp"`. `??` only falls back on null/undefined, NOT on empty strings — so a common `.env` template with `WEBAUTHN_ORIGIN=` (blank intentionally to be filled in later) returned `""`. WebAuthn registration / verification then used an empty expected origin, breaking passkey flows.
+**Files:** `apps/api/src/v1/services/webauthn.service.ts`
+
+**Fix applied:** Both helpers now coerce blank strings to undefined before applying the fallback — same `nonBlank` pattern already used by `readApiUrl()` in the same file and by every other env helper in this PR (BUG-79 / BUG-224).

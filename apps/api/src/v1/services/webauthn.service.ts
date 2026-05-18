@@ -42,11 +42,21 @@ function getRpId(): string {
 }
 
 function getRpName(): string {
-  return process.env.WEBAUTHN_RP_NAME ?? "Blerp";
+  // BUG-238 (codex r77): blank-env coercion. `??` treats `""` as
+  // configured, so a `.env` template with `WEBAUTHN_RP_NAME=`
+  // (blank) returned an empty rpName. Use the same `nonBlank`
+  // helper as `readApiUrl()` above.
+  const v = process.env.WEBAUTHN_RP_NAME;
+  return v && v.trim() !== "" ? v : "Blerp";
 }
 
 function getOrigin(): string {
-  return process.env.WEBAUTHN_ORIGIN ?? readApiUrl();
+  // BUG-238 (codex r77): same blank-env regression as the prior
+  // BUG-79 family. A `WEBAUTHN_ORIGIN=` template entry made `??`
+  // return `""` instead of falling back to `readApiUrl()`, breaking
+  // passkey verification with an empty expected origin.
+  const v = process.env.WEBAUTHN_ORIGIN;
+  return v && v.trim() !== "" ? v : readApiUrl();
 }
 
 const challengeStore = new TransientStore<string>(5 * 60 * 1000);
