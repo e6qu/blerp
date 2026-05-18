@@ -2322,3 +2322,27 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `packages/nextjs/src/client/BlerpProvider.tsx`
 
 **Fix applied:** Refactored `latestAuthRef` to hold `{ publishableKey, tenantId }` instead of `{ authHeader, tenantId }`. The `onRequest` middleware now reads `readSessionCookie()` ON EVERY REQUEST and composes `Bearer <session>` or `Bearer <pk>` inline. Cookie clears from `signOut()` / `setSessionCookies()` are observed immediately — no effect dependency dance. The publishable-key + tenant-id ref still gets updated by the runtime-config success path (BUG-190) and the `[key, resolvedTenantId]` effect for normal updates. The `useMemo` apiClient still uses the initial cookie read for `createClient`'s baseline headers (overwritten by the middleware on every request).
+
+### BUG-222 (codex r70): JWT payload `atob()` threw on unpadded base64url — `org_id` claim never mirrored to `__blerp_org` cookie (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — silent hydration drift. `decodeJwtPayload` in `session-cookies.ts` converted base64url → base64 by replacing `-`/`_` but didn't pad to a multiple of 4. Browser `atob()` requires standard padding and throws otherwise; the catch swallowed it and returned `undefined`. When the JWT payload's segment length wasn't a multiple of 4 (very common — JWT segments are unpadded by spec), `setSessionCookies()` did NOT mirror `org_id` to `__blerp_org`. Single-org users (whose JWT carries the claim per BUG-49 / BUG-53) then hydrated with `useAuth().orgId === null` despite the server seeing the right org — SSR vs hydration drift.
+**Files:** `packages/nextjs/src/client/session-cookies.ts`
+
+**Fix applied:** Pad the base64url-converted payload to a multiple of 4 with `=` before passing to `atob()` / `Buffer.from`. Decoding succeeds for both padded and unpadded JWT segments. Catch-all is preserved for genuinely malformed tokens.
+
+### BUG-223 (codex r70): `requireM2M` 403s bypassed the central error envelope — SDK callers read `body.error.code` as undefined (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — broke the BUG-47 / BUG-60 ErrorResponse contract. The two `requireM2M` overloads (no-arg admin gate + `requireM2M(scope)` variant) wrote `res.status(403).json({ error: { message } })` directly, bypassing `next(err)` → `errorHandler`. Pre-r70 every other gate routed through `BlerpError` subclasses so the response carried `{ error: { code, message, type }, errors: [{ code, message }] }` (Clerk-compat dual envelope). `requireM2M`'s outputs had no `code`, no `errors[]` — generated openapi-fetch clients + `throwIfError()` helpers in the backend SDK read `body.error.code` and saw `undefined`.
+**Files:** `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Replaced all three direct `res.status(403).json(...)` calls in the two `requireM2M` branches with `next(new ForbiddenError(message))`. The central error handler now formats those failures into the canonical dual envelope. Argument destructuring also gained a sparse-array skip (`const [req, , next] = args`) so the unused `res` parameter doesn't trip eslint's no-unused-vars.
+
+### BUG-224 (codex r70): Monite SDK example's `dev-setup.ts` `TENANT_ID` chain didn't `nonBlank` — blank `BLERP_TENANT_ID=` clobbered `CLERK_TENANT_ID` alias (FIXED)
+
+**Status:** Fixed
+**Severity:** P3 — dev-setup regression. Adjacent `API_URL` chain already used `nonBlank` to coerce blank strings (BUG-69 / BUG-79), but `TENANT_ID` did `process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant"` raw. With a common `.env` template that leaves `BLERP_TENANT_ID=` blank and sets `CLERK_TENANT_ID=...`, the blank string short-circuited the chain and the script shipped an empty `X-Tenant-Id` to every setup request, failing the demo flow.
+**Files:** `examples/monite-sdk-parity/scripts/dev-setup.ts`
+
+**Fix applied:** Wrap both `BLERP_TENANT_ID` and `CLERK_TENANT_ID` in `nonBlank()`. Same pattern as the surrounding `API_URL` chain and every other env helper in this PR.

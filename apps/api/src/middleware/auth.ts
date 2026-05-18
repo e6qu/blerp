@@ -4,6 +4,7 @@ import { eq, and, ne } from "drizzle-orm";
 import * as jose from "jose";
 import { getKeyPair } from "../lib/keys";
 import { logger } from "../lib/logger";
+import { ForbiddenError } from "../lib/errors";
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.header("Authorization");
@@ -374,40 +375,40 @@ export function requireM2M(
 export function requireM2M(
   ...args: [string] | [Request, Response, NextFunction]
 ): void | ((req: Request, res: Response, next: NextFunction) => void) {
+  // BUG-223 (codex r70): route every 403 through `ForbiddenError` so
+  // the central error handler emits the dual `{ error, errors[] }`
+  // envelope (BUG-47). Pre-r70 these gates wrote `res.status(403)
+  // .json({ error: { message } })` directly — generated clients +
+  // `throwIfError()` callers read `body.error.code` / `errors[]` and
+  // saw `undefined` for these gates only.
   if (args.length === 1) {
     const requiredScope = args[0];
-    return (req, res, next) => {
+    return (req, _res, next) => {
       if (!req.m2m) {
-        res.status(403).json({
-          error: {
-            message:
-              "Admin-only endpoint — requires an M2M / secret-key token, not a user session.",
-          },
-        });
-        return;
+        return next(
+          new ForbiddenError(
+            "Admin-only endpoint — requires an M2M / secret-key token, not a user session.",
+          ),
+        );
       }
       if (!req.m2m.scopes.includes(requiredScope)) {
-        res.status(403).json({
-          error: {
-            message: `M2M token is missing the required scope "${requiredScope}".`,
-          },
-        });
-        return;
+        return next(
+          new ForbiddenError(`M2M token is missing the required scope "${requiredScope}".`),
+        );
       }
       next();
     };
   }
-  const [req, res, next] = args;
+  const [req, , next] = args;
   if (req.m2m) {
     next();
     return;
   }
-  res.status(403).json({
-    error: {
-      message:
-        "Admin-only endpoint — requires an M2M / secret-key token (backend SDK), not a user session.",
-    },
-  });
+  next(
+    new ForbiddenError(
+      "Admin-only endpoint — requires an M2M / secret-key token (backend SDK), not a user session.",
+    ),
+  );
 }
 
 /**

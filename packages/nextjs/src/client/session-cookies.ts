@@ -36,8 +36,17 @@ function decodeJwtPayload(token: string): Record<string, unknown> | undefined {
   const [, payloadB64] = token.split(".");
   if (!payloadB64) return undefined;
   try {
-    // base64url → base64 → utf8 JSON
-    const padded = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    // base64url → base64 → utf8 JSON.
+    //
+    // BUG-222 (codex r70): JWT payload segments are unpadded
+    // base64url. Browser `atob()` requires standard base64 padding
+    // (length must be a multiple of 4); without it, `atob` throws
+    // and the catch below silently dropped `org_id`. Single-org
+    // users then hydrated with `useAuth().orgId === null` despite
+    // the server JWT carrying the claim. Pad with `=` to the next
+    // multiple of 4 before decoding.
+    const base64 = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
     const decoded =
       typeof atob === "function" ? atob(padded) : Buffer.from(padded, "base64").toString("utf-8");
     return JSON.parse(decoded) as Record<string, unknown>;

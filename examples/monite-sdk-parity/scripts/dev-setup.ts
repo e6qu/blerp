@@ -29,7 +29,12 @@ const API_URL = (
 )
   .replace(/\/v1\/?$/i, "")
   .replace(/\/+$/, "");
-const TENANT_ID = process.env.BLERP_TENANT_ID ?? process.env.CLERK_TENANT_ID ?? "demo-tenant";
+// BUG-224 (codex r70): use the same nonBlank chain as API_URL above.
+// A blank `BLERP_TENANT_ID=` in a `.env` would otherwise win over
+// `CLERK_TENANT_ID` and ship an empty `X-Tenant-Id`, failing every
+// setup request. Matches the pattern in BUG-69 / BUG-79.
+const TENANT_ID =
+  nonBlank(process.env.BLERP_TENANT_ID) ?? nonBlank(process.env.CLERK_TENANT_ID) ?? "demo-tenant";
 
 const ROOT = path.resolve(import.meta.dir, "..");
 const API_ROOT = path.resolve(ROOT, "../../apps/api");
