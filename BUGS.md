@@ -2370,3 +2370,19 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/v1/routes/auth.routes.ts`
 
 **Fix applied:** Swapped both read AND write paths for `/signup-restrictions` and `/redirect-urls` to `requireScopeOrTenantAdmin`. Tenant admins can already mint the `:admin` scope via chain-of-trust (BUG-186), so admitting them via session is no escalation. `requireM2M` import removed from `app.ts` (no longer used) and from auth.routes.ts (still used for `users:admin` unlock — kept).
+
+### BUG-228 (codex r72): Client-side `getPublishableKey*` re-export broke Next.js `NEXT_PUBLIC_*` static-inlining (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — silent client-bundle regression. `packages/nextjs/src/client/env.ts` re-exported `getPublishableKey` / `getPublishableKeyOrThrow` / `getPublishableKeyOrBuildPlaceholder` from `@blerp/shared`. The shared helpers index `process.env[key]` DYNAMICALLY via a computed-key chain. Next.js webpack/turbopack only inlines `process.env.NEXT_PUBLIC_*` references that appear as STATIC member-expression accesses in the bundled source; dynamic indexing stays as a literal property read against `{}` at runtime in the browser, returning `undefined`. So even with `NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY=…` set at build time, the client bundle never saw it — the SDK fell back to `pk_build_placeholder` and the BUG-96 runtime-config dance kicked in unnecessarily on every deploy (not just single-image multi-env ones).
+**Files:** `packages/nextjs/src/client/env.ts`
+
+**Fix applied:** Replaced the re-export with a thin client-only wrapper that lists every supported public alias as a STATIC `process.env.NAME` read (`NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `VITE_*`, `PUBLIC_*`, `EXPO_PUBLIC_*`, `NUXT_PUBLIC_*`, plus the bare server-side names). The bundler can statically replace each name; unused ones fall through to `undefined`. Precedence matches the shared helper's order (BLERP > CLERK across each prefix). Server-side consumers continue importing from `@blerp/shared` (Node has no inlining constraint).
+
+### BUG-229 (codex r72): Session tenant admins on webhook routes only saw `'default'`-bucket endpoints — BUG-226's admission was hollow (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — half-finished BUG-226. The webhook controller's `projectIdForOp(req, fallback?)` returned `req.m2m.projectId` for real M2M, else `fallback ?? "default"`. Session callers (BUG-226 admission) had no `req.m2m`, so every list/get/update/delete scoped to project `'default'`. The dashboard's Webhooks tab passed the route gate post-r71 but only saw legacy `'default'`-bucket endpoints (BUG-182's wildcard) — couldn't manage real-project endpoints.
+**Files:** `apps/api/src/v1/controllers/webhook.controller.ts`
+
+**Fix applied:** Made `projectIdForOp` async; added a session-user derivation step that looks up the user's first owned project (same pattern as BUG-212's `<CreateOrganization>` route middleware). All six handlers updated to `await projectIdForOp(req, ...)`. Real M2M still takes precedence; explicit `project_id` in the body (create only) still wins; dev-shim still falls through to the `"default"` fallback (existing test data).

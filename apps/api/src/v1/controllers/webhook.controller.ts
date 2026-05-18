@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
+import { eq } from "drizzle-orm";
 import { WebhookService } from "../services/webhook.service";
+import * as schema from "../../db/schema";
 
 interface DBWebhook {
   id: string;
@@ -19,9 +21,23 @@ interface DBWebhook {
 // keep working — we honor whatever project the request supplies via
 // `req.body.project_id` (create only) for the shim, falling back to
 // "default" so existing data without project_id remains accessible.
-function projectIdForOp(req: Request, fallback?: string): string {
+//
+// BUG-229 (codex r72): BUG-226 admits session tenant admins on these
+// routes. Sessions have no `req.m2m`, so the pre-r72 helper returned
+// "default" for them — dashboard only saw legacy / default-bucket
+// endpoints and couldn't manage real-project endpoints. Derive the
+// scope from the session user's first owned project (same pattern as
+// BUG-212's <CreateOrganization>). Explicit `project_id` in the body
+// (create path) still wins.
+async function projectIdForOp(req: Request, fallback?: string): Promise<string> {
   if (req.m2m && !req.m2m.clientId.startsWith("dev-shim")) {
     return req.m2m.projectId;
+  }
+  if (req.user && req.tenantDb) {
+    const owned = await req.tenantDb.query.projects.findFirst({
+      where: eq(schema.projects.ownerUserId, req.user.id),
+    });
+    if (owned) return owned.id;
   }
   return fallback ?? "default";
 }
@@ -41,7 +57,7 @@ function mapWebhook(w: DBWebhook) {
 export async function createWebhook(req: Request, res: Response) {
   const { url, events, event_types, project_id } = req.body;
   const service = new WebhookService(req.tenantDb!);
-  const projectId = projectIdForOp(req, project_id ?? "default");
+  const projectId = await projectIdForOp(req, project_id ?? "default");
 
   try {
     const webhook = await service.create(projectId, { url, eventTypes: events || event_types });
@@ -53,7 +69,7 @@ export async function createWebhook(req: Request, res: Response) {
 
 export async function listWebhooks(req: Request, res: Response) {
   const service = new WebhookService(req.tenantDb!);
-  const projectId = projectIdForOp(req);
+  const projectId = await projectIdForOp(req);
 
   try {
     const webhooks = await service.list(projectId);
@@ -66,7 +82,7 @@ export async function listWebhooks(req: Request, res: Response) {
 export async function getWebhook(req: Request, res: Response) {
   const id = (req.params.endpoint_id || req.params.id) as string;
   const service = new WebhookService(req.tenantDb!);
-  const projectId = projectIdForOp(req);
+  const projectId = await projectIdForOp(req);
 
   try {
     const webhook = await service.get(projectId, id);
@@ -83,7 +99,7 @@ export async function getWebhook(req: Request, res: Response) {
 export async function updateWebhook(req: Request, res: Response) {
   const id = (req.params.endpoint_id || req.params.id) as string;
   const service = new WebhookService(req.tenantDb!);
-  const projectId = projectIdForOp(req);
+  const projectId = await projectIdForOp(req);
 
   // BUG-164 (codex r41): only allow updates to the documented fields.
   // Spreading raw req.body into service.update let a caller include
@@ -118,7 +134,7 @@ export async function updateWebhook(req: Request, res: Response) {
 export async function deleteWebhook(req: Request, res: Response) {
   const id = (req.params.endpoint_id || req.params.id) as string;
   const service = new WebhookService(req.tenantDb!);
-  const projectId = projectIdForOp(req);
+  const projectId = await projectIdForOp(req);
 
   try {
     const ok = await service.delete(projectId, id);
@@ -137,7 +153,7 @@ export async function listDeliveries(req: Request, res: Response) {
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
   const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
   const service = new WebhookService(req.tenantDb!);
-  const projectId = projectIdForOp(req);
+  const projectId = await projectIdForOp(req);
 
   try {
     const deliveries = await service.listDeliveries(projectId, endpointId, { limit, offset });
