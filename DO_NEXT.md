@@ -1,11 +1,12 @@
 # Do Next
 
-> **Snapshot (2026-05-18)** — All milestones M1–M8 + M12 complete. PR #52 merged. PR #53 (Clerk-compliance sweep) still in flight on branch `chore/clerk-compliance-sweep-2026-05-17`, 80 commits ahead of `main`, BUG-46..BUG-219 fixed across 21 rounds of codex review. Tests: 162/162 API · 15/15 Dashboard · lint + typecheck + openapi:lint clean. **Immediate next action**: re-run `codex review --base main` once the usage window resets (~2:56 AM). One clean round (r64) already exists; the convergence rule needs two consecutive — chase that, then merge.
+> **Snapshot (2026-05-18)** — All milestones M1–M8 + M12 complete. PR #52 merged. **PR #53 CONVERGED**: 97 commits ahead of `main`, BUG-46..BUG-246 (201 bugs) fixed across 39 rounds of `codex review`. Two consecutive clean rounds (r85 + r86) satisfy the project's convergence rule. PR is `MERGEABLE`. Tests: 162/162 API · 15/15 Dashboard · lint + typecheck + openapi:lint clean. **Immediate next action**: human review + merge PR #53.
 
-## Immediate — PR #53 convergence
+## Immediate — PR #53 merge
 
-1. **Resume codex review loop**. `codex review --base main` once usage limit lifts (~2:56 AM). The recent pattern: each round of P1/P2 findings adds 1–3 commits. r65/r66/r67 surfaced consequences of earlier same-PR fixes (CSRF skip ordering, runtime-config public paths, tenant-admin scope semantics). Track the BUG-NN sequence — next free id is BUG-220.
-2. **Declare convergence** when two consecutive `codex review` runs return clean ("I did not identify any discrete, actionable regressions…"). Then merge the PR.
+1. **Review PR #53** on GitHub: <https://github.com/e6qu/blerp/pull/53>. Branch ends at commit `8eb7da5` (r84 fixes — BUG-245/246). r85 + r86 reviews were both clean.
+2. **Merge to `main`** when ready. No fast-forward concerns — branch is up to date with `origin/main` and `MERGEABLE`.
+3. **After merge**, pick a new branch and start the next item below.
 
 ## After PR #53 merges — pick one
 

@@ -120,3 +120,29 @@ The job of this file is to give a fresh agent enough breadcrumbs to resume mid-s
 - Summary: 8 more rounds. Major surfaces: (r60) narrowed tenant-root predicate to exclude project-bound `:admin` scopes + closed open-redirect in `<SignIn>` / `<SignUp>` via `isSafeRedirect`; (r61) admit session tenant admins on `/v1/users` (`requireScopeOrTenantAdmin`) + invitation-lookup middleware before authMiddleware on flat revoke; (r62) tenant admin can read/edit individual users via `requireSelfOrM2M` + `<CreateOrganization>` derives `project_id` from auth context (API + OpenAPI + client + regen); (r63) auto-enrolled `user.created` carries the enrolled org's project*id + embedded auth links honor runtime config via new context fields; (r65) CSRF skip for `/v1/oauth/token` + framework-public paths bypass `blerpMiddleware`; (r66) CSRF skip uses mounted-relative `req.path` (BUG-215's predicate didn't fire in prod — test-env catch-all masked it); (r67) "tenant admin" tightened to "owns EVERY project in tenant" + sk* admin sees whole tenant on org list. r64 was the first clean round; r65/r66/r67 surfaced follow-ups.
 - Tests: 162/162.
 - Status: r68 attempt hit the codex usage limit (resumes ~2:56 AM). Convergence requires two consecutive clean rounds; r64 was the first. Branch is 80 commits ahead of `main` and PR #53 CI is green / `MERGEABLE`.
+
+## 2026-05-18 — PR #53 codex rounds r68..r86 (BUG-220..BUG-246) — **CONVERGED**
+
+- Summary: 19 more rounds of `codex review --base main` after the usage limit cleared, closing BUG-220 through BUG-246 (27 bugs) and reaching two consecutive clean rounds (r85 + r86) for the documented convergence rule.
+- Major surfaces this stretch:
+  - **r68** — Refactor: consolidated duplicated `isTenantRootM2M` (audit + organization controllers) and `isSafeRedirect` (Auth.tsx + SignUp.tsx) into shared helpers in `middleware/auth.ts` + new `client/safe-redirect.ts`. BUG-220: tenant-root `sk_` callers exempt from `requirePermission`'s project-binding check.
+  - **r69** — BUG-221 P1: `latestAuthRef` kept stale session token after `signOut()`. Refactored ref to hold `{ publishableKey, tenantId }`; cookie read per-request inside the middleware.
+  - **r70** — BUG-222 P2 base64url padding for JWT `org_id` decode; BUG-223 P2 `requireM2M` 403s through `ForbiddenError`; BUG-224 P3 `nonBlank` for monite-setup `TENANT_ID`.
+  - **r71** — BUG-225/226/227 P1+P2: admit session tenant admins on `/v1/audit_logs`, `/v1/usage`, all `/v1/webhooks/endpoints`, `/v1/signup-restrictions`, `/v1/redirect-urls` (dashboard works in production without an sk\_).
+  - **r72** — BUG-228 P2 static client env reads for publishable key (Next.js inlining); BUG-229 P2 webhook session admins derive project from owned project.
+  - **r73** — BUG-230 P2 explicit project_id wins for tenant-admin webhook ops; BUG-231 P2 `requireProjectAccess` exempts tenant-root.
+  - **r74** — BUG-232 P1 pin scoped M2M to its project (BUG-230 regression — closed credential leak); BUG-233 P2 m2m.controller exempts tenant-root.
+  - **r75** — BUG-234 P2 static client env reads for the full URL surface; BUG-235 P2 `requireScopeOrTenantAdmin` 403s through `ForbiddenError`.
+  - **r76** — BUG-236 P2 clear stale `__blerp_org` on session swap; BUG-237 P2 unlock 404 through `NotFoundError`.
+  - **r77** — BUG-238 P2 blank-env coercion for `WEBAUTHN_ORIGIN` / `WEBAUTHN_RP_NAME`.
+  - **r78 clean** (#2 overall, after r64).
+  - **r79** — BUG-239 P2 password required at create-time for `strategy='password'` signup.
+  - **r80** — BUG-240 P2 `useSignUp().create()` types `password` as required + runtime guard.
+  - **r81** — BUG-241 P1 webhook `'default'` bucket gated to tenant-root only (closed cross-project signing-secret exposure).
+  - **r82** — BUG-242 P2 backfill `audit_logs.project_id` in migration 0016; BUG-243 P2 session tenant admins also see legacy default-bucket webhooks.
+  - **r83** — BUG-244 P1 `/v1/auth/*` prefix bypass in `blerpMiddleware` (quickstart sign-in/up worked again).
+  - **r84** — BUG-245 P2 pin dashboard E2E setup to `demo-tenant` literal; BUG-246 P2 middleware bypass for `/v1/organizations?domain=` pre-session discovery.
+  - **r85 clean** (#3).
+  - **r86 clean** (#4) — **CONVERGED** by two-consecutive-clean rule.
+- Tests: 162/162 throughout. Lint + typecheck + openapi:lint clean across all 17 turbo tasks on every commit.
+- Headline stats: 39 codex rounds total (r48–r86), 201 unique BUGS.md entries (BUG-46..246), 97 commits ahead of `main`. PR #53 is `MERGEABLE` and awaits human review + merge.
