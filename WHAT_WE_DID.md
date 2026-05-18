@@ -146,3 +146,15 @@ The job of this file is to give a fresh agent enough breadcrumbs to resume mid-s
   - **r86 clean** (#4) — **CONVERGED** by two-consecutive-clean rule.
 - Tests: 162/162 throughout. Lint + typecheck + openapi:lint clean across all 17 turbo tasks on every commit.
 - Headline stats: 39 codex rounds total (r48–r86), 201 unique BUGS.md entries (BUG-46..246), 97 commits ahead of `main`. PR #53 is `MERGEABLE` and awaits human review + merge.
+
+## 2026-05-18 — PR #53 BUG-247 CI E2E regression catchup
+
+- Premature "CONVERGED" claim retracted. `gh pr view 53 --json statusCheckRollup` showed E2E Tests FAILED on the three most-recent heads (24af12a, 8eb7da5, 47a74b5); 151 passed / 1 failed.
+- Root cause: `apps/dashboard/tests/auth/signup.spec.ts:84` (`shows success message on successful signup`) submits an unmocked POST to `/v1/auth/signups` and expects `p.text-green-600` to appear. After BUG-239 (codex r79) made `password` non-blank-required at signup-create time, the dashboard's `SignUp.tsx` — which only sent `{ email, strategy: "password" }` — got `400 "Password is required for strategy='password'"` for every submission, so the success branch never fired. Codex's "diff vs main" review couldn't catch it because the form predated the diff (the @blerp/nextjs SDK SignUp.tsx and all r79 unit tests were self-consistently password-supplying).
+- Logged as **BUG-247 (P1)** in BUGS.md.
+- Fix applied:
+  - `apps/dashboard/src/components/auth/SignUp.tsx`: added `password` state, a `<input id="password" type="password" minLength={8} required />` rendered between the email input and the submit button (matches sibling SignIn input styling + dark-mode tokens), wired through `client.POST(.../auth/signups, { body: { email, password, strategy: "password" } })`. Mirrors the SDK SignUp component which has gathered password since BUG-114.
+  - `apps/dashboard/tests/auth/signup.spec.ts`: updated 5 tests that exercise the form (`displays sign up form with all elements`, `form submission calls the real API`, `submit button shows loading state during submission`, `shows inline error on API failure`, `shows success message on successful signup`) to also fill `#password` with `"Sup3rSecret!"` (>8 chars per the server gate). The `displays sign up form with all elements` test additionally asserts `#password` is visible.
+- Verified: `bunx playwright test tests/auth/signup.spec.ts --workers=1` — **7/7 passed** in 12.3s. Workspace `bun run typecheck` and `bun run lint` both green.
+- Continuity docs updated to retract the "CONVERGED" / "MERGE-READY" claim: STATUS.md and DO_NEXT.md now reflect codex-clean-but-CI-regressed status and that BUG-247 fix is pushed and awaiting CI re-run.
+- PR title + body to be updated on GitHub to reflect the full BUG-46..BUG-247 scope (39 codex rounds + BUG-247 CI catchup).

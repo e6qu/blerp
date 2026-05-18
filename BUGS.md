@@ -2522,3 +2522,11 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `packages/nextjs/src/server/middleware.ts`
 
 **Fix applied:** Changed `isFrameworkPublicPath` to take the full `NextRequest.nextUrl` (so it can inspect the query). When `pathname === "/v1/organizations"` AND the `?domain=` query is a non-blank string, treat it as public — mirroring the API's gate exactly. The two callsites (callback form + options form) both updated. Existing public set and `/v1/auth/*` prefix still short-circuit first.
+
+### BUG-247 (CI E2E regression): Dashboard `SignUp.tsx` never gathered password but BUG-239 made it required server-side (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — production signup broken. CI E2E `tests/auth/signup.spec.ts:84` (`shows success message on successful signup`) hit the real API with `{ email, strategy: "password" }` and no `password`. After BUG-239 (codex r79) made a non-blank password mandatory for `strategy=password` at signup-create time (closing the BUG-114 passwordless-account hole), every signup from the dashboard form returned `400 "Password is required for strategy='password'"` and the success branch never fired. The codex review loop never caught this because it compares the diff against `main`; the diff itself was self-consistent (server gate + tests + nextjs SDK SignUp all aligned), but the dashboard's `apps/dashboard/src/components/auth/SignUp.tsx` predated BUG-239 and was never updated to pass through a password — outside codex's "what changed?" lens. Surfaced when CI ran the unmocked E2E that submits the real form.
+**Files:** `apps/dashboard/src/components/auth/SignUp.tsx`, `apps/dashboard/tests/auth/signup.spec.ts`
+
+**Fix applied:** Added a `password` input with `minLength={8}` and `required` to the dashboard SignUp form, wired it through `client.POST("/v1/auth/signups", { body: { email, password, strategy: "password" } })`. Updated the five E2E tests that exercise the form to also fill `#password` with `"Sup3rSecret!"` (long enough to satisfy the server-side ≥8-char gate). Mirrors the @blerp/nextjs SDK SignUp component which already collects password (BUG-114, codex r20). Verified by running `apps/dashboard/tests/auth/signup.spec.ts` locally — all 7 tests pass (12.3s).

@@ -1,12 +1,13 @@
 # Do Next
 
-> **Snapshot (2026-05-18)** — All milestones M1–M8 + M12 complete. PR #52 merged. **PR #53 CONVERGED**: 97 commits ahead of `main`, BUG-46..BUG-246 (201 bugs) fixed across 39 rounds of `codex review`. Two consecutive clean rounds (r85 + r86) satisfy the project's convergence rule. PR is `MERGEABLE`. Tests: 162/162 API · 15/15 Dashboard · lint + typecheck + openapi:lint clean. **Immediate next action**: human review + merge PR #53.
+> **Snapshot (2026-05-18)** — All milestones M1–M8 + M12 complete. PR #52 merged. **PR #53 codex-clean (r85+r86) but had a hidden CI regression**: BUG-247 — dashboard `SignUp.tsx` never gathered password while BUG-239 had made it required at `/v1/auth/signups`, so every signup 400'd. Codex couldn't see it (the form predated the diff). Now fixed (password input + ≥8-char + 5 E2E tests updated; 7/7 signup tests pass locally). Branch is 98 commits ahead of `main`. Tests: 162/162 API · signup E2E 7/7 local · lint + typecheck + openapi:lint clean. **Immediate next action**: push BUG-247 fix, wait for CI green, then human review + merge.
 
 ## Immediate — PR #53 merge
 
-1. **Review PR #53** on GitHub: <https://github.com/e6qu/blerp/pull/53>. Branch ends at commit `8eb7da5` (r84 fixes — BUG-245/246). r85 + r86 reviews were both clean.
-2. **Merge to `main`** when ready. No fast-forward concerns — branch is up to date with `origin/main` and `MERGEABLE`.
-3. **After merge**, pick a new branch and start the next item below.
+1. **Watch CI** on the BUG-247 fix commit (push pending). E2E must come back green before claiming merge-ready. Three prior heads (24af12a, 8eb7da5, 47a74b5) failed only on `tests/auth/signup.spec.ts:84`.
+2. **Review PR #53** on GitHub: <https://github.com/e6qu/blerp/pull/53>. Once CI is green and the title/body reflect full BUG-46..BUG-247 scope, request human review.
+3. **Merge to `main`** when CI is green and the review is signed off. Branch is `MERGEABLE` per `gh pr view`.
+4. **After merge**, pick a new branch and start the next item below.
 
 ## After PR #53 merges — pick one
 
