@@ -1,7 +1,7 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { eventBus } from "../../lib/events";
 import * as schema from "../../db/schema";
-import { eq, and, count, like, or } from "drizzle-orm";
+import { eq, and, count, like, or, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { deepMerge, Metadata } from "../../lib/metadata";
 
@@ -22,11 +22,37 @@ export class OrganizationService {
       slug,
     });
 
-    await eventBus.emit("organization.created", this.tenantId, { organizationId: id });
+    // BUG-166 (codex r41+r42): pass project_id so the webhook worker
+    // can route this event only to endpoints in this project. Without
+    // it the worker fell through to the "default" bucket and the
+    // event went to the wrong project's endpoints.
+    await eventBus.emit(
+      "organization.created",
+      this.tenantId,
+      { organizationId: id },
+      data.projectId,
+    );
     return this.get(id);
   }
 
-  async list(filters?: { domain?: string; query?: string; limit?: number; offset?: number }) {
+  async list(filters?: {
+    domain?: string;
+    query?: string;
+    // BUG-170 (codex r44): scope the list to a project. The route's
+    // requireProjectAccess gate validated the caller's access to the
+    // requested project but the service then ignored it — anyone with
+    // access to ANY project could list ALL projects' orgs.
+    projectId?: string;
+    // BUG-178 (codex r48): when no explicit project_id is supplied,
+    // an authenticated session must still get a non-empty, scoped
+    // result instead of 400. Restrict to orgs reachable by this user
+    // — either they have a membership in the org, or they own the
+    // org's project. Matches Clerk's `clerkClient.organizations.list()`
+    // semantics for a session-authenticated caller.
+    accessibleToUserId?: string;
+    limit?: number;
+    offset?: number;
+  }) {
     const limit = filters?.limit ?? 20;
     const offset = filters?.offset ?? 0;
 
@@ -48,11 +74,32 @@ export class OrganizationService {
     }
 
     const conditions: ReturnType<typeof eq>[] = [];
+    if (filters?.projectId) {
+      conditions.push(eq(schema.organizations.projectId, filters.projectId));
+    }
     if (filters?.query) {
       const pattern = `%${filters.query}%`;
       conditions.push(
         or(like(schema.organizations.name, pattern), like(schema.organizations.slug, pattern))!,
       );
+    }
+    if (filters?.accessibleToUserId) {
+      const userId = filters.accessibleToUserId;
+      const membershipOrgIds = await this.db
+        .select({ id: schema.memberships.organizationId })
+        .from(schema.memberships)
+        .where(eq(schema.memberships.userId, userId));
+      const ownedProjectIds = await this.db
+        .select({ id: schema.projects.id })
+        .from(schema.projects)
+        .where(eq(schema.projects.ownerUserId, userId));
+      const orgIds = membershipOrgIds.map((r) => r.id);
+      const projectIds = ownedProjectIds.map((r) => r.id);
+      const reachability = or(
+        orgIds.length ? inArray(schema.organizations.id, orgIds) : sql`0`,
+        projectIds.length ? inArray(schema.organizations.projectId, projectIds) : sql`0`,
+      );
+      if (reachability) conditions.push(reachability);
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

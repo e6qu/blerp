@@ -2,7 +2,37 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const API_URL = process.env.BLERP_API_URL || "http://localhost:3000";
+// BUG-66 (codex r7): Playwright loads global.setup.ts outside the
+// turbo `^build` graph, so a runtime import of `@blerp/shared` would
+// fail on a fresh checkout where `packages/shared/dist` is missing.
+// Inline the env reads here. Same dual-name semantics as the shared
+// helper (BLERP_* > CLERK_* > default).
+// BUG-74 (codex r11): strip trailing `/v1` so Clerk-style URLs don't
+// compound into `/v1/v1/...`.
+// BUG-79/80 (codex r15): coerce blank-string env vars to undefined
+// (so `BLERP_API_URL=` doesn't short-circuit CLERK_API_URL) and strip
+// any remaining trailing slash so the appended `/v1/...` paths don't
+// become `//v1/...`.
+const nonBlank = (v: string | undefined) => (v && v.trim() !== "" ? v : undefined);
+const API_URL = (
+  nonBlank(process.env.BLERP_API_URL) ??
+  nonBlank(process.env.CLERK_API_URL) ??
+  "http://localhost:3000"
+)
+  .replace(/\/v1\/?$/i, "")
+  .replace(/\/+$/, "");
+// BUG-245 (codex r84): pin the E2E tenant to the same literal the
+// dashboard runtime hardcodes in `apps/dashboard/src/lib/api.ts`
+// (`const TENANT_ID = "demo-tenant"`). Pre-r84 this setup honored
+// `BLERP_TENANT_ID` / `CLERK_TENANT_ID` (BUG-69 generalisation), but
+// the dashboard runtime DOES NOT read those envs — it always sends
+// `X-Tenant-Id: demo-tenant` from the browser. Net effect of a
+// custom `BLERP_TENANT_ID=other`: setup minted a session JWT bound
+// to `other`, dashboard then called the API with that token but
+// `X-Tenant-Id: demo-tenant`, and the BUG-155 tenant-binding check
+// rejected every request. Until the dashboard runtime is wired up
+// to a configurable tenant id, the E2E harness MUST match it. The
+// `nonBlank` import stays (`API_URL` still uses it).
 const TENANT_ID = "demo-tenant";
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 

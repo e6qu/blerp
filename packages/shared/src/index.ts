@@ -2,6 +2,7 @@ import createClient from "openapi-fetch";
 import type { paths } from "./schema.js";
 
 export type { paths, components } from "./schema.js";
+export * from "./env.js";
 
 /**
  * Creates a typed Blerp API client.

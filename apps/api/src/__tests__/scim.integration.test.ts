@@ -41,10 +41,13 @@ describe("SCIM Integration", () => {
   });
 
   it("should provision users via SCIM", async () => {
-    // 1. Create User
+    // 1. Create User — BUG-165 (codex r42): SCIM routes now require
+    // M2M auth with `users:write` scope. The dev X-User-Id shim
+    // auto-grants the scope (see authMiddleware).
     const res = await request(app)
       .post("/scim/v2/Users")
       .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", "scim_admin_user")
       .send({
         schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
         userName: "scim_user@example.com",
@@ -59,13 +62,19 @@ describe("SCIM Integration", () => {
     const userId = res.body.id;
 
     // 2. Get User
-    const getRes = await request(app).get(`/scim/v2/Users/${userId}`).set("X-Tenant-Id", tenantId);
+    const getRes = await request(app)
+      .get(`/scim/v2/Users/${userId}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", "scim_admin_user");
 
     expect(getRes.status).toBe(200);
     expect(getRes.body.id).toBe(userId);
 
     // 3. List Users
-    const listRes = await request(app).get("/scim/v2/Users").set("X-Tenant-Id", tenantId);
+    const listRes = await request(app)
+      .get("/scim/v2/Users")
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", "scim_admin_user");
 
     expect(listRes.body.totalResults).toBe(1);
     expect(listRes.body.Resources).toHaveLength(1);
@@ -73,8 +82,21 @@ describe("SCIM Integration", () => {
     // 4. Delete User
     const delRes = await request(app)
       .delete(`/scim/v2/Users/${userId}`)
-      .set("X-Tenant-Id", tenantId);
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", "scim_admin_user");
 
     expect(delRes.status).toBe(204);
+  });
+
+  // BUG-165 (codex r42): regression — unauthenticated SCIM calls now 401.
+  it("rejects unauthenticated SCIM calls", async () => {
+    const res = await request(app)
+      .post("/scim/v2/Users")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        userName: "unauth@example.com",
+      });
+    expect(res.status).toBe(401);
   });
 });

@@ -8,25 +8,55 @@ import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { TransientStore } from "../../lib/transient-store";
 
+// BUG-65 (codex r7): this service is loaded eagerly by auth.routes
+// (auth.routes → webauthn.controller → webauthn.service) during API
+// boot. Importing `@blerp/shared`'s value exports here resolves through
+// the gitignored `packages/shared/dist/index.js`, so `cd apps/api &&
+// bun run dev` on a fresh checkout (Playwright's webServer pattern)
+// fails to start before /health is available. Inline the env reads
+// here — same dual-name semantics (BLERP_* > CLERK_* > default) as the
+// shared helper. Trade-off: a tiny duplication at module load time.
+function readApiUrl(): string {
+  // BUG-74 (codex r11): strip a trailing `/v1` so Clerk-style URLs
+  // (`https://api.example.com/v1`) don't compound into `/v1/v1/...`.
+  // BUG-79/80 (codex r15): coerce blank-string vars to undefined so
+  // an empty BLERP_API_URL doesn't short-circuit the CLERK fallback;
+  // strip a trailing slash to avoid `//v1/...` on bare-host URLs.
+  const nonBlank = (v: string | undefined) => (v && v.trim() !== "" ? v : undefined);
+  return (
+    nonBlank(process.env.BLERP_API_URL) ??
+    nonBlank(process.env.CLERK_API_URL) ??
+    "http://localhost:3000"
+  )
+    .replace(/\/v1\/?$/i, "")
+    .replace(/\/+$/, "");
+}
+
 function getRpId(): string {
   if (process.env.WEBAUTHN_RP_ID) return process.env.WEBAUTHN_RP_ID;
-  if (process.env.BLERP_API_URL) {
-    try {
-      return new URL(process.env.BLERP_API_URL).hostname;
-    } catch {
-      // fall through
-    }
+  try {
+    return new URL(readApiUrl()).hostname;
+  } catch {
+    return "localhost";
   }
-  return "localhost";
 }
 
 function getRpName(): string {
-  return process.env.WEBAUTHN_RP_NAME ?? "Blerp";
+  // BUG-238 (codex r77): blank-env coercion. `??` treats `""` as
+  // configured, so a `.env` template with `WEBAUTHN_RP_NAME=`
+  // (blank) returned an empty rpName. Use the same `nonBlank`
+  // helper as `readApiUrl()` above.
+  const v = process.env.WEBAUTHN_RP_NAME;
+  return v && v.trim() !== "" ? v : "Blerp";
 }
 
 function getOrigin(): string {
-  if (process.env.WEBAUTHN_ORIGIN) return process.env.WEBAUTHN_ORIGIN;
-  return process.env.BLERP_API_URL ?? "http://localhost:3000";
+  // BUG-238 (codex r77): same blank-env regression as the prior
+  // BUG-79 family. A `WEBAUTHN_ORIGIN=` template entry made `??`
+  // return `""` instead of falling back to `readApiUrl()`, breaking
+  // passkey verification with an empty expected origin.
+  const v = process.env.WEBAUTHN_ORIGIN;
+  return v && v.trim() !== "" ? v : readApiUrl();
 }
 
 const challengeStore = new TransientStore<string>(5 * 60 * 1000);

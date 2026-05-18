@@ -85,6 +85,17 @@ describe("Membership & Invitation Integration", () => {
     expect(res.status).toBe(201);
     const memId = res.body.id;
 
+    // BUG-63 (codex r6): the response MUST include the resolved
+    // `permissions` array so the SDK doesn't derive permissions from
+    // `role` via a hard-coded map that disagrees with apps/api/src/lib/
+    // rbac.ts (`admin` does NOT have `org:write`). `auth().has(...)`
+    // consumes this field verbatim.
+    expect(Array.isArray(res.body.permissions)).toBe(true);
+    expect(res.body.permissions).toContain("org:read");
+    expect(res.body.permissions).toContain("members:write");
+    // Admin does NOT have org:write — the historical bug.
+    expect(res.body.permissions).not.toContain("org:write");
+
     // 2. List Memberships
     const list = await request(app)
       .get(`/v1/organizations/${orgId}/memberships`)
@@ -92,8 +103,12 @@ describe("Membership & Invitation Integration", () => {
       .set("X-User-Id", userId);
 
     expect(list.body.data).toHaveLength(2); // Initial owner + newly created admin
+    for (const m of list.body.data) {
+      expect(Array.isArray(m.permissions)).toBe(true);
+    }
 
-    // 3. Update Membership
+    // 3. Update Membership — bumping admin to owner should now
+    // include `org:write` in the response permissions.
     const update = await request(app)
       .patch(`/v1/organizations/${orgId}/memberships/${memId}`)
       .set("X-Tenant-Id", tenantId)
@@ -102,6 +117,35 @@ describe("Membership & Invitation Integration", () => {
 
     expect(update.status).toBe(200);
     expect(update.body.role).toBe("owner");
+    expect(update.body.permissions).toContain("org:write");
+
+    // BUG-67 (codex r7): /me sub-route returns the caller's own
+    // membership + resolved permissions WITHOUT needing members:read.
+    // Pretend we are otherUserId (a member of the org via memId) but
+    // imagine they only have org:read — they should still be able to
+    // resolve their permissions via /me. (Here otherUserId WAS the
+    // admin we just bumped to owner via memId, but the route grant
+    // logic is what the test pins.)
+    const meAsOther = await request(app)
+      .get(`/v1/organizations/${orgId}/memberships/me`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", otherUserId);
+    expect(meAsOther.status).toBe(200);
+    expect(meAsOther.body.user_id).toBe(otherUserId);
+    expect(Array.isArray(meAsOther.body.permissions)).toBe(true);
+
+    // 404 when the caller is not a member of the org. BUG-73 (codex r10):
+    // the response MUST flow through the central error handler and emit
+    // the documented dual envelope { errors: [...], error: { code, ... } }.
+    const meAsStranger = await request(app)
+      .get(`/v1/organizations/${orgId}/memberships/me`)
+      .set("X-Tenant-Id", tenantId)
+      .set("X-User-Id", "user_not_a_member_of_this_org");
+    expect(meAsStranger.status).toBe(404);
+    expect(meAsStranger.body.error?.code).toBe("not_found");
+    expect(Array.isArray(meAsStranger.body.errors)).toBe(true);
+    expect(meAsStranger.body.errors[0].code).toBe("not_found");
+    expect(typeof meAsStranger.body.errors[0].long_message).toBe("string");
 
     // 4. Delete Membership
     const del = await request(app)

@@ -2,7 +2,7 @@ import { redis } from "../lib/redis";
 import { logger } from "../lib/logger";
 import { getTenantDb } from "../db/router";
 import * as schema from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import crypto from "node:crypto";
 import { nanoid } from "nanoid";
 
@@ -79,6 +79,10 @@ function parseEvent(fields: string[]) {
     id: data.id,
     type: data.type,
     tenantId: data.tenantId,
+    // BUG-163 (codex r41): projectId may be absent on events emitted
+    // before this change — default to "" which the delivery branch
+    // treats as the legacy "default" project bucket.
+    projectId: data.projectId ?? "",
     timestamp: parseInt(data.timestamp),
     payload: JSON.parse(data.data) as Record<string, unknown>,
   };
@@ -88,6 +92,9 @@ interface WorkerEvent {
   id: string;
   type: string;
   tenantId: string;
+  // BUG-163 (codex r41): events now carry project_id (empty string =
+  // tenant system event). Webhook delivery filters by it.
+  projectId: string;
   timestamp: number;
   payload: Record<string, unknown>;
 }
@@ -96,10 +103,35 @@ type DBWebhookEndpoint = typeof schema.webhookEndpoints.$inferSelect;
 
 async function deliverEvent(event: WorkerEvent) {
   const db = await getTenantDb(event.tenantId);
+  // BUG-163 (codex r41): match endpoints to the event's project. An
+  // empty event.projectId means the event has no project context
+  // (rare — system-level emissions); in that case we deliver only to
+  // legacy "default" project endpoints (the back-compat bucket from
+  // BUG-162's default value).
+  //
+  // BUG-182 (codex r49): migration 0016 stamps every pre-existing
+  // endpoint with `project_id = 'default'`. Without preserving the
+  // "default" bucket as a wildcard fallback, every upgraded
+  // deployment silently stops delivering project-scoped events
+  // (e.g. `organization.created`) to tenant-wide endpoints that
+  // existed before the migration. Match endpoints whose `project_id`
+  // is either the event's specific project OR `'default'`. Customers
+  // narrow scope by editing each endpoint to its real `project_id`;
+  // leaving an endpoint on `'default'` is the explicit opt-in for
+  // tenant-wide delivery. Per-tenant DB scoping (BUG-163) still
+  // prevents cross-tenant leakage.
+  const endpointProjectId = event.projectId !== "" ? event.projectId : "default";
+  const projectIdFilter =
+    endpointProjectId === "default"
+      ? eq(schema.webhookEndpoints.projectId, "default")
+      : or(
+          eq(schema.webhookEndpoints.projectId, endpointProjectId),
+          eq(schema.webhookEndpoints.projectId, "default"),
+        );
   const endpoints = await db
     .select()
     .from(schema.webhookEndpoints)
-    .where(eq(schema.webhookEndpoints.enabled, true));
+    .where(and(eq(schema.webhookEndpoints.enabled, true), projectIdFilter));
 
   for (const endpoint of endpoints) {
     const eventTypes = endpoint.eventTypes as string[];
@@ -111,6 +143,45 @@ async function deliverEvent(event: WorkerEvent) {
   }
 }
 
+/**
+ * Build webhook signature headers (BUG-50). Returns both:
+ *  - `X-Blerp-Signature`: legacy HMAC-SHA256 of the payload, hex-encoded.
+ *  - Svix triple (`svix-id`, `svix-timestamp`, `svix-signature`):
+ *    Clerk-compat. The signed string is `${svix-id}.${svix-timestamp}.${payload}`
+ *    and the signature header value is `v1,<base64-hmac-sha256>`. Multiple
+ *    signatures can be space-separated for key rotation (we emit one).
+ *
+ * The Svix secret format is `whsec_<base64-encoded-secret>`. We decode the
+ * base64 portion when the secret is in that shape; otherwise we use the raw
+ * bytes (covers tests + dev-mode where secrets may not be prefixed).
+ */
+export function buildWebhookSignatureHeaders(args: {
+  secret: string;
+  payload: string;
+  svixId?: string;
+  svixTimestamp?: number;
+}): {
+  legacySignature: string;
+  svixId: string;
+  svixTimestamp: string;
+  svixSignature: string;
+} {
+  const { secret, payload } = args;
+  const legacySignature = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+
+  const svixId = args.svixId ?? `msg_${nanoid()}`;
+  const svixTimestamp = String(args.svixTimestamp ?? Math.floor(Date.now() / 1000));
+  const svixSecret = secret.startsWith("whsec_")
+    ? Buffer.from(secret.replace(/^whsec_/, ""), "base64")
+    : Buffer.from(secret);
+  const svixSignature = crypto
+    .createHmac("sha256", svixSecret)
+    .update(`${svixId}.${svixTimestamp}.${payload}`)
+    .digest("base64");
+
+  return { legacySignature, svixId, svixTimestamp, svixSignature: `v1,${svixSignature}` };
+}
+
 async function attemptDelivery(endpoint: DBWebhookEndpoint, event: WorkerEvent) {
   const payload = JSON.stringify({
     id: event.id,
@@ -119,16 +190,23 @@ async function attemptDelivery(endpoint: DBWebhookEndpoint, event: WorkerEvent) 
     data: event.payload,
   });
 
-  const signature = crypto.createHmac("sha256", endpoint.secret).update(payload).digest("hex");
   const db = await getTenantDb(event.tenantId);
   const deliveryId = `whd_${nanoid()}`;
+
+  const { legacySignature, svixId, svixTimestamp, svixSignature } = buildWebhookSignatureHeaders({
+    secret: endpoint.secret,
+    payload,
+  });
 
   try {
     const response = await fetch(endpoint.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Blerp-Signature": signature,
+        "X-Blerp-Signature": legacySignature,
+        "svix-id": svixId,
+        "svix-timestamp": svixTimestamp,
+        "svix-signature": svixSignature,
         "X-Tenant-Id": event.tenantId,
       },
       body: payload,

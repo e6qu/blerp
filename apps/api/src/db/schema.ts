@@ -31,6 +31,15 @@ export const users = sqliteTable("users", {
   totpSecret: text("totp_secret"),
   totpEnabled: integer("totp_enabled", { mode: "boolean" }).notNull().default(false),
   backupCodes: text("backup_codes", { mode: "json" }).notNull().default("[]"),
+  // BUG-137 (codex r28): persistent per-user lockout. OpenAPI's
+  // `User.locked` field implied this for a long time; without it,
+  // BUG-135's per-attempt lockout could be reset just by issuing a
+  // fresh createSignin. `failedSignInAttempts` accumulates across
+  // attempts and resets to 0 on a successful sign-in. `locked` is set
+  // when the threshold is hit; admin must unlock to allow further
+  // sign-ins.
+  locked: integer("locked", { mode: "boolean" }).notNull().default(false),
+  failedSignInAttempts: integer("failed_sign_in_attempts").notNull().default(0),
   publicMetadata: text("public_metadata", { mode: "json" }).notNull().default("{}"),
   privateMetadata: text("private_metadata", { mode: "json" }).notNull().default("{}"),
   unsafeMetadata: text("unsafe_metadata", { mode: "json" }).notNull().default("{}"),
@@ -229,6 +238,13 @@ export const auditLogs = sqliteTable(
     id: text("id").primaryKey(),
     userId: text("user_id"),
     organizationId: text("organization_id"),
+    // BUG-161 (codex r40): project_id for project-scoped audit reads.
+    // Populated at write time when the action is project-scoped
+    // (derivable from organization_id → org.project_id, or supplied
+    // directly by callers acting on project-level resources). NULL for
+    // tenant-system-level events (only visible to dev-shim / non-
+    // project-scoped admin tokens).
+    projectId: text("project_id"),
     action: text("action").notNull(),
     actor: text("actor", { mode: "json" }).notNull(),
     payload: text("payload", { mode: "json" }).notNull().default("{}"),
@@ -241,11 +257,18 @@ export const auditLogs = sqliteTable(
   (table) => ({
     userIdIdx: index("audit_logs_user_id_idx").on(table.userId),
     organizationIdIdx: index("audit_logs_org_id_idx").on(table.organizationId),
+    projectIdIdx: index("audit_logs_project_id_idx").on(table.projectId),
   }),
 );
 
 export const webhookEndpoints = sqliteTable("webhook_endpoints", {
   id: text("id").primaryKey(),
+  // BUG-162 (codex r40): project-scope webhook endpoints. Pre-fix
+  // endpoints were tenant-wide, so a project-A M2M token with
+  // webhooks:* could list/read (incl. signing secrets!) / update /
+  // delete project-B's endpoints. Now every endpoint belongs to one
+  // project; admin ops are gated by `req.m2m.projectId === project_id`.
+  projectId: text("project_id").notNull().default("default"),
   url: text("url").notNull(),
   secret: text("secret").notNull(),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),

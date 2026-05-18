@@ -69,16 +69,46 @@ components:
   schemas:
     ErrorResponse:
       type: object
+      # BUG-47/57: blerp emits the Clerk-compatible `errors[]` envelope
+      # (canonical for new SDK code) from any path that throws a
+      # `BlerpError`. Many hand-rolled `res.status(N).json({ error: ... })`
+      # paths in controller catch blocks still emit only the singular
+      # `error` field — so `error` is required while `errors` stays
+      # optional until those sites migrate to throwing `BlerpError`
+      # (tracked in DO_NEXT.md). Generated SDK clients should read
+      # `errors[0]` when present and fall back to `error` otherwise.
+      # BUG-60 (codex r4): had `errors` required here; SDK consumers
+      # would crash on legacy-shape 400s.
       required: [error]
       properties:
+        errors:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [code, message, long_message]
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+              long_message:
+                type: string
+              meta:
+                type: object
+                additionalProperties: true
         error:
           type: object
           required: [code, message]
+          description: Legacy singular alias; prefer `errors[0]` in new code.
           properties:
             code:
               type: string
             message:
               type: string
+            details:
+              type: object
+              additionalProperties: true
             doc_url:
               type: string
               format: uri
@@ -229,6 +259,13 @@ components:
           enum: [active, inactive, banned]
         locked:
           type: boolean
+        password_enabled:
+          type: boolean
+          description: |
+            Whether the user has a password set. Matches Clerk's
+            `passwordEnabled` field (BUG-123 codex r22). Dashboard /
+            SDK UIs use this to decide whether to render a "Set
+            password" CTA.
         totp_enabled:
           type: boolean
           description: Whether TOTP (authenticator app) is enabled for this user.
@@ -837,6 +874,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JWKS"
+  /v1/public-config:
+    get:
+      tags: [Discovery]
+      summary: Public runtime configuration
+      description: |
+        Returns the **public** runtime configuration values that the
+        client SDK (`@blerp/nextjs`, `@blerp/react`) needs to bootstrap.
+        This is the runtime escape-hatch for Next.js's build-time
+        `NEXT_PUBLIC_*` env inlining and Vite's `VITE_*` equivalent —
+        per Next.js docs, NEXT_PUBLIC_* vars are frozen at `next build`,
+        so a single-image multi-env Docker deploy cannot change them at
+        runtime. This endpoint reads `process.env` on every request, so
+        the same image picks up environment-specific values.
+
+        Never returns secrets. The publishable key is public by design;
+        the secret key, webhook secret, and encryption key are not
+        exposed here.
+      operationId: getPublicConfig
+      responses:
+        "200":
+          description: Public config
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - tenant_id
+                  - sign_in_url
+                  - sign_up_url
+                  - sign_in_fallback_redirect_url
+                  - sign_up_fallback_redirect_url
+                  - telemetry_disabled
+                properties:
+                  # OpenAPI 3.1 dropped `nullable: true`; the spec is
+                  # `type: [string, "null"]`. Redocly's struct rule
+                  # flags the 3.0 form (CI lint catch).
+                  publishable_key:
+                    type: [string, "null"]
+                  tenant_id:
+                    type: string
+                  sign_in_url:
+                    type: string
+                  sign_up_url:
+                    type: string
+                  sign_in_force_redirect_url:
+                    type: [string, "null"]
+                  sign_in_fallback_redirect_url:
+                    type: string
+                  sign_up_force_redirect_url:
+                    type: [string, "null"]
+                  sign_up_fallback_redirect_url:
+                    type: string
+                  proxy_url:
+                    type: [string, "null"]
+                  telemetry_disabled:
+                    type: boolean
   /v1/auth/signups:
     post:
       tags: [Auth]
@@ -911,9 +1004,25 @@ paths:
             application/json:
               schema:
                 type: object
+                # BUG-114 (codex r20): attemptSignup now also mints a
+                # session (matches Clerk's behavior — the user is
+                # signed in immediately after verification).
+                required: [user_id]
                 properties:
                   user_id:
                     type: string
+                  session:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                  tokens:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
   /v1/auth/oauth/{provider}:
     get:
       tags: [Auth]
@@ -997,6 +1106,15 @@ paths:
                   type: string
                 strategy:
                   type: string
+                  description: |
+                    First-factor strategy. Currently only `password` is
+                    implemented end-to-end (BUG-127 codex r23). The other
+                    enum values are reserved for future implementation;
+                    sending them today produces a sign-in attempt whose
+                    `available_strategies` is `["password"]`, so the
+                    caller knows the service won't honour the requested
+                    factor. Strategy support is gated server-side, not by
+                    the spec, to keep the enum forward-compatible.
                   enum: [password, magic_link, otp, passkey, oauth]
       responses:
         "201":
@@ -1029,83 +1147,74 @@ paths:
             schema:
               type: object
               properties:
+                identifier:
+                  type: string
+                  description: |
+                    Required for first-factor attempts (the email/username used to
+                    initiate the sign-in). Omitted for second-factor attempts.
                 password:
                   type: string
                 code:
                   type: string
+                strategy:
+                  type: string
+                  description: |
+                    Factor name (Clerk convention): the verification method being
+                    submitted, e.g. `password`, `email_code`, `totp`, `backup_code`,
+                    `passkey`. Echoed back on the response status. Not used for
+                    routing — see `stage` for that.
+                stage:
+                  type: string
+                  description: |
+                    Explicit step selector — `first_factor` or `second_factor`.
+                    Disambiguates code-only attempts where `identifier` happens
+                    to be absent. Honored over the legacy code-vs-password
+                    heuristic.
+                  enum: [first_factor, second_factor]
                 webauthn_response:
                   type: object
                   additionalProperties: true
       responses:
         "200":
-          description: Sign-in completed
+          description: |
+            Sign-in completed OR MFA required. When the user has TOTP enabled
+            and only the first factor has been verified, the response is
+            `{ status: "needs_second_factor", signin_id }` and the caller must
+            submit the second-factor code via the same endpoint. On final
+            success the response includes `session` + `tokens`.
           content:
             application/json:
               schema:
-                type: object
-                required: [session, tokens]
-                properties:
-                  session:
-                    $ref: "#/components/schemas/Session"
-                  tokens:
-                    $ref: "#/components/schemas/TokenResponse"
+                # BUG-118 (codex r21): document the MFA branch. Was
+                # `required: [session, tokens]` which made generated SDK
+                # consumers throw on the perfectly valid
+                # `needs_second_factor` response.
+                oneOf:
+                  - type: object
+                    required: [session, tokens]
+                    properties:
+                      session:
+                        $ref: "#/components/schemas/Session"
+                      tokens:
+                        $ref: "#/components/schemas/TokenResponse"
+                  - type: object
+                    required: [status, signin_id]
+                    properties:
+                      status:
+                        type: string
+                        enum: [needs_second_factor]
+                      signin_id:
+                        type: string
         "400":
           $ref: "#/components/responses/BadRequest"
-  /v1/sessions/{session_id}/revoke:
-    post:
-      tags: [Auth]
-      summary: Revoke a session
-      description: Immediately revokes a session so the associated devices must reauthenticate.
-      operationId: revokeSession
-      security:
-        - SecretKey: []
-      parameters:
-        - in: path
-          name: session_id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                reason:
-                  type: string
-      responses:
-        "204":
-          description: Revoked
-        "400":
-          $ref: "#/components/responses/BadRequest"
-  /v1/tokens/refresh:
-    post:
-      tags: [Auth]
-      summary: Exchange refresh token for access token
-      description: Trades a refresh token for a new pair of access/refresh tokens using the rotation policy.
-      operationId: refreshSessionToken
-      security:
-        - SecretKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [refresh_token]
-              properties:
-                refresh_token:
-                  type: string
-      responses:
-        "200":
-          description: Token response
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TokenResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+  # BUG-175 (codex r47): the following endpoints used to be documented
+  # here but had no runtime handlers (spec/runtime drift). Removed
+  # rather than implemented to keep the OpenAPI accurate. The runtime
+  # equivalent for session revocation is `DELETE /v1/sessions/{session_id}`
+  # (already documented elsewhere in this spec). `/v1/tokens/refresh`
+  # was also advertised as the OIDC `token_endpoint` in the discovery
+  # response — the discovery controller has been updated to stop
+  # publishing it. Re-add these paths when handlers exist.
   /v1/users:
     get:
       tags: [Users]
@@ -1451,6 +1560,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+  /v1/users/{user_id}/unlock:
+    post:
+      tags: [Users]
+      summary: Unlock a locked user account
+      description: |
+        Clears `User.locked` and resets the failed sign-in attempt counter
+        on a user that has been auto-locked after `MAX_SIGNIN_ATTEMPTS`
+        (5) consecutive failed sign-ins (BUG-137 codex r28). Admin-only;
+        there is no public self-unlock — matches Clerk's behavior.
+      operationId: unlockUser
+      security:
+        - SecretKey: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Unlocked user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/users/{user_id}/identities/oauth:
     post:
       tags: [Users]
@@ -1515,11 +1655,18 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [data, total_count]
                 properties:
                   data:
                     type: array
                     items:
                       $ref: "#/components/schemas/Organization"
+                  # BUG-48/58: Clerk-canonical pagination field. SDK
+                  # clients should read total_count; meta is a legacy
+                  # alias kept for one release.
+                  total_count:
+                    type: integer
+                    minimum: 0
                   meta:
                     $ref: "#/components/schemas/PaginationMeta"
     post:
@@ -1535,10 +1682,19 @@ paths:
           application/json:
             schema:
               type: object
-              required: [project_id, name]
+              # BUG-212 (codex r62): project_id is OPTIONAL. The API
+              # derives it from the auth context when omitted —
+              # session user's first owned project, or the M2M token's
+              # bound project. Explicit project_id still wins.
+              required: [name]
               properties:
                 project_id:
                   type: string
+                  description: |
+                    Project the new organization belongs to. Optional
+                    — when omitted the API derives the project from
+                    the caller's auth context (session user's first
+                    owned project; M2M token's bound project).
                 name:
                   type: string
                 slug:
@@ -1721,6 +1877,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Membership"
+  /v1/organizations/{organization_id}/memberships/me:
+    get:
+      tags: [Organizations]
+      summary: Get the caller's own membership in this organization
+      description: |
+        Returns the calling user's membership row plus the authoritative
+        resolved `permissions` array. Gated only by `authMiddleware` —
+        every authenticated user can ask about THEIR OWN role +
+        permissions without needing `members:read`, which custom
+        read-only roles may lack. This is the endpoint
+        `@blerp/nextjs auth()` uses to populate `orgPermissions` for
+        `has({ permission })` checks.
+      operationId: getOwnMembership
+      # BUG-75 (codex r11): authMiddleware accepts the user's session
+      # JWT, not an sk_* secret key. Documented as SessionToken so
+      # generated clients send the right credential.
+      security:
+        - SessionToken: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The caller's membership in the target organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "404":
+          description: Caller is not a member of this organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/organizations/{organization_id}/memberships/{membership_id}:
     patch:
       tags: [Organizations]
@@ -2113,34 +2306,9 @@ paths:
                     type: array
                     items:
                       type: string
-  /v1/users/{user_id}/mfa/webauthn:
-    post:
-      tags: [MFA]
-      summary: Register WebAuthn device
-      description: Starts a WebAuthn registration ceremony for the user.
-      operationId: registerWebauthnDevice
-      security:
-        - SecretKey: []
-      parameters:
-        - in: path
-          name: user_id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [attestation]
-              properties:
-                attestation:
-                  type: object
-                  additionalProperties: true
-      responses:
-        "201":
-          description: Device registered
+  # BUG-175 (codex r47): /v1/users/{user_id}/mfa/webauthn removed —
+  # the actual WebAuthn registration / verification ceremony is at
+  # /v1/auth/webauthn/registration/{options,verify} (already documented).
   /v1/webhooks/endpoints:
     get:
       tags: [Webhooks]
@@ -2262,27 +2430,10 @@ paths:
       responses:
         "204":
           description: Deleted
-  /v1/webhooks/endpoints/{endpoint_id}/rotate_secret:
-    post:
-      tags: [Webhooks]
-      summary: Rotate webhook endpoint secret
-      description: Rotates the signing secret for a webhook endpoint while preserving its id.
-      operationId: rotateWebhookSecret
-      security:
-        - SecretKey: []
-      parameters:
-        - in: path
-          name: endpoint_id
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Secret rotated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WebhookEndpoint"
+  # BUG-175 (codex r47): rotate_secret was advertised but had no
+  # handler. Re-add when a real rotate-with-grace-period implementation
+  # ships (the previous design lacked any way to keep the old secret
+  # validating signatures during the rollout window).
   /v1/audit_logs:
     get:
       tags: [Audit]
@@ -2330,11 +2481,18 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [data, total_count]
                 properties:
                   data:
                     type: array
                     items:
                       $ref: "#/components/schemas/AuditLogEntry"
+                  # BUG-48/58: Clerk-canonical pagination field. SDK
+                  # clients should read total_count; meta is a legacy
+                  # alias kept for one release.
+                  total_count:
+                    type: integer
+                    minimum: 0
                   meta:
                     $ref: "#/components/schemas/PaginationMeta"
   /v1/events:
@@ -2666,78 +2824,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/APIKey"
-  /v1/client:
-    get:
-      tags: [Client]
-      summary: Retrieve publishable configuration
-      description: Returns the publishable configuration consumed directly by browser-based clients.
-      operationId: getClientConfig
-      security:
-        - PublishableKey: []
-      responses:
-        "200":
-          description: Client config
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  project:
-                    $ref: "#/components/schemas/Project"
-                  enabled_strategies:
-                    type: array
-                    items:
-                      type: string
-  /v1/client/sessions:
-    post:
-      tags: [Client]
-      summary: Create session during SSR
-      description: Creates a session while rendering on the server and returns the cookie payload.
-      operationId: createClientSession
-      security:
-        - PublishableKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [user_id]
-              properties:
-                user_id:
-                  type: string
-                organization_id:
-                  type: string
-                expires_at:
-                  type: string
-                  format: date-time
-      responses:
-        "201":
-          description: Session created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Session"
-  /v1/client/user:
-    get:
-      tags: [Client]
-      summary: Retrieve current session user
-      description: Returns the current session's user to light-weight server actions or clients.
-      operationId: getClientUser
-      security:
-        - SessionToken: []
-      responses:
-        "200":
-          description: Current user
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: "#/components/schemas/User"
-                  session:
-                    $ref: "#/components/schemas/Session"
+  # BUG-175 (codex r47): the /v1/client family (config / sessions /
+  # user) was Clerk-inspired but never implemented in this repo.
+  # `/v1/public-config` covers the same publishable-config use case
+  # (BUG-96) and `/v1/userinfo` (below) is the current-user endpoint.
   /v1/userinfo:
     get:
       tags: [Auth]

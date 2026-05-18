@@ -77,3 +77,85 @@ When you append an entry here:
 - **>3 months ago**: leave the compacted paragraph alone — `git log` and merged PR descriptions are authoritative for anything older.
 
 The job of this file is to give a fresh agent enough breadcrumbs to resume mid-session. Anything older than a quarter is git's job, not this file's.
+
+---
+
+## 2026-05-17 — Clerk-compliance sweep (PR #53)
+
+- Summary: After PR #52 merged, ran a focused Clerk-API-compliance sweep + a vibe-slop sweep against `origin/main`. Vibe slop was clean (no orphans, no fake tests, no a11y gaps — PR #52's cleanup held). The Clerk-fidelity sweep turned up 7 wire-contract drifts (BUG-46..BUG-52), all fixed in this PR per user direction.
+- Result: BUG-46..BUG-52 closed across 5 commits.
+
+### Chunks
+
+1. **`d338540`** — Logged BUG-46..BUG-52 in `BUGS.md` (Clerk compliance + vibe slop sweep).
+2. **`5b5cd62`** — BUG-52: `mapRole()` / `mapOAuthAccount()` / `mapEmailIdentity()` projections; `controllers-audit` test extended with explicit `not.toHaveProperty("organizationId")` assertions; seed membership role fixed to `owner` so the role routes' `org:write` RBAC accepts it.
+3. **`ac4f6c1`** — BUG-46: shared env helper. `packages/shared/src/env.ts` is now the single source for `getApiUrl` / `getSecretKey` / `getWebhookSecret` / `getTenantId` / `getPublishableKey` / `getApiPort` / `getDashboardPort` and all swept consumers go through it. Re-exported from `@blerp/nextjs/server` so examples don't need a separate `@blerp/shared` dep. New `env-clerk-compat.test.ts` (8/8) pins the regression.
+4. **`(this commit)`** — BUG-51: dual cookie. New `packages/nextjs/src/client/session-cookies.ts` writes both `__blerp_session` + `__session` on every sign-in; clears both on sign-out; server-side reads either; CSRF middleware reads either.
+5. **`7b239f4`** — BUG-47/48/49/50 batched: error envelope dual `{ errors: [...], error: {...} }` via `BlerpError.toJSON()` + RBAC middleware refactor; `total_count` in paginated org/audit responses; session JWT carries `org_id/org_role/org_slug/org_permissions` claims from the user's first membership; webhook delivery emits Svix triple (`svix-id` / `svix-timestamp` / `svix-signature` v1) alongside `X-Blerp-Signature`. New `webhook-signatures.test.ts` (5/5) replicates the canonical Svix verification algorithm and round-trips emitted signatures.
+
+### Final verification
+
+- `bun run openapi:lint` — clean.
+- `bun run typecheck` — 6/6 pass.
+- `bun run lint` — 9/9 pass.
+- API tests — 108/108 pass (was 90 pre-sweep; +8 env-compat, +1 BUG-49 JWT, +3 BUG-52 role tests, +1 BUG-47 envelope, +5 BUG-50 svix).
+- Codex review pending.
+
+---
+
+## 2026-05-17 — Clerk-compliance sweep (PR #53) — rounds r1 .. r47
+
+- Summary: 47 codex-review rounds against branch `chore/clerk-compliance-sweep-2026-05-17`, closing BUG-53 through BUG-177. Each round caught 1–3 issues; we fixed them all in the same PR per CLAUDE.md §7 zero-tolerance. Coverage included CLERK\_\* env-var surface (BUG-46+), dual cookie (BUG-51), JWT org claims + total_count + dual-error envelope + Svix webhook signing (BUG-47..50), JWT tenant binding for M2M (BUG-149) and sessions (BUG-155), project-scoping for /organizations / webhooks / audit / SCIM / signup-restrictions / redirect-urls / m2m-tokens, scope-gating across the API, atomic lockout + transactional backup-code consume, and a long tail of small-but-real wire-contract fixes. CI green throughout.
+- Tests: 159/159 (was 108 pre-r1 → ended at 159 after BUG-177).
+- Result: BUG-53..BUG-177 all closed in BUGS.md (per-bug fix narratives there).
+
+## 2026-05-17 — PR #53 codex rounds r48..r59 (BUG-178..BUG-206)
+
+- Summary: 12 more codex-review rounds. Major surfaces: (r48) `GET /v1/organizations` per-user accessibility scope + inlined `@blerp/shared` env reads in `discovery.controller.ts` + `latestAuthRef` re-stamp in BlerpProvider; (r49) Next.js SDK session tenant-binding (`session-verify.ts`), webhook default-bucket wildcard, audit project*id; (r50) webhook admin paths honor `'default'`, embedded forms use runtime-config redirects; (r51) project-owner can't mint tenant-wide scopes (the BUG-186 fix); (r52) full M2M chain-of-trust on create + scope gate on `requireProjectAccess` + MFA persistent counter; (r53) sync ref refresh in runtime-config success path + MFA counter reset on success + CLERK_API_PORT in dashboard proxy; (r54) `org:read` / `org:write` on the org collection routes; (r55) raw `sk*…`accepted in authMiddleware (the big production unblock) + invitation revoke fallback + auto-owner-membership on session-created orgs; (r56) CSRF skip for bearer-no-cookie + project-bind on inferred-org invitation revoke; (r57)`sk*`prefix wins over JWT discriminator +`latestConfigRef`for openSign\* callbacks; (r58) blank`?domain=` no longer bypasses auth on org LIST + redirect components delegate to runtime-config openSign\*; (r59) MFA brute-force counter persists + audit visibility for sk* admins + executed sk\_ lastUsedAt update.
+- Tests: 162/162 at end (was 159; +1 BUG-178 user-scope, +1 BUG-183 audit project_id pin, +1 BUG-187 chain-of-trust).
+- Files touched range: every layer of the API + the Next.js SDK + the dashboard + OpenAPI spec + regenerated schema types.
+
+## 2026-05-17 / 2026-05-18 — PR #53 codex rounds r60..r67 (BUG-207..BUG-219)
+
+- Summary: 8 more rounds. Major surfaces: (r60) narrowed tenant-root predicate to exclude project-bound `:admin` scopes + closed open-redirect in `<SignIn>` / `<SignUp>` via `isSafeRedirect`; (r61) admit session tenant admins on `/v1/users` (`requireScopeOrTenantAdmin`) + invitation-lookup middleware before authMiddleware on flat revoke; (r62) tenant admin can read/edit individual users via `requireSelfOrM2M` + `<CreateOrganization>` derives `project_id` from auth context (API + OpenAPI + client + regen); (r63) auto-enrolled `user.created` carries the enrolled org's project*id + embedded auth links honor runtime config via new context fields; (r65) CSRF skip for `/v1/oauth/token` + framework-public paths bypass `blerpMiddleware`; (r66) CSRF skip uses mounted-relative `req.path` (BUG-215's predicate didn't fire in prod — test-env catch-all masked it); (r67) "tenant admin" tightened to "owns EVERY project in tenant" + sk* admin sees whole tenant on org list. r64 was the first clean round; r65/r66/r67 surfaced follow-ups.
+- Tests: 162/162.
+- Status: r68 attempt hit the codex usage limit (resumes ~2:56 AM). Convergence requires two consecutive clean rounds; r64 was the first. Branch is 80 commits ahead of `main` and PR #53 CI is green / `MERGEABLE`.
+
+## 2026-05-18 — PR #53 codex rounds r68..r86 (BUG-220..BUG-246) — **CONVERGED**
+
+- Summary: 19 more rounds of `codex review --base main` after the usage limit cleared, closing BUG-220 through BUG-246 (27 bugs) and reaching two consecutive clean rounds (r85 + r86) for the documented convergence rule.
+- Major surfaces this stretch:
+  - **r68** — Refactor: consolidated duplicated `isTenantRootM2M` (audit + organization controllers) and `isSafeRedirect` (Auth.tsx + SignUp.tsx) into shared helpers in `middleware/auth.ts` + new `client/safe-redirect.ts`. BUG-220: tenant-root `sk_` callers exempt from `requirePermission`'s project-binding check.
+  - **r69** — BUG-221 P1: `latestAuthRef` kept stale session token after `signOut()`. Refactored ref to hold `{ publishableKey, tenantId }`; cookie read per-request inside the middleware.
+  - **r70** — BUG-222 P2 base64url padding for JWT `org_id` decode; BUG-223 P2 `requireM2M` 403s through `ForbiddenError`; BUG-224 P3 `nonBlank` for monite-setup `TENANT_ID`.
+  - **r71** — BUG-225/226/227 P1+P2: admit session tenant admins on `/v1/audit_logs`, `/v1/usage`, all `/v1/webhooks/endpoints`, `/v1/signup-restrictions`, `/v1/redirect-urls` (dashboard works in production without an sk\_).
+  - **r72** — BUG-228 P2 static client env reads for publishable key (Next.js inlining); BUG-229 P2 webhook session admins derive project from owned project.
+  - **r73** — BUG-230 P2 explicit project_id wins for tenant-admin webhook ops; BUG-231 P2 `requireProjectAccess` exempts tenant-root.
+  - **r74** — BUG-232 P1 pin scoped M2M to its project (BUG-230 regression — closed credential leak); BUG-233 P2 m2m.controller exempts tenant-root.
+  - **r75** — BUG-234 P2 static client env reads for the full URL surface; BUG-235 P2 `requireScopeOrTenantAdmin` 403s through `ForbiddenError`.
+  - **r76** — BUG-236 P2 clear stale `__blerp_org` on session swap; BUG-237 P2 unlock 404 through `NotFoundError`.
+  - **r77** — BUG-238 P2 blank-env coercion for `WEBAUTHN_ORIGIN` / `WEBAUTHN_RP_NAME`.
+  - **r78 clean** (#2 overall, after r64).
+  - **r79** — BUG-239 P2 password required at create-time for `strategy='password'` signup.
+  - **r80** — BUG-240 P2 `useSignUp().create()` types `password` as required + runtime guard.
+  - **r81** — BUG-241 P1 webhook `'default'` bucket gated to tenant-root only (closed cross-project signing-secret exposure).
+  - **r82** — BUG-242 P2 backfill `audit_logs.project_id` in migration 0016; BUG-243 P2 session tenant admins also see legacy default-bucket webhooks.
+  - **r83** — BUG-244 P1 `/v1/auth/*` prefix bypass in `blerpMiddleware` (quickstart sign-in/up worked again).
+  - **r84** — BUG-245 P2 pin dashboard E2E setup to `demo-tenant` literal; BUG-246 P2 middleware bypass for `/v1/organizations?domain=` pre-session discovery.
+  - **r85 clean** (#3).
+  - **r86 clean** (#4) — **CONVERGED** by two-consecutive-clean rule.
+- Tests: 162/162 throughout. Lint + typecheck + openapi:lint clean across all 17 turbo tasks on every commit.
+- Headline stats: 39 codex rounds total (r48–r86), 201 unique BUGS.md entries (BUG-46..246), 97 commits ahead of `main`. PR #53 is `MERGEABLE` and awaits human review + merge.
+
+## 2026-05-18 — PR #53 BUG-247 CI E2E regression catchup
+
+- Premature "CONVERGED" claim retracted. `gh pr view 53 --json statusCheckRollup` showed E2E Tests FAILED on the three most-recent heads (24af12a, 8eb7da5, 47a74b5); 151 passed / 1 failed.
+- Root cause: `apps/dashboard/tests/auth/signup.spec.ts:84` (`shows success message on successful signup`) submits an unmocked POST to `/v1/auth/signups` and expects `p.text-green-600` to appear. After BUG-239 (codex r79) made `password` non-blank-required at signup-create time, the dashboard's `SignUp.tsx` — which only sent `{ email, strategy: "password" }` — got `400 "Password is required for strategy='password'"` for every submission, so the success branch never fired. Codex's "diff vs main" review couldn't catch it because the form predated the diff (the @blerp/nextjs SDK SignUp.tsx and all r79 unit tests were self-consistently password-supplying).
+- Logged as **BUG-247 (P1)** in BUGS.md.
+- Fix applied:
+  - `apps/dashboard/src/components/auth/SignUp.tsx`: added `password` state, a `<input id="password" type="password" minLength={8} required />` rendered between the email input and the submit button (matches sibling SignIn input styling + dark-mode tokens), wired through `client.POST(.../auth/signups, { body: { email, password, strategy: "password" } })`. Mirrors the SDK SignUp component which has gathered password since BUG-114.
+  - `apps/dashboard/tests/auth/signup.spec.ts`: updated 5 tests that exercise the form (`displays sign up form with all elements`, `form submission calls the real API`, `submit button shows loading state during submission`, `shows inline error on API failure`, `shows success message on successful signup`) to also fill `#password` with `"Sup3rSecret!"` (>8 chars per the server gate). The `displays sign up form with all elements` test additionally asserts `#password` is visible.
+- Verified: `bunx playwright test tests/auth/signup.spec.ts --workers=1` — **7/7 passed** in 12.3s. Workspace `bun run typecheck` and `bun run lint` both green.
+- CI re-run on the fix commit (`76133ea`, run `26045690711`): Setup · Lint · Build · Unit Tests · E2E Tests · Docker Build · All Checks Passed — **all SUCCESS**. PR is `MERGEABLE`.
+- PR #53 title rewritten to `chore(clerk-compliance): BUG-46..BUG-247 sweep (39 codex rounds)`; body rewritten as a category-grouped summary covering env compatibility, error envelope + RBAC plumbing, pagination/JWT/cookies/webhooks, M2M token security + scope model, auth correctness + UX (incl. BUG-247 catchup), MFA/WebAuthn/audit, org list/cache races, dashboard test infra, OIDC/OpenAPI hygiene; plus the "why one PR" rationale and a test-plan checklist.
+- Final continuity-doc state: STATUS.md / DO_NEXT.md / WHAT_WE_DID.md all reflect "CI green, merge-ready" honestly — the premature "CONVERGED" claim is removed.

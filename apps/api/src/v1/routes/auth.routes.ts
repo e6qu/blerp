@@ -14,7 +14,17 @@ import * as restrictionController from "../controllers/restriction.controller";
 import * as magicLinkController from "../controllers/magic-link.controller";
 import * as redirectController from "../controllers/redirect.controller";
 import * as m2mController from "../controllers/m2m.controller";
-import { authMiddleware } from "../../middleware/auth";
+import {
+  authMiddleware,
+  requireM2M,
+  requireScopeOrTenantAdmin,
+  requireSelfOrM2M,
+} from "../../middleware/auth";
+
+// BUG-147 (codex r33): admin/read endpoints that accept session auth
+// from the user themselves use requireSelfOrM2M; pure admin endpoints
+// (bulk / list / delete / restore / unlock) stay M2M-only.
+const userIdFromParams = (req: { params: { user_id?: string } }) => req.params.user_id;
 import { generateCsrfToken } from "../../middleware/csrf";
 
 const router = Router();
@@ -39,52 +49,152 @@ router.get("/auth/oauth/:provider/callback", oauthController.callback);
 
 router.get("/userinfo", authMiddleware, userinfoController.getUserInfo);
 
-// Users (bulk must come before :user_id routes)
-router.post("/users/bulk", authMiddleware, userController.bulkUpdateUsers);
-router.get("/users", authMiddleware, userController.listUsers);
-router.get("/users/:user_id", authMiddleware, userController.getUser);
-router.patch("/users/:user_id", authMiddleware, userController.updateUser);
-router.delete("/users/:user_id", authMiddleware, userController.deleteUser);
-router.post("/users/:user_id/restore", authMiddleware, userController.restoreUser);
+// Users — admin surfaces.
+// BUG-147 (codex r33): all /v1/users/* admin endpoints require an
+// M2M token with explicit scope (matches Clerk: User Management API
+// is SecretKey-only). Pre-fix any signed-in user could list/read/
+// update/delete arbitrary users including their private_metadata —
+// a tenant-wide data-exfiltration path.
+//
+// Scope split:
+//   users:read  — GET /v1/users, GET /v1/users/:id
+//   users:write — PATCH / DELETE / POST restore / POST bulk
+//   users:admin — POST /unlock (account-recovery primitive; gated
+//                 higher because it can defeat the lockout policy)
+//
+// BUG-209 (codex r61): the bulk / list / write / restore routes
+// also admit a session-authenticated tenant admin (project owner
+// in this tenant) via `requireScopeOrTenantAdmin`. The in-repo
+// dashboard is a Vite SPA that authenticates with the user's
+// session JWT — it has no M2M token in the browser. Pre-r61 every
+// dashboard call to the User Management page 403'd in production
+// (dev was masked by the X-User-Id shim). `users:admin` (unlock)
+// stays strict — high-trust, M2M-only for the audit trail.
+router.post(
+  "/users/bulk",
+  authMiddleware,
+  requireScopeOrTenantAdmin("users:write"),
+  userController.bulkUpdateUsers,
+);
+router.get(
+  "/users",
+  authMiddleware,
+  requireScopeOrTenantAdmin("users:read"),
+  userController.listUsers,
+);
+// GET / PATCH on a single user_id: self OR admin (matches Clerk's
+// user-can-read-and-update-themselves model).
+router.get(
+  "/users/:user_id",
+  authMiddleware,
+  requireSelfOrM2M("users:read", userIdFromParams),
+  userController.getUser,
+);
+router.patch(
+  "/users/:user_id",
+  authMiddleware,
+  requireSelfOrM2M("users:write", userIdFromParams),
+  userController.updateUser,
+);
+// Deletion and restore are destructive admin operations — admit a
+// session tenant admin so the dashboard's user-management UI works
+// in production (BUG-209). Unlock stays strict M2M-only.
+router.delete(
+  "/users/:user_id",
+  authMiddleware,
+  requireScopeOrTenantAdmin("users:write"),
+  userController.deleteUser,
+);
+router.post(
+  "/users/:user_id/restore",
+  authMiddleware,
+  requireScopeOrTenantAdmin("users:write"),
+  userController.restoreUser,
+);
+router.post(
+  "/users/:user_id/unlock",
+  authMiddleware,
+  requireM2M("users:admin"),
+  userController.unlockUser,
+);
+
+// BUG-150 (codex r34): nested user routes were left on bare
+// authMiddleware so any signed-in user could read/write another
+// user's email_addresses / identities / phone_numbers / mfa. Gate
+// with requireSelfOrM2M — same self-or-admin model as the main
+// /v1/users/:user_id routes (BUG-147).
+const readUserResource = requireSelfOrM2M("users:read", userIdFromParams);
+const writeUserResource = requireSelfOrM2M("users:write", userIdFromParams);
 
 // User Email Addresses
-router.get("/users/:user_id/email_addresses", authMiddleware, emailController.listEmails);
-router.post("/users/:user_id/email_addresses", authMiddleware, emailController.addEmail);
+router.get(
+  "/users/:user_id/email_addresses",
+  authMiddleware,
+  readUserResource,
+  emailController.listEmails,
+);
+router.post(
+  "/users/:user_id/email_addresses",
+  authMiddleware,
+  writeUserResource,
+  emailController.addEmail,
+);
 router.delete(
   "/users/:user_id/email_addresses/:email_address_id",
   authMiddleware,
+  writeUserResource,
   emailController.deleteEmail,
 );
 router.post(
   "/users/:user_id/email_addresses/:email_address_id/set_primary",
   authMiddleware,
+  writeUserResource,
   emailController.setPrimaryEmail,
 );
 
 // User Identities
-router.get("/users/:user_id/identities", authMiddleware, identityController.listIdentities);
+router.get(
+  "/users/:user_id/identities",
+  authMiddleware,
+  readUserResource,
+  identityController.listIdentities,
+);
 router.post(
   "/users/:user_id/identities/oauth",
   authMiddleware,
+  writeUserResource,
   identityController.linkOAuthIdentity,
 );
 router.delete(
   "/users/:user_id/identities/oauth/:oauth_account_id",
   authMiddleware,
+  writeUserResource,
   identityController.unlinkOAuthIdentity,
 );
 
 // User Phone Numbers
-router.get("/users/:user_id/phone_numbers", authMiddleware, phoneController.listPhoneNumbers);
-router.post("/users/:user_id/phone_numbers", authMiddleware, phoneController.addPhoneNumber);
+router.get(
+  "/users/:user_id/phone_numbers",
+  authMiddleware,
+  readUserResource,
+  phoneController.listPhoneNumbers,
+);
+router.post(
+  "/users/:user_id/phone_numbers",
+  authMiddleware,
+  writeUserResource,
+  phoneController.addPhoneNumber,
+);
 router.delete(
   "/users/:user_id/phone_numbers/:phone_number_id",
   authMiddleware,
+  writeUserResource,
   phoneController.deletePhoneNumber,
 );
 router.post(
   "/users/:user_id/phone_numbers/:phone_number_id/set_primary",
   authMiddleware,
+  writeUserResource,
   phoneController.setPrimaryPhone,
 );
 
@@ -116,20 +226,66 @@ router.delete(
   webauthnController.deletePasskey,
 );
 
-// TOTP/MFA
-router.post("/users/:user_id/mfa/totp", authMiddleware, totpController.enrollTotp);
-router.post("/users/:user_id/mfa/totp/verify", authMiddleware, totpController.verifyTotp);
+// TOTP/MFA — BUG-150 (codex r34): self-or-admin per BUG-147 pattern.
+router.post(
+  "/users/:user_id/mfa/totp",
+  authMiddleware,
+  writeUserResource,
+  totpController.enrollTotp,
+);
+router.post(
+  "/users/:user_id/mfa/totp/verify",
+  authMiddleware,
+  writeUserResource,
+  totpController.verifyTotp,
+);
 router.post(
   "/users/:user_id/mfa/backup_codes/regenerate",
   authMiddleware,
+  writeUserResource,
   totpController.regenerateBackupCodes,
 );
-router.delete("/users/:user_id/mfa/totp", authMiddleware, totpController.disableTotp);
+router.delete(
+  "/users/:user_id/mfa/totp",
+  authMiddleware,
+  writeUserResource,
+  totpController.disableTotp,
+);
 
-// Signup Restrictions (Allowlist/Blocklist)
-router.get("/signup-restrictions", authMiddleware, restrictionController.listRestrictions);
-router.post("/signup-restrictions", authMiddleware, restrictionController.createRestriction);
-router.delete("/signup-restrictions/:id", authMiddleware, restrictionController.deleteRestriction);
+// Signup Restrictions (Allowlist/Blocklist) — BUG-169 (codex r43) /
+// BUG-171 (codex r44): use the `:admin` suffix on write scopes so
+// createM2MToken's chain-of-trust gate (BUG-145) prevents a plain
+// project owner from minting them. These mutate tenant-wide tables
+// (no per-project filter), so the threat is "project owner adds
+// themselves to the allowlist." `:admin` requires an existing
+// admin-scoped M2M to mint, bootstrapping via the install path.
+//
+// BUG-227 (codex r71): admit session tenant admins (project owners,
+// see BUG-209 / BUG-218) on both read and write. Dashboard's
+// `useRestrictions` hooks (list + create + delete) call these from
+// the browser with a session JWT. Pre-r71 the Signup Restrictions
+// UI 403'd in production (dev-shim hid it). "Tenant admin" is the
+// `isSessionTenantAdmin` definition: owns every project in this
+// tenant — same authority class that can mint `signup_restrictions:
+// admin` via chain-of-trust anyway, so no escalation.
+router.get(
+  "/signup-restrictions",
+  authMiddleware,
+  requireScopeOrTenantAdmin("signup_restrictions:read"),
+  restrictionController.listRestrictions,
+);
+router.post(
+  "/signup-restrictions",
+  authMiddleware,
+  requireScopeOrTenantAdmin("signup_restrictions:admin"),
+  restrictionController.createRestriction,
+);
+router.delete(
+  "/signup-restrictions/:id",
+  authMiddleware,
+  requireScopeOrTenantAdmin("signup_restrictions:admin"),
+  restrictionController.deleteRestriction,
+);
 
 // Magic Links
 router.post("/auth/magic-links", magicLinkController.createMagicLink);
@@ -138,10 +294,31 @@ router.post("/auth/magic-links/verify", magicLinkController.verifyMagicLink);
 // Testing Tokens (dev-only)
 router.post("/auth/testing-tokens", authController.createTestingToken);
 
-// Redirect URLs
-router.get("/redirect-urls", authMiddleware, redirectController.listRedirectUrls);
-router.post("/redirect-urls", authMiddleware, redirectController.createRedirectUrl);
-router.delete("/redirect-urls/:id", authMiddleware, redirectController.deleteRedirectUrl);
+// Redirect URLs — BUG-169 (codex r43) / BUG-171 (codex r44):
+// `:admin` for the write scope per the same rationale as signup-
+// restrictions. Adding a redirect URL opens an OAuth-redirect
+// phishing path — tenant admin only.
+// BUG-227 (codex r71): admit session tenant admins. Same dashboard
+// regression class as signup-restrictions; dashboard's
+// `useRedirectUrls` hooks call these from the browser.
+router.get(
+  "/redirect-urls",
+  authMiddleware,
+  requireScopeOrTenantAdmin("redirect_urls:read"),
+  redirectController.listRedirectUrls,
+);
+router.post(
+  "/redirect-urls",
+  authMiddleware,
+  requireScopeOrTenantAdmin("redirect_urls:admin"),
+  redirectController.createRedirectUrl,
+);
+router.delete(
+  "/redirect-urls/:id",
+  authMiddleware,
+  requireScopeOrTenantAdmin("redirect_urls:admin"),
+  redirectController.deleteRedirectUrl,
+);
 
 // M2M Tokens
 router.post("/m2m-tokens", authMiddleware, m2mController.createM2MToken);

@@ -1,18 +1,25 @@
-import { Request, Response } from "express";
+import { Request, NextFunction, Response } from "express";
 import { eq, inArray } from "drizzle-orm";
 import { AuthService } from "../services/auth.service";
 import type { components } from "@blerp/shared";
 import * as schema from "../../db/schema";
+import { NotFoundError } from "../../lib/errors";
 
 type User = components["schemas"]["User"];
 type DBUser = typeof schema.users.$inferSelect;
 type DBEmailAddress = typeof schema.emailAddresses.$inferSelect;
 
-interface UserWithRelations extends DBUser {
+export interface UserWithRelations extends DBUser {
   emailAddresses: DBEmailAddress[];
 }
 
-function mapUser(user: UserWithRelations): User {
+// BUG-128 (codex r24): exported so user-metadata.controller (and any
+// future controller that returns a User) can use the same mapper.
+// Prior duplicate in user-metadata.controller.ts drifted from this
+// one — missing password_enabled / totp_enabled / backup_code_enabled
+// / two_factor_enabled — so PATCH /v1/users/:id/metadata responses
+// quietly omitted the Clerk-style credential flags.
+export function mapUser(user: UserWithRelations): User {
   return {
     id: user.id,
     external_id: undefined,
@@ -22,10 +29,23 @@ function mapUser(user: UserWithRelations): User {
     image_url: user.imageUrl ?? undefined,
     primary_email_id: user.primaryEmailAddressId ?? undefined,
     status: user.status as "active" | "inactive" | "banned",
+    // BUG-137 (codex r28): persistent per-user lockout flag (set after
+    // MAX_SIGNIN_ATTEMPTS failed sign-ins; cleared via admin unlock).
+    locked: user.locked,
     public_metadata: (user.publicMetadata as Record<string, unknown>) || {},
     private_metadata: (user.privateMetadata as Record<string, unknown>) || {},
     unsafe_metadata: (user.unsafeMetadata as Record<string, unknown>) || {},
+    // BUG-123 / BUG-125 (codex r22 / r23): expose the full Clerk-style
+    // credential flag set. `hasPassword` (snake_case `password_enabled`
+    // on the wire), TOTP, backup-code presence, and the derived
+    // `two_factor_enabled` aggregate (true if any 2FA factor is
+    // available). Dashboard / SDK UIs read these to decide which CTAs
+    // to render; omitting any of them made the UI report stale state.
+    password_enabled: user.hasPassword,
     totp_enabled: user.totpEnabled,
+    backup_code_enabled: Array.isArray(user.backupCodes) && user.backupCodes.length > 0,
+    two_factor_enabled:
+      user.totpEnabled || (Array.isArray(user.backupCodes) && user.backupCodes.length > 0),
     email_addresses: (user.emailAddresses || []).map((e: DBEmailAddress) => ({
       id: e.id,
       email: e.emailAddress,
@@ -146,6 +166,39 @@ export async function restoreUser(req: Request, res: Response) {
       return;
     }
     res.status(200).json(mapUser(restored));
+  } catch (error) {
+    res.status(400).json({ error: { message: (error as Error).message } });
+  }
+}
+
+// BUG-137 (codex r28): admin unlock endpoint. After MAX_SIGNIN_ATTEMPTS
+// failed sign-ins the user is `locked: true`; createSignin then refuses
+// to issue new attempts. An admin clears the flag + counter via
+// `POST /v1/users/:user_id/unlock`. No public endpoint exists for a
+// user to self-unlock (matches Clerk's behavior).
+export async function unlockUser(req: Request, res: Response, next: NextFunction) {
+  const id = (req.params.user_id || req.params.id) as string;
+  const service = new AuthService(req.tenantDb!, req.tenantId!);
+  try {
+    const user = await service.getUser(id);
+    if (!user) {
+      // BUG-237 (codex r76): route through `NotFoundError` so the
+      // central error handler emits the dual `{ error, errors[] }`
+      // envelope (BUG-47). Pre-r76 this site wrote
+      // `res.status(404).json({ error: { message } })` directly, so
+      // generated clients / `throwIfError()` saw `body.error.code`
+      // as undefined.
+      return next(new NotFoundError("User"));
+    }
+    await req
+      .tenantDb!.update(schema.users)
+      .set({ locked: false, failedSignInAttempts: 0, updatedAt: new Date() })
+      .where(eq(schema.users.id, id));
+    const refreshed = await service.getUser(id);
+    if (!refreshed) {
+      return next(new NotFoundError("User"));
+    }
+    res.status(200).json(mapUser(refreshed));
   } catch (error) {
     res.status(400).json({ error: { message: (error as Error).message } });
   }

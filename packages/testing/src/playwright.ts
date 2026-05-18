@@ -1,5 +1,6 @@
 import type { Page, BrowserContext, APIRequestContext } from "@playwright/test";
 import { request } from "@playwright/test";
+import { getApiUrl, getPublishableKey, getSecretKey } from "@blerp/shared";
 import { createTestToken, type TestTokenOptions } from "./tokens.js";
 
 export interface BlerpTestOptions {
@@ -20,10 +21,9 @@ export class BlerpTestHelper {
   private publishableKey: string;
 
   constructor(options: BlerpTestOptions = {}) {
-    this.baseUrl = options.baseUrl || process.env.BLERP_API_URL || DEFAULT_BASE_URL;
-    this.secretKey = options.secretKey || process.env.BLERP_SECRET_KEY || "";
-    this.publishableKey =
-      options.publishableKey || process.env.NEXT_PUBLIC_BLERP_PUBLISHABLE_KEY || "";
+    this.baseUrl = options.baseUrl ?? getApiUrl(DEFAULT_BASE_URL);
+    this.secretKey = options.secretKey ?? getSecretKey() ?? "";
+    this.publishableKey = options.publishableKey ?? getPublishableKey() ?? "";
   }
 
   getBaseUrl(): string {

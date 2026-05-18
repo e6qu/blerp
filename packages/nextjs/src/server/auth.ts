@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import * as jose from "jose";
 import type { components } from "@blerp/shared";
+import { getApiUrl, getSecretKey, getTenantId } from "@blerp/shared";
+import { verifySessionToken } from "./session-verify";
 
 type User = components["schemas"]["User"];
 
@@ -10,74 +12,96 @@ export interface BlerpSessionPayload extends jose.JWTPayload {
   org_permissions?: string[];
 }
 
-let jwks: ReturnType<typeof jose.createRemoteJWKSet> | undefined;
-
-function getJWKS(): ReturnType<typeof jose.createRemoteJWKSet> {
-  if (!jwks) {
-    const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
-    jwks = jose.createRemoteJWKSet(new URL(`${apiUrl}/v1/jwks`));
-  }
-  return jwks;
-}
-
 export async function auth() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("__blerp_session")?.value;
+  // BUG-51: accept either cookie name. `__session` is the Clerk-compat alias.
+  const token = cookieStore.get("__blerp_session")?.value ?? cookieStore.get("__session")?.value;
+
+  const empty = {
+    userId: null,
+    orgId: null,
+    orgRole: null,
+    orgPermissions: [] as string[],
+    has: () => false,
+  };
 
   if (!token) {
-    return {
-      userId: null,
-      orgId: null,
-      orgRole: null,
-      orgPermissions: [] as string[],
-      has: () => false,
-    };
+    return empty;
   }
 
-  try {
-    const { payload } = await jose.jwtVerify(token, getJWKS(), {
-      issuer: "blerp",
-      audience: "blerp-api",
-    });
+  // BUG-181 (codex r49): signature alone is not enough — the API
+  // middleware (BUG-155 codex r37) binds sessions to the tenant they
+  // were minted for. Mirror that check here so cross-tenant cookies
+  // don't pass `auth()` only to be rejected on the next API call.
+  const payload = await verifySessionToken(token);
+  if (!payload) return empty;
 
+  try {
     const sessionPayload = payload as BlerpSessionPayload;
     const userId = (sessionPayload.sub as string) || null;
-    // org_id can come from JWT claims OR from the __blerp_org cookie (set by OrganizationSwitcher)
-    const orgIdFromCookie = cookieStore.get("__blerp_org")?.value;
-    const orgId = (sessionPayload.org_id as string) || orgIdFromCookie || null;
 
-    // If org comes from cookie (not JWT), fetch the membership role from the API
-    let orgRole = (sessionPayload.org_role as string) || null;
-    let orgPermissions = (sessionPayload.org_permissions as string[]) || [];
-    if (orgId && !orgRole && userId && token) {
+    // Active-org resolution (BUG-49 → BUG-77 [codex r1/r5/r13]):
+    //
+    //   1. Try the `__blerp_org` cookie first (reflects the user's
+    //      explicit OrganizationSwitcher choice). The cookie is
+    //      client-writable — never trust it as an `orgId` for server
+    //      code without verifying the user actually has a membership
+    //      there. Validate via /memberships/me; only commit the cookie
+    //      org if validation succeeds.
+    //   2. If cookie validation fails OR no cookie, fall back to the
+    //      signed JWT `org_id` claim. Validate that one too (a
+    //      membership might have been deleted since sign-in).
+    //   3. Otherwise null — no active org.
+    //
+    // BUG-77 (codex r13): the previous version returned the cookie
+    // value to callers even when /memberships/me 404'd, letting a
+    // forged or stale cookie hijack `auth().orgId`. Now `orgId` is
+    // only set after a successful membership lookup. Same applies to
+    // `orgRole` / `orgPermissions`: they only return for the verified
+    // org (BUG-61 — never trust JWT claims for authorization).
+    const orgIdFromCookie = cookieStore.get("__blerp_org")?.value || null;
+    const orgIdFromClaim = (sessionPayload.org_id as string) || null;
+
+    let orgId: string | null = null;
+    let orgRole: string | null = null;
+    let orgPermissions: string[] = [];
+
+    async function tryResolveMembership(candidateOrgId: string): Promise<boolean> {
+      if (!userId || !token) return false;
       try {
-        const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
-        const tenantId = process.env.BLERP_TENANT_ID ?? "demo-tenant";
-        const res = await fetch(`${apiUrl}/v1/organizations/${orgId}/memberships`, {
+        const apiUrl = getApiUrl();
+        const tenantId = getTenantId();
+        const res = await fetch(`${apiUrl}/v1/organizations/${candidateOrgId}/memberships/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "X-Tenant-Id": tenantId,
           },
           cache: "no-store",
         });
-        if (res.ok) {
-          const body = await res.json();
-          const membership = (body.data ?? []).find(
-            (m: { user_id?: string }) => m.user_id === userId,
-          );
-          if (membership) {
-            orgRole = membership.role ?? null;
-            // Map role to permissions
-            if (orgRole === "owner" || orgRole === "admin") {
-              orgPermissions = ["org:read", "org:write", "org:manage_members"];
-            } else {
-              orgPermissions = ["org:read"];
-            }
-          }
-        }
+        if (!res.ok) return false;
+        const membership = (await res.json()) as {
+          role?: string;
+          permissions?: string[];
+        };
+        orgId = candidateOrgId;
+        orgRole = membership.role ?? null;
+        // BUG-63 (codex r6): consume API-returned `permissions`
+        // verbatim — the membership controller resolves the canonical
+        // permission set server-side (defaults + custom roles).
+        orgPermissions = Array.isArray(membership.permissions) ? membership.permissions : [];
+        return true;
       } catch {
-        // Membership lookup failed — continue without role
+        return false;
       }
+    }
+
+    if (orgIdFromCookie) {
+      const ok = await tryResolveMembership(orgIdFromCookie);
+      if (!ok && orgIdFromClaim && orgIdFromClaim !== orgIdFromCookie) {
+        await tryResolveMembership(orgIdFromClaim);
+      }
+    } else if (orgIdFromClaim) {
+      await tryResolveMembership(orgIdFromClaim);
     }
 
     return {
@@ -92,13 +116,7 @@ export async function auth() {
       },
     };
   } catch {
-    return {
-      userId: null,
-      orgId: null,
-      orgRole: null,
-      orgPermissions: [] as string[],
-      has: () => false,
-    };
+    return empty;
   }
 }
 
@@ -107,14 +125,15 @@ export async function currentUser(): Promise<User | null> {
   if (!userId) return null;
 
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("__blerp_session")?.value;
+  const sessionToken =
+    cookieStore.get("__blerp_session")?.value ?? cookieStore.get("__session")?.value;
 
-  const apiUrl = process.env.BLERP_API_URL ?? "http://localhost:3000";
+  const apiUrl = getApiUrl();
 
   // Prefer session JWT for auth (already validated by auth()), fall back to secret key
-  const bearerToken = sessionToken ?? process.env.BLERP_SECRET_KEY ?? "";
+  const bearerToken = sessionToken ?? getSecretKey() ?? "";
 
-  const tenantId = process.env.BLERP_TENANT_ID ?? "demo-tenant";
+  const tenantId = getTenantId();
   const response = await fetch(`${apiUrl}/v1/users/${userId}`, {
     headers: {
       Authorization: `Bearer ${bearerToken}`,

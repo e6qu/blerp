@@ -67,12 +67,14 @@ beforeAll(async () => {
     name: "Audit Org",
     slug: "audit-org",
   });
-  // Membership so RBAC-gated routes (org metadata) admit the user as owner.
+  // Membership so RBAC-gated routes (org metadata, custom roles, etc.)
+  // admit the user. Must be `owner` because `admin` doesn't include
+  // `org:write` (see ROLE_PERMISSIONS in apps/api/src/lib/rbac.ts).
   await db.insert(schema.memberships).values({
     id: "mem_ctrl_audit",
     organizationId: orgId,
     userId,
-    role: "admin",
+    role: "owner",
   });
 });
 
@@ -100,18 +102,67 @@ describe("quota controller", () => {
 // audit.controller — GET /v1/audit_logs
 // -----------------------------------------------------------------------------
 describe("audit controller", () => {
-  it("GET /v1/audit_logs returns { data, meta: { total } }", async () => {
+  it("GET /v1/audit_logs returns Clerk-shaped { data, total_count } plus legacy meta.total alias", async () => {
     const res = await request(app).get("/v1/audit_logs").set(headers());
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.meta).toBeDefined();
-    expect(typeof res.body.meta.total).toBe("number");
+    // BUG-48: total_count is the canonical Clerk-compat field; meta.total
+    // is the legacy alias kept for one release.
+    expect(typeof res.body.total_count).toBe("number");
+    expect(res.body.total_count).toBe(res.body.meta.total);
   });
 
   it("honours limit + offset query params", async () => {
     const res = await request(app).get("/v1/audit_logs?limit=5&offset=0").set(headers());
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeLessThanOrEqual(5);
+  });
+
+  it("BUG-183 (codex r49): AuditLogService.create persists project_id; list filter returns only matching rows", async () => {
+    // Direct service test — exercises the BUG-161 list filter against
+    // rows the worker would persist. Pre-BUG-183 the column existed
+    // but no writer populated it, so a project-scoped query returned
+    // an empty list even after events fired.
+    const { getTenantDb } = await import("../db/router");
+    const { AuditLogService } = await import("../v1/services/audit.service");
+    const db = await getTenantDb(tenantId);
+    const service = new AuditLogService(db);
+
+    const projectA = `proj_bug183_a_${Date.now()}`;
+    const projectB = `proj_bug183_b_${Date.now()}`;
+    const rowA = await service.create({
+      action: "organization.created",
+      actor: { type: "system" },
+      projectId: projectA,
+    });
+    const rowB = await service.create({
+      action: "organization.created",
+      actor: { type: "system" },
+      projectId: projectB,
+    });
+    const rowNull = await service.create({
+      action: "session.created",
+      actor: { type: "system" },
+    });
+
+    const listA = await service.list({ projectId: projectA });
+    const idsA = listA.data.map((r) => r.id);
+    expect(idsA).toContain(rowA);
+    expect(idsA).not.toContain(rowB);
+    expect(idsA).not.toContain(rowNull);
+
+    const listB = await service.list({ projectId: projectB });
+    const idsB = listB.data.map((r) => r.id);
+    expect(idsB).toContain(rowB);
+    expect(idsB).not.toContain(rowA);
+    expect(idsB).not.toContain(rowNull);
+
+    // Tenant-root caller (no projectId filter) sees all three.
+    const listAll = await service.list({});
+    const idsAll = listAll.data.map((r) => r.id);
+    expect(idsAll).toContain(rowA);
+    expect(idsAll).toContain(rowB);
+    expect(idsAll).toContain(rowNull);
   });
 });
 
@@ -254,12 +305,17 @@ describe("organization-metadata controller", () => {
     expect(res.body).not.toHaveProperty("createdAt");
   });
 
-  it("returns 400 envelope when the organization does not exist", async () => {
+  it("rejects with 4xx envelope when the organization does not exist (RBAC gate fires first — BUG-153)", async () => {
     const res = await request(app)
       .patch("/v1/organizations/org_missing/metadata")
       .set(headers())
       .send({ public_metadata: {} });
-    expect(res.status).toBe(400);
+    // BUG-153 (codex r36): post-fix the requirePermission("org:write")
+    // gate fires before the controller can return its 400. The caller
+    // (test user has no membership in `org_missing`) gets 403 with an
+    // error envelope. Either response is "request rejected with an
+    // error envelope" — assert that contract, not the specific code.
+    expect([400, 403]).toContain(res.status);
     expect(res.body.error?.message).toBeTruthy();
   });
 });
@@ -286,13 +342,94 @@ describe("user-metadata controller", () => {
 // identity.controller — GET /v1/users/:id/identities
 // -----------------------------------------------------------------------------
 describe("identity controller", () => {
-  it("GET /v1/users/:id/identities returns the linked-identities list", async () => {
+  it("GET /v1/users/:id/identities returns the linked-identities list with snake_case fields", async () => {
     const res = await request(app).get(`/v1/users/${userId}/identities`).set(headers());
     expect(res.status).toBe(200);
-    // IdentityService.listUserIdentities returns an object keyed by provider
-    // (oauth: [...], passkeys: [...], totp: bool). Verify the envelope shape.
-    expect(res.body).toBeDefined();
-    expect(typeof res.body).toBe("object");
+    // BUG-52: wrapper has snake_case keys AND inner objects are now mapped
+    // — no raw Drizzle camelCase leakage in either oauth_accounts or
+    // email_addresses arrays.
+    expect(Array.isArray(res.body.oauth_accounts)).toBe(true);
+    expect(Array.isArray(res.body.email_addresses)).toBe(true);
+    for (const account of res.body.oauth_accounts) {
+      expect(account).not.toHaveProperty("userId");
+      expect(account).not.toHaveProperty("providerUserId");
+      expect(account).not.toHaveProperty("emailAddress");
+      expect(account).not.toHaveProperty("createdAt");
+    }
+    for (const email of res.body.email_addresses) {
+      expect(email).not.toHaveProperty("userId");
+      expect(email).not.toHaveProperty("emailAddress");
+      expect(email).not.toHaveProperty("verificationStatus");
+      expect(email).not.toHaveProperty("createdAt");
+    }
+  });
+});
+
+// -----------------------------------------------------------------------------
+// role.controller — /v1/organizations/:id/roles (BUG-52 + general happy path)
+// -----------------------------------------------------------------------------
+describe("role controller", () => {
+  let createdRoleId: string;
+
+  it("POST /v1/organizations/:id/roles returns snake_case Role with no camelCase leak", async () => {
+    const res = await request(app)
+      .post(`/v1/organizations/${orgId}/roles`)
+      .set(headers())
+      .send({ name: "auditor", description: "Read-only", permissions: ["org:read"] });
+    expect(res.status).toBe(201);
+    expect(res.body.id).toBeTruthy();
+    expect(res.body.organization_id).toBe(orgId);
+    expect(res.body.name).toBe("auditor");
+    expect(res.body.permissions).toEqual(["org:read"]);
+    expect(res.body.is_default).toBe(false);
+    expect(res.body).toHaveProperty("created_at");
+    expect(res.body).not.toHaveProperty("organizationId");
+    expect(res.body).not.toHaveProperty("createdAt");
+    createdRoleId = res.body.id;
+  });
+
+  it("PATCH /v1/organizations/:id/roles/:role_id preserves the snake_case shape", async () => {
+    const res = await request(app)
+      .patch(`/v1/organizations/${orgId}/roles/${createdRoleId}`)
+      .set(headers())
+      .send({ description: "Updated description" });
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(createdRoleId);
+    expect(res.body.description).toBe("Updated description");
+    expect(res.body.organization_id).toBe(orgId);
+    expect(res.body).not.toHaveProperty("organizationId");
+    expect(res.body).not.toHaveProperty("updatedAt");
+  });
+
+  it("DELETE /v1/organizations/:id/roles/:role_id returns 204", async () => {
+    const res = await request(app)
+      .delete(`/v1/organizations/${orgId}/roles/${createdRoleId}`)
+      .set(headers());
+    expect(res.status).toBe(204);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Clerk-compat error envelope (BUG-47) — verify both `error` (legacy) AND
+// `errors: [{ ... }]` (Clerk-shape) come back on BlerpError throws.
+// -----------------------------------------------------------------------------
+describe("error envelope (BUG-47)", () => {
+  it("GET /v1/organizations/:missing emits both `error` (legacy) and `errors[0]` (Clerk-shape)", async () => {
+    const res = await request(app)
+      .get("/v1/organizations/org_nonexistent_for_envelope_test")
+      .set(headers());
+    expect(res.status).toBe(403);
+    // BUG-47: dual envelope. SDK clients reading body.errors[0].message
+    // (Clerk-shape) work; existing dashboard code reading
+    // body.error.message also works through one more release.
+    expect(res.body.error).toBeDefined();
+    expect(typeof res.body.error.code).toBe("string");
+    expect(typeof res.body.error.message).toBe("string");
+    expect(Array.isArray(res.body.errors)).toBe(true);
+    expect(res.body.errors).toHaveLength(1);
+    expect(res.body.errors[0].code).toBe(res.body.error.code);
+    expect(res.body.errors[0].message).toBe(res.body.error.message);
+    expect(typeof res.body.errors[0].long_message).toBe("string");
   });
 });
 
@@ -418,7 +555,12 @@ describe("m2m controller", () => {
     const res = await request(app)
       .post("/v1/m2m-tokens")
       .set(headers())
-      .send({ name: "test token", project_id: "proj_ctrl_audit", scopes: ["read:users"] });
+      // BUG-187 (codex r52): chain-of-trust now requires the minter
+      // to actually hold the requested scope. Pre-r52 the test used
+      // the typo "read:users" which slipped through because nothing
+      // checked it; now use a real project-bound scope the dev-shim
+      // grants.
+      .send({ name: "test token", project_id: "proj_ctrl_audit", scopes: ["webhooks:read"] });
     expect(res.status).toBe(201);
     expect(res.body.id).toBeTruthy();
     expect(res.body.client_id).toBeTruthy();
@@ -470,5 +612,94 @@ describe("m2m controller", () => {
   it("DELETE /v1/m2m-tokens/:id revokes (204)", async () => {
     const res = await request(app).delete(`/v1/m2m-tokens/${tokenId}`).set(headers());
     expect(res.status).toBe(204);
+  });
+
+  it("BUG-187 (codex r52): an M2M caller cannot mint a token with scopes it does not hold (chain-of-trust)", async () => {
+    // Mint a low-scope M2M token via the dev-shim (which carries the
+    // full scope set, so the create itself succeeds).
+    const lowCreate = await request(app)
+      .post("/v1/m2m-tokens")
+      .set(headers())
+      .send({
+        name: "low-scope chain-of-trust source",
+        project_id: "proj_ctrl_audit",
+        scopes: ["webhooks:read"],
+      });
+    expect(lowCreate.status).toBe(201);
+    const lowClientId = lowCreate.body.client_id as string;
+    const lowClientSecret = lowCreate.body.client_secret as string;
+
+    // Exchange for a JWT.
+    const tokenRes = await request(app).post("/v1/oauth/token").set("X-Tenant-Id", tenantId).send({
+      grant_type: "client_credentials",
+      client_id: lowClientId,
+      client_secret: lowClientSecret,
+    });
+    expect(tokenRes.status).toBe(200);
+    const lowJwt = tokenRes.body.access_token as string;
+
+    // Use that low-scope JWT to try minting a higher-scope peer.
+    // Pre-r52 this 201'd because the chain-of-trust only refused
+    // `:admin` / tenant-wide scopes. Post-r52 every scope flows down
+    // the tree.
+    const escalation = await request(app)
+      .post("/v1/m2m-tokens")
+      .set("X-Tenant-Id", tenantId)
+      .set("Authorization", `Bearer ${lowJwt}`)
+      .send({
+        name: "attempted escalation",
+        project_id: "proj_ctrl_audit",
+        scopes: ["webhooks:write"],
+      });
+    expect(escalation.status).toBe(403);
+    expect(escalation.body.error?.message).toMatch(/does not hold/);
+
+    // Sanity: low-scope JWT CAN mint a peer with the same scope.
+    const sameScope = await request(app)
+      .post("/v1/m2m-tokens")
+      .set("X-Tenant-Id", tenantId)
+      .set("Authorization", `Bearer ${lowJwt}`)
+      .send({
+        name: "same-scope peer",
+        project_id: "proj_ctrl_audit",
+        scopes: ["webhooks:read"],
+      });
+    expect(sameScope.status).toBe(201);
+  });
+
+  it("BUG-186 (codex r51): project-owner session cannot mint tenant-wide scopes (users:* / signup_restrictions:* / redirect_urls:* / usage:*)", async () => {
+    // X-No-Dev-Shim opts out of the dev-mode session→M2M elevation, so
+    // req.m2m is undefined for this request — same as a production
+    // project-owner session. The chain-of-trust gate must then refuse
+    // tenant-wide scopes (their routes have no project boundary).
+    const tenantWide = [
+      "users:read",
+      "users:write",
+      "signup_restrictions:read",
+      "redirect_urls:admin",
+      "usage:read",
+    ];
+    for (const scope of tenantWide) {
+      const res = await request(app)
+        .post("/v1/m2m-tokens")
+        .set(headers())
+        .set("X-No-Dev-Shim", "true")
+        .send({ name: `tw-${scope}`, project_id: "proj_ctrl_audit", scopes: [scope] });
+      expect(res.status).toBe(403);
+      expect(res.body.error?.message).toMatch(/privileged|admin|tenant-wide/i);
+    }
+
+    // Sanity: project-bound scopes (webhooks:*, members:*, org:*) remain
+    // mintable by a plain project-owner session — those controllers
+    // already scope by project at the row level (BUG-162 / BUG-160 / BUG-167).
+    const projectBound = ["webhooks:read", "members:read", "org:read", "audit_logs:read"];
+    for (const scope of projectBound) {
+      const res = await request(app)
+        .post("/v1/m2m-tokens")
+        .set(headers())
+        .set("X-No-Dev-Shim", "true")
+        .send({ name: `pb-${scope}`, project_id: "proj_ctrl_audit", scopes: [scope] });
+      expect(res.status).toBe(201);
+    }
   });
 });

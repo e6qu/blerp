@@ -1,10 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import Cookies from "js-cookie";
-import { useBlerpClient } from "../BlerpProvider";
+import { useState, type SyntheticEvent } from "react";
+import { setSessionCookies } from "../session-cookies";
+import { useAuth, useBlerpClient } from "../BlerpProvider";
+import { readRedirectQueryParam } from "../safe-redirect";
 
-type SignInStep = "email" | "password";
+// BUG-116 (codex r20): add a "totp" second-factor step. The API
+// returns `needs_second_factor` for users with TOTP enabled; without
+// this step the embedded <SignIn> ate the response and left the user
+// staring at a frozen Sign-in button.
+type SignInStep = "email" | "password" | "totp";
 
 interface SignInProps {
   routing?: "path" | "hash" | "virtual";
@@ -15,16 +20,37 @@ interface SignInProps {
   appearance?: Record<string, unknown>;
 }
 
-export function SignIn({ afterSignInUrl = "/", signUpUrl = "/sign-up" }: SignInProps) {
+// BUG-214 (codex r63): module-level `getSignUpUrl()` was resolved
+// once at import from the build-time env, so the SignIn footer
+// "Sign up" link ignored `/v1/public-config` `CLERK_SIGN_UP_URL`
+// overrides. The component now reads the URL from the runtime-
+// hydrated `useAuth().signUpUrl` instead, and only falls back to
+// a caller-supplied prop. The constant is gone.
+
+// BUG-109 (codex r19) / BUG-208 (codex r60): `readRedirectQueryParam`
+// lives in `safe-redirect.ts` (lifted post-r68 from the duplicated
+// per-component copies). Honors `?redirect_url=…` if it's a safe
+// relative or same-origin URL; returns `undefined` for missing,
+// blank, or unsafe values so the caller falls through to the
+// runtime-config redirect resolution (BUG-201).
+
+export function SignIn({ afterSignInUrl, signUpUrl: signUpUrlProp }: SignInProps) {
   const client = useBlerpClient();
+  // BUG-185 (codex r50): runtime-resolver from BlerpProvider — see
+  // session-verify / runtime-config rationale in BlerpProvider.tsx.
+  // BUG-214 (codex r63): also pull `signUpUrl` from the runtime
+  // context. Caller-supplied prop still wins.
+  const { resolveSignInRedirect, signUpUrl: contextSignUpUrl } = useAuth();
+  const signUpUrl = signUpUrlProp ?? contextSignUpUrl;
   const [step, setStep] = useState<SignInStep>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [signinId, setSigninId] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
@@ -46,7 +72,7 @@ export function SignIn({ afterSignInUrl = "/", signUpUrl = "/sign-up" }: SignInP
     }
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePasswordSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
@@ -64,15 +90,61 @@ export function SignIn({ afterSignInUrl = "/", signUpUrl = "/sign-up" }: SignInP
         const response = data as {
           session?: { id: string };
           tokens?: { access_token: string };
+          status?: string;
+          signin_id?: string;
+        };
+        // BUG-116 (codex r20): MFA branch — server says
+        // `needs_second_factor` for TOTP users. Transition the UI to
+        // the totp step; the next submit hits the same attempt
+        // endpoint with `{ code }`.
+        if (response.status === "needs_second_factor") {
+          setStep("totp");
+        } else if (response.session) {
+          if (response.tokens?.access_token) {
+            setSessionCookies(response.tokens.access_token);
+          }
+          // BUG-101 (codex r18) / BUG-109 (codex r19): apply
+          // `force > prop > redirect_url query > env fallback` precedence,
+          // matching Clerk's documented redirect ordering.
+          const target = afterSignInUrl ?? readRedirectQueryParam();
+          window.location.assign(resolveSignInRedirect(target));
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // BUG-116 (codex r20): second-factor submit. Auth controller routes
+  // `{ code }` (no password / no identifier) into attemptSecondFactor.
+  const handleTotpSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      // BUG-130 (codex r24): send explicit `strategy: "totp"` + `stage:
+      // "second_factor"`. Without these, the service falls back to
+      // permissive try-both, so a backup code typed into the TOTP-
+      // labeled UI would silently succeed and consume a recovery code.
+      // The TOTP UI here is exclusively for authenticator-app codes.
+      const { data, error: apiError } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
+        params: { path: { signin_id: signinId! } },
+        body: { code: totpCode, strategy: "totp", stage: "second_factor" },
+      });
+      if (apiError) {
+        const errorData = apiError as { error?: { message?: string } };
+        setError(errorData.error?.message ?? "Invalid verification code");
+      } else {
+        const response = data as {
+          session?: { id: string };
+          tokens?: { access_token: string };
         };
         if (response.tokens?.access_token) {
-          Cookies.set("__blerp_session", response.tokens.access_token, {
-            expires: 7,
-            sameSite: "lax",
-          });
+          setSessionCookies(response.tokens.access_token);
         }
         if (response.session) {
-          window.location.assign(afterSignInUrl);
+          const target = afterSignInUrl ?? readRedirectQueryParam();
+          window.location.assign(resolveSignInRedirect(target));
         }
       }
     } finally {
@@ -198,6 +270,40 @@ export function SignIn({ afterSignInUrl = "/", signUpUrl = "/sign-up" }: SignInP
             className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
           >
             {isSubmitting ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+      )}
+
+      {/* BUG-116 (codex r20): TOTP second-factor step. */}
+      {step === "totp" && (
+        <form onSubmit={handleTotpSubmit} className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Enter the 6-digit code from your authenticator app.
+          </p>
+
+          <div>
+            <label htmlFor="blerp-signin-totp" className="block text-sm font-medium text-gray-700">
+              Verification code
+            </label>
+            <input
+              id="blerp-signin-totp"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+              required
+              autoFocus
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting || totpCode.length !== 6}
+            className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            {isSubmitting ? "Verifying..." : "Verify"}
           </button>
         </form>
       )}

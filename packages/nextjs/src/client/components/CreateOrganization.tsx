@@ -3,7 +3,19 @@
 import React, { useState, useEffect } from "react";
 import { useCreateOrganization, useUser, useOrganizations } from "../hooks";
 
-export function CreateOrganization() {
+export interface CreateOrganizationProps {
+  /**
+   * BUG-212 (codex r62): which project the new organization belongs
+   * to. When omitted, the API derives it from the authenticated
+   * caller's first owned project (session user) or the M2M token's
+   * bound project. Pre-r62 this component hardcoded `"default"`,
+   * which 403'd on every install whose seeded project wasn't
+   * literally named `default` (e.g. the `demo-project` seed).
+   */
+  projectId?: string;
+}
+
+export function CreateOrganization({ projectId }: CreateOrganizationProps = {}) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const { user } = useUser();
@@ -24,7 +36,11 @@ export function CreateOrganization() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createOrg.mutateAsync({ name, slug, project_id: "default" });
+      // BUG-212 (codex r62): only send project_id when the caller
+      // supplied one. The API derives the project_id from the auth
+      // context when missing (session user's first owned project, or
+      // M2M token's bound project — see organization.controller.ts).
+      await createOrg.mutateAsync({ name, slug, project_id: projectId });
       alert("Organization created successfully!");
       setName("");
       setSlug("");

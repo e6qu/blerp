@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { client, setSession } from "../../lib/api";
 import { GitBranch, Mail, ArrowLeft, Wand2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -20,7 +20,7 @@ export function SignIn() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const magicLink = useMagicLink();
 
-  const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
@@ -45,7 +45,7 @@ export function SignIn() {
     }
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePasswordSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
@@ -104,15 +104,18 @@ export function SignIn() {
     magicLink.setError(null);
   };
 
-  const handleTotpSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleTotpSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
 
     try {
+      // BUG-130 (codex r24): explicit strategy + stage — see
+      // packages/nextjs Auth.tsx for the rationale. Dashboard
+      // SignIn's TOTP step is for authenticator codes only.
       const { data, error: apiError } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
         params: { path: { signin_id: signinId! } },
-        body: { code: totpCode },
+        body: { code: totpCode, strategy: "totp", stage: "second_factor" },
       });
 
       if (apiError) {
@@ -150,7 +153,7 @@ export function SignIn() {
     }
   };
 
-  const handleMagicLinkVerify = async (e: React.FormEvent) => {
+  const handleMagicLinkVerify = async (e: SyntheticEvent) => {
     e.preventDefault();
     setError(null);
     const result = await magicLink.verifyToken(magicToken);

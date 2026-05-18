@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBlerpClient } from "./BlerpProvider";
 import { useAuth } from "./BlerpProvider";
 import type { components, paths } from "@blerp/shared";
-import Cookies from "js-cookie";
+import { setSessionCookies } from "./session-cookies";
 
 type Organization = components["schemas"]["Organization"];
 type Membership = components["schemas"]["Membership"];
@@ -32,7 +32,11 @@ export function useCreateOrganization() {
   const client = useBlerpClient();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { name: string; slug?: string; project_id: string }) => {
+    // BUG-212 (codex r62): `project_id` is now optional. The API
+    // derives it from the auth context when omitted (session user's
+    // first owned project; M2M token's bound project — see
+    // organization.controller.ts createOrganization).
+    mutationFn: async (body: { name: string; slug?: string; project_id?: string }) => {
       const { data, error } = await client.POST("/v1/organizations", { body });
       if (error) throw error;
       return data as Organization;
@@ -309,7 +313,12 @@ export function useSignIn() {
     id: null,
     status: "needs_identifier",
     identifier: null,
-    supportedFirstFactors: ["email_code", "password"],
+    // BUG-122 (codex r22): only `password` first-factor is wired
+    // end-to-end. `email_code` is documented as Clerk-style first
+    // factor, but the API's `attemptSignin` only handles password
+    // verification today — advertising it here would tempt callers
+    // into a path that 400s. Tracked in BUGS.md for future work.
+    supportedFirstFactors: ["password"],
     supportedSecondFactors: ["totp", "backup_code"],
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -335,7 +344,12 @@ export function useSignIn() {
         id: result.id,
         status: "needs_first_factor",
         identifier: params.identifier,
-        supportedFirstFactors: ["email_code", "password"],
+        // BUG-122 (codex r22): only `password` first-factor is wired
+        // end-to-end. `email_code` is documented as Clerk-style first
+        // factor, but the API's `attemptSignin` only handles password
+        // verification today — advertising it here would tempt callers
+        // into a path that 400s. Tracked in BUGS.md for future work.
+        supportedFirstFactors: ["password"],
         supportedSecondFactors: ["totp", "backup_code"],
       });
       return result;
@@ -352,9 +366,25 @@ export function useSignIn() {
     if (!status.id) throw new Error("No sign-in attempt in progress");
     setIsLoading(true);
     try {
+      // BUG-115 (codex r20): include `identifier` — the controller's
+      // first-factor path is `if (!identifier) → 400 identifier is
+      // required`. The status object captures the identifier from
+      // `create()`; pass it through verbatim.
+      // BUG-119 (codex r21) / BUG-121 (codex r22): send explicit
+      // `stage: "first_factor"` so a code-only first factor isn't
+      // misrouted to attemptSecondFactor. Note: `strategy` is reserved
+      // for the factor NAME (Clerk convention — `password`,
+      // `email_code`, `totp`, etc.) — passed through to the API so
+      // future factor types route correctly without a hook change.
       const { data, error } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
         params: { path: { signin_id: status.id } },
-        body: { password: params.password, code: params.code },
+        body: {
+          password: params.password,
+          code: params.code,
+          identifier: status.identifier ?? undefined,
+          strategy: params.strategy,
+          stage: "first_factor",
+        },
       });
       if (error) {
         setStatus((prev) => ({ ...prev, status: "failed" }));
@@ -374,10 +404,7 @@ export function useSignIn() {
       }
 
       if (response.tokens?.access_token) {
-        Cookies.set("__blerp_session", response.tokens.access_token, {
-          expires: 7,
-          sameSite: "lax",
-        });
+        setSessionCookies(response.tokens.access_token);
       }
 
       const result = { status: "complete" as const, session_id: response.session.id };
@@ -393,9 +420,12 @@ export function useSignIn() {
     if (!status.id) throw new Error("No sign-in attempt in progress");
     setIsLoading(true);
     try {
+      // BUG-119 (codex r21) / BUG-121 (codex r22): explicit
+      // `stage: "second_factor"` for routing; `strategy` carries the
+      // factor name (e.g. "totp", "backup_code") per Clerk convention.
       const { data, error } = await client.POST("/v1/auth/signins/{signin_id}/attempt", {
         params: { path: { signin_id: status.id } },
-        body: { code: params.code },
+        body: { code: params.code, strategy: params.strategy, stage: "second_factor" },
       });
       if (error) {
         setStatus((prev) => ({ ...prev, status: "failed" }));
@@ -404,10 +434,7 @@ export function useSignIn() {
       const response = data as { session: { id: string }; tokens: { access_token: string } };
 
       if (response.tokens?.access_token) {
-        Cookies.set("__blerp_session", response.tokens.access_token, {
-          expires: 7,
-          sameSite: "lax",
-        });
+        setSessionCookies(response.tokens.access_token);
       }
 
       const result = { status: "complete" as const, session_id: response.session.id };
@@ -424,7 +451,12 @@ export function useSignIn() {
       id: null,
       status: "needs_identifier",
       identifier: null,
-      supportedFirstFactors: ["email_code", "password"],
+      // BUG-122 (codex r22): only `password` first-factor is wired
+      // end-to-end. `email_code` is documented as Clerk-style first
+      // factor, but the API's `attemptSignin` only handles password
+      // verification today — advertising it here would tempt callers
+      // into a path that 400s. Tracked in BUGS.md for future work.
+      supportedFirstFactors: ["password"],
       supportedSecondFactors: ["totp", "backup_code"],
     });
   };
@@ -450,7 +482,19 @@ export function useSignUp() {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const create = async (params: { identifier: string; password?: string }) => {
+  // BUG-240 (codex r80): `password` is required because this hook
+  // always sends `strategy: "password"`, and the server (BUG-239)
+  // refuses password-strategy signups without one. Make the type
+  // require it and assert at runtime in case a JS caller bypasses
+  // the type. Callers that want passwordless flows (magic-link
+  // etc.) need a different hook — `useSignUp` is the password flow.
+  const create = async (params: { identifier: string; password: string }) => {
+    if (!params.password || params.password.trim() === "") {
+      throw new Error(
+        "useSignUp.create({ password }) requires a non-blank password. " +
+          "useSignUp wraps the password sign-up flow; for magic-link / social, use the dedicated hook.",
+      );
+    }
     setIsLoading(true);
     try {
       const { data, error } = await client.POST("/v1/auth/signups", {
@@ -495,13 +539,19 @@ export function useSignUp() {
         setStatus((prev) => ({ ...prev, status: "failed" }));
         throw error;
       }
-      const result = data as { status: string; tokens?: { access_token: string } };
+      // BUG-114 (codex r20): API returns `{ user_id, session, tokens }`
+      // (not `{ status, tokens }`). The old shape was speculative — the
+      // service never populated it. Adopt the actual shape here so
+      // `tokens` correctly populates session cookies and the hook's
+      // return matches what callers branch on.
+      const result = data as {
+        user_id?: string;
+        session?: { id?: string };
+        tokens?: { access_token?: string };
+      };
 
       if (result.tokens?.access_token) {
-        Cookies.set("__blerp_session", result.tokens.access_token, {
-          expires: 7,
-          sameSite: "lax",
-        });
+        setSessionCookies(result.tokens.access_token);
       }
 
       setStatus((prev: SignUpStatus) => ({ ...prev, status: "complete" }));

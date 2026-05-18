@@ -18,6 +18,7 @@ test.describe("Sign Up Flow", () => {
   test("displays sign up form with all elements", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
     await expect(page.locator("#email")).toBeVisible();
+    await expect(page.locator("#password")).toBeVisible();
     await expect(page.getByRole("button", { name: "Continue" }).first()).toBeVisible();
   });
 
@@ -31,6 +32,7 @@ test.describe("Sign Up Flow", () => {
   test("form submission calls the real API", async ({ page }) => {
     const uniqueEmail = `e2e-signup-${Date.now()}@blerp.test`;
     await page.locator("#email").fill(uniqueEmail);
+    await page.locator("#password").fill("Sup3rSecret!");
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes("/v1/auth/signups") && resp.request().method() === "POST",
@@ -56,6 +58,7 @@ test.describe("Sign Up Flow", () => {
 
     const uniqueEmail = `e2e-loading-${Date.now()}@blerp.test`;
     await page.locator("#email").fill(uniqueEmail);
+    await page.locator("#password").fill("Sup3rSecret!");
 
     const signupForm = page.locator("form").filter({ has: page.locator("#email") });
     await signupForm.getByRole("button", { name: "Continue" }).click();
@@ -74,6 +77,7 @@ test.describe("Sign Up Flow", () => {
     });
 
     await page.locator("#email").fill("bad-email@test.com");
+    await page.locator("#password").fill("Sup3rSecret!");
 
     const signupForm = page.locator("form").filter({ has: page.locator("#email") });
     await signupForm.getByRole("button", { name: "Continue" }).click();
@@ -84,6 +88,7 @@ test.describe("Sign Up Flow", () => {
   test("shows success message on successful signup", async ({ page }) => {
     const uniqueEmail = `e2e-success-${Date.now()}@blerp.test`;
     await page.locator("#email").fill(uniqueEmail);
+    await page.locator("#password").fill("Sup3rSecret!");
 
     const signupForm = page.locator("form").filter({ has: page.locator("#email") });
     await signupForm.getByRole("button", { name: "Continue" }).click();

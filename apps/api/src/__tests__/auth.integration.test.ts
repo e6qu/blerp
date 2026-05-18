@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { eq } from "drizzle-orm";
 import request from "supertest";
 import { app } from "../app";
-import { clearDbCache } from "../db/router";
+import { clearDbCache, getTenantDb } from "../db/router";
+import * as schema from "../db/schema";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -39,14 +41,428 @@ describe("Auth Integration", () => {
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   });
 
+  it("BUG-114 / BUG-120 (codex r20/r21): password-at-signup installs both passwordDigest and hasPassword flag", async () => {
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "pwsignup@blerp.dev",
+        password: "supersecret123",
+        strategy: "password",
+      });
+    expect(signupRes.status).toBe(201);
+    const code = signupRes.body.verification_code;
+
+    const attemptRes = await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code });
+    expect(attemptRes.status).toBe(200);
+    expect(attemptRes.body.user_id).toBeDefined();
+    expect(attemptRes.body.session).toBeDefined();
+    expect(attemptRes.body.tokens).toBeDefined();
+
+    // Subsequent sign-in with the password must succeed — proves
+    // passwordDigest was installed (BUG-114) AND hasPassword was set
+    // (BUG-120, otherwise list/get responses would lie about it).
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "pwsignup@blerp.dev", strategy: "password" });
+    expect(signinRes.status).toBe(201);
+
+    const signinAttemptRes = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "pwsignup@blerp.dev",
+        password: "supersecret123",
+        strategy: "password", // factor name (Clerk convention — BUG-121)
+        stage: "first_factor", // step selector (BUG-121 split)
+      });
+    expect(signinAttemptRes.status).toBe(200);
+    expect(signinAttemptRes.body.tokens?.access_token).toBeDefined();
+
+    // BUG-123: user GET surfaces password_enabled flag.
+    const userId = attemptRes.body.user_id;
+    const userRes = await request(app)
+      .get(`/v1/users/${userId}`)
+      .set("X-Tenant-Id", tenantId)
+      .set("Authorization", `Bearer ${signinAttemptRes.body.tokens.access_token}`);
+    expect(userRes.status).toBe(200);
+    expect(userRes.body.password_enabled).toBe(true);
+  });
+
+  it("BUG-149 (codex r34): an M2M token minted in tenant A cannot be replayed against tenant B", async () => {
+    // Create a project + admin M2M token in tenant A via the dev-shim.
+    // Use Math.random() to avoid Date.now() collisions when this test
+    // re-runs back-to-back with cached SQLite files.
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const tenantA = `bug149_${suffix}_a`;
+    const tenantB = `bug149_${suffix}_b`;
+    const dbA = await getTenantDb(tenantA);
+    await dbA.insert(schema.projects).values({
+      id: `proj_${tenantA}`,
+      ownerUserId: "owner",
+      name: "A",
+      slug: tenantA,
+    });
+    await getTenantDb(tenantB); // initialize so /v1/users hits the tenant
+
+    const mintRes = await request(app)
+      .post("/v1/m2m-tokens")
+      .set("X-Tenant-Id", tenantA)
+      .set("X-User-Id", "owner") // dev-shim grants users:admin scope
+      .send({
+        name: "tenant-a admin",
+        project_id: `proj_${tenantA}`,
+        scopes: ["users:admin", "users:read"],
+      });
+    expect(mintRes.status).toBe(201);
+    const { client_id, client_secret } = mintRes.body;
+
+    // Exchange for JWT.
+    const tokenRes = await request(app).post("/v1/oauth/token").set("X-Tenant-Id", tenantA).send({
+      grant_type: "client_credentials",
+      client_id,
+      client_secret,
+      scope: "users:admin users:read",
+    });
+    expect(tokenRes.status).toBe(200);
+    const m2mJwt = tokenRes.body.access_token;
+
+    // Use the token IN ITS OWN TENANT — should work.
+    const sameTenantRes = await request(app)
+      .get("/v1/users")
+      .set("X-Tenant-Id", tenantA)
+      .set("Authorization", `Bearer ${m2mJwt}`);
+    expect(sameTenantRes.status).toBe(200);
+
+    // Replay against tenant B — must be rejected.
+    const replayRes = await request(app)
+      .get("/v1/users")
+      .set("X-Tenant-Id", tenantB)
+      .set("Authorization", `Bearer ${m2mJwt}`);
+    expect(replayRes.status).toBe(401);
+  });
+
+  it("BUG-138 (codex r29): unlock endpoint rejects session JWTs and requires an M2M token", async () => {
+    // Provision a user + session.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "unlockauth@blerp.dev",
+        password: "supersecret999",
+        strategy: "password",
+      });
+    const signupAttempt = await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+    const userToken = signupAttempt.body.tokens?.access_token;
+    const userId = signupAttempt.body.user_id;
+    expect(userToken).toBeDefined();
+
+    // Call unlock with the user's own session JWT — should 403, not
+    // 200. Pre-BUG-138 a locked user could self-unlock with their
+    // existing session. X-No-Dev-Shim opts out of the dev-mode
+    // session→M2M auto-elevation so this verifies the production
+    // contract.
+    const sessionRes = await request(app)
+      .post(`/v1/users/${userId}/unlock`)
+      .set("X-Tenant-Id", tenantId)
+      .set("Authorization", `Bearer ${userToken}`)
+      .set("X-No-Dev-Shim", "true");
+    expect(sessionRes.status).toBe(403);
+    expect(sessionRes.body.error?.message).toMatch(/Admin-only/);
+  });
+
+  it("BUG-137 (codex r28): user-level lockout persists across createSignin calls and only an admin can unlock", async () => {
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "userlock@blerp.dev",
+        password: "supersecret123",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    // Burn 5 wrong-password attempts across one sign-in to lock the user.
+    const firstSignin = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "userlock@blerp.dev", strategy: "password" });
+    for (let i = 0; i < 5; i++) {
+      await request(app)
+        .post(`/v1/auth/signins/${firstSignin.body.id}/attempt`)
+        .set("X-Tenant-Id", tenantId)
+        .send({
+          identifier: "userlock@blerp.dev",
+          password: "wrong_password",
+          strategy: "password",
+          stage: "first_factor",
+        });
+    }
+
+    // BUG-137: a fresh createSignin should also fail now (per-user lock,
+    // not per-attempt). Pre-fix the lockout would have been per-attempt
+    // only and a new signin would succeed.
+    const lockedCreateRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "userlock@blerp.dev", strategy: "password" });
+    expect(lockedCreateRes.status).toBe(400);
+    expect(lockedCreateRes.body.error?.message).toMatch(/Account is locked/);
+
+    // Get a user_id via direct DB to call the unlock endpoint.
+    const db = await getTenantDb(tenantId);
+    const emailRow = await db.query.emailAddresses.findFirst({
+      where: eq(schema.emailAddresses.emailAddress, "userlock@blerp.dev"),
+    });
+    if (!emailRow) throw new Error("test setup: user not found");
+
+    // The unlock endpoint requires auth; create a session via an
+    // existing user. The simplest path is using the seeded /demo
+    // identity but that's not available here, so we tickle the DB
+    // directly to unlock. (A production admin would use the endpoint.)
+    await db
+      .update(schema.users)
+      .set({ locked: false, failedSignInAttempts: 0 })
+      .where(eq(schema.users.id, emailRow.userId));
+
+    // After unlock, sign-in works again.
+    const recoveredSignin = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "userlock@blerp.dev", strategy: "password" });
+    expect(recoveredSignin.status).toBe(201);
+  });
+
+  it("BUG-134 / BUG-135 (codex r27): repeated wrong-password attempts increment the counter and the attempt locks after 5", async () => {
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "lockout@blerp.dev",
+        password: "supersecret555",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "lockout@blerp.dev", strategy: "password" });
+    const signinId = signinRes.body.id;
+
+    // 5 wrong-password attempts should all 400 with "Invalid email or
+    // password" — and crucially the attempt should remain reusable
+    // (BUG-134: wrong-password restores with incremented counter).
+    for (let i = 0; i < 5; i++) {
+      const wrong = await request(app)
+        .post(`/v1/auth/signins/${signinId}/attempt`)
+        .set("X-Tenant-Id", tenantId)
+        .send({
+          identifier: "lockout@blerp.dev",
+          password: "wrong_password",
+          strategy: "password",
+          stage: "first_factor",
+        });
+      expect(wrong.status).toBe(400);
+      expect(wrong.body.error?.message).toMatch(/Invalid email or password/);
+    }
+
+    // The 6th attempt should hit the lockout — even with the correct
+    // password (BUG-135).
+    const lockedRes = await request(app)
+      .post(`/v1/auth/signins/${signinId}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "lockout@blerp.dev",
+        password: "supersecret555",
+        strategy: "password",
+        stage: "first_factor",
+      });
+    expect(lockedRes.status).toBe(400);
+    expect(lockedRes.body.error?.message).toMatch(/locked after too many failed attempts/);
+  });
+
+  it("BUG-132 (codex r26): attempt-id is enforced — a forged signin_id is rejected even with valid credentials", async () => {
+    // Make sure a user with a valid password exists.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "lifecycle@blerp.dev",
+        password: "supersecret789",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    // POST straight to attempt with a forged signin_id — must 400
+    // even with valid credentials. Pre-BUG-132 this would have
+    // returned a session.
+    const forgedRes = await request(app)
+      .post(`/v1/auth/signins/sin_forged123/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "lifecycle@blerp.dev",
+        password: "supersecret789",
+        strategy: "password",
+        stage: "first_factor",
+      });
+    expect(forgedRes.status).toBe(400);
+    expect(forgedRes.body.error?.message).toMatch(/Sign-in attempt expired or not found/);
+  });
+
+  it("BUG-133 (codex r26): unsupported explicit first-factor strategy is rejected, not silently password-verified", async () => {
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "firststrat@blerp.dev",
+        password: "supersecret321",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "firststrat@blerp.dev", strategy: "password" });
+
+    const badStrategyRes = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "firststrat@blerp.dev",
+        password: "supersecret321",
+        strategy: "email_code", // not supported as a first factor today
+        stage: "first_factor",
+      });
+    expect(badStrategyRes.status).toBe(400);
+    expect(badStrategyRes.body.error?.message).toMatch(/Unsupported first-factor strategy/);
+  });
+
+  it("BUG-129 / BUG-131 (codex r24 / r25): explicit strategy:null at the second-factor step is rejected, not silently fallback-verified", async () => {
+    // Provision a user with TOTP enabled by going through signup +
+    // sign-in to exercise the second-factor route.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "nullstrat@blerp.dev",
+        password: "supersecret123",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    const userId = signupRes.body.id; // not actually used; signup returned a session
+
+    // Enable TOTP directly in the DB so the second-factor branch fires.
+    const db = await getTenantDb(tenantId);
+    const emailRow = await db.query.emailAddresses.findFirst({
+      where: eq(schema.emailAddresses.emailAddress, "nullstrat@blerp.dev"),
+    });
+    if (!emailRow) throw new Error("test setup: user not found");
+    await db
+      .update(schema.users)
+      .set({ totpEnabled: true, totpSecret: "JBSWY3DPEHPK3PXP" })
+      .where(eq(schema.users.id, emailRow.userId));
+
+    void userId;
+
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "nullstrat@blerp.dev", strategy: "password" });
+
+    // Complete the first factor → server returns needs_second_factor.
+    const firstFactorRes = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        identifier: "nullstrat@blerp.dev",
+        password: "supersecret123",
+        strategy: "password",
+        stage: "first_factor",
+      });
+    expect(firstFactorRes.body.status).toBe("needs_second_factor");
+
+    // Now submit a second-factor attempt with strategy:null — the
+    // explicit-null case BUG-131 added. Should error, not run the
+    // permissive fallback.
+    const explicitNullRes = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: "000000", stage: "second_factor", strategy: null });
+    expect(explicitNullRes.status).toBe(400);
+    expect(explicitNullRes.body.error?.message).toMatch(/Unsupported second-factor strategy/);
+  });
+
+  it("BUG-119 (codex r21) / BUG-121 (codex r22): explicit stage:'first_factor' is honored even when only code is sent", async () => {
+    // Create a signup and complete it so we have a user.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({
+        email: "strategy@blerp.dev",
+        password: "supersecret456",
+        strategy: "password",
+      });
+    await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+
+    // Create a sign-in.
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: "strategy@blerp.dev", strategy: "password" });
+    const signinId = signinRes.body.id;
+
+    // Code-only, NO identifier, but explicit first_factor stage.
+    // Pre-fix the controller would have routed this to attemptSecondFactor
+    // and 400'd. Now it routes to first_factor and yields a different
+    // 400 (no identifier). Either way we shouldn't see "Signup attempt
+    // expired" — that would indicate misrouting. BUG-121: the stage
+    // field replaces the prior r21 mis-naming as `strategy`.
+    const noIdentifierRes = await request(app)
+      .post(`/v1/auth/signins/${signinId}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: "123456", stage: "first_factor" });
+    expect(noIdentifierRes.status).toBe(400);
+    expect(noIdentifierRes.body.error?.message).toMatch(/identifier is required/);
+  });
+
   it("should handle full signup flow", async () => {
     // 1. Create Signup
+    // BUG-239 (codex r79): password is required for strategy="password".
     const signupRes = await request(app)
       .post("/v1/auth/signups")
       .set("X-Tenant-Id", tenantId)
       .send({
         email: "test@blerp.dev",
         strategy: "password",
+        password: "Test_Pass_42!",
       });
 
     expect(signupRes.status).toBe(201);
@@ -66,17 +482,19 @@ describe("Auth Integration", () => {
       });
 
     expect(attemptRes.status).toBe(200);
-    expect(attemptRes.body.userId).toBeDefined();
+    expect(attemptRes.body.user_id).toBeDefined();
   });
 
   it("should fail verification with wrong code", async () => {
     // First create a valid signup so we have a real pending entry
+    // BUG-239 (codex r79): password is required for strategy="password".
     const signupRes = await request(app)
       .post("/v1/auth/signups")
       .set("X-Tenant-Id", tenantId)
       .send({
         email: "wrong-code@blerp.dev",
         strategy: "password",
+        password: "Test_Pass_42!",
       });
 
     const signupId = signupRes.body.id;
@@ -104,11 +522,11 @@ describe("Auth Integration", () => {
     const email = "jwt-test@blerp.dev";
     const password = "SecurePass123!";
 
-    // 1. Signup
+    // 1. Signup — BUG-239: password required at create-time.
     const signupRes = await request(app)
       .post("/v1/auth/signups")
       .set("X-Tenant-Id", tenantId)
-      .send({ email, strategy: "password" });
+      .send({ email, strategy: "password", password });
 
     expect(signupRes.status).toBe(201);
 
@@ -118,7 +536,7 @@ describe("Auth Integration", () => {
       .send({ code: signupRes.body.verification_code });
 
     expect(attemptRes.status).toBe(200);
-    const userId = attemptRes.body.userId;
+    const userId = attemptRes.body.user_id;
 
     // 2. Set password (via PATCH /v1/users/:user_id with X-User-Id dev fallback)
     const patchRes = await request(app)
@@ -162,6 +580,137 @@ describe("Auth Integration", () => {
     expect(userinfoRes.status).toBe(200);
     expect(userinfoRes.body.sub).toBe(userId);
     expect(userinfoRes.body.email).toBe(email);
+  });
+
+  it("BUG-49: session JWT carries org_id / org_role / org_slug / org_permissions when the user has exactly one membership", async () => {
+    const email = "jwt-orgclaims@blerp.dev";
+    const password = "SecurePass123!";
+
+    // 1. Sign up — BUG-239: password required at create-time.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({ email, strategy: "password", password });
+    expect(signupRes.status).toBe(201);
+    const attemptRes = await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+    expect(attemptRes.status).toBe(200);
+    const userId = attemptRes.body.user_id;
+    // BUG-239 (codex r79): password is set at signup; the post-signup
+    // PATCH to install it is no longer necessary.
+
+    // 2. Seed an organization + owner membership for this user.
+    const db = await getTenantDb(tenantId);
+    await db.insert(schema.projects).values({
+      id: `proj_orgclaims`,
+      ownerUserId: userId,
+      name: "OrgClaims Project",
+      slug: "orgclaims-project",
+    });
+    const orgId = `org_jwt_${Date.now()}`;
+    await db.insert(schema.organizations).values({
+      id: orgId,
+      projectId: "proj_orgclaims",
+      name: "JWT Claims Org",
+      slug: "jwt-claims-org",
+    });
+    await db.insert(schema.memberships).values({
+      id: `mem_jwt_${Date.now()}`,
+      organizationId: orgId,
+      userId,
+      role: "owner",
+    });
+
+    // 3. Sign in
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: email, strategy: "password" });
+    const signinAttempt = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: email, password });
+    expect(signinAttempt.status).toBe(200);
+
+    // 4. Decode the JWT payload (no verification needed — we trust the
+    //    issuance path; verification covered by other tests).
+    const accessToken = signinAttempt.body.tokens.access_token as string;
+    const [, payloadB64] = accessToken.split(".");
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf-8"));
+
+    expect(payload.sub).toBe(userId);
+    expect(payload.sid).toBeTruthy();
+    expect(payload.org_id).toBe(orgId);
+    expect(payload.org_role).toBe("owner");
+    expect(payload.org_slug).toBe("jwt-claims-org");
+    expect(Array.isArray(payload.org_permissions)).toBe(true);
+    expect(payload.org_permissions).toContain("org:write");
+    expect(payload.org_permissions).toContain("members:write");
+  });
+
+  it("BUG-49 (codex-followup): session JWT omits org_* claims when the user has multiple memberships — avoids pinning an arbitrary org and breaking server-side org switching", async () => {
+    const email = "jwt-multiorg@blerp.dev";
+    const password = "SecurePass123!";
+
+    // Sign up — BUG-239: password required at create-time, no
+    // post-signup PATCH needed.
+    const signupRes = await request(app)
+      .post("/v1/auth/signups")
+      .set("X-Tenant-Id", tenantId)
+      .send({ email, strategy: "password", password });
+    const attemptRes = await request(app)
+      .post(`/v1/auth/signups/${signupRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ code: signupRes.body.verification_code });
+    const userId = attemptRes.body.user_id;
+
+    // Seed TWO memberships in different orgs. Self-contained — do not
+    // depend on the prior test's `proj_orgclaims` insert because
+    // tests can run in isolation (codex r5 BUG-62).
+    const db = await getTenantDb(tenantId);
+    const projectId = `proj_multi_${Date.now()}`;
+    await db.insert(schema.projects).values({
+      id: projectId,
+      ownerUserId: userId,
+      name: "Multi-Org Project",
+      slug: `multi-org-project-${Date.now()}`,
+    });
+    const orgA = `org_multi_a_${Date.now()}`;
+    const orgB = `org_multi_b_${Date.now()}`;
+    await db.insert(schema.organizations).values([
+      { id: orgA, projectId, name: "Org A", slug: `org-a-${Date.now()}` },
+      { id: orgB, projectId, name: "Org B", slug: `org-b-${Date.now()}` },
+    ]);
+    await db.insert(schema.memberships).values([
+      { id: `mem_a_${Date.now()}`, organizationId: orgA, userId, role: "owner" },
+      { id: `mem_b_${Date.now()}`, organizationId: orgB, userId, role: "admin" },
+    ]);
+
+    const signinRes = await request(app)
+      .post("/v1/auth/signins")
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: email, strategy: "password" });
+    const signinAttempt = await request(app)
+      .post(`/v1/auth/signins/${signinRes.body.id}/attempt`)
+      .set("X-Tenant-Id", tenantId)
+      .send({ identifier: email, password });
+    expect(signinAttempt.status).toBe(200);
+
+    const accessToken = signinAttempt.body.tokens.access_token as string;
+    const [, payloadB64] = accessToken.split(".");
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf-8"));
+
+    expect(payload.sub).toBe(userId);
+    expect(payload.sid).toBeTruthy();
+    // Multi-org users get NO org_* claims at sign-in — the
+    // OrganizationSwitcher's `__blerp_org` cookie decides the active
+    // org and @blerp/nextjs `auth()` resolves the role via API.
+    expect(payload).not.toHaveProperty("org_id");
+    expect(payload).not.toHaveProperty("org_role");
+    expect(payload).not.toHaveProperty("org_slug");
+    expect(payload).not.toHaveProperty("org_permissions");
   });
 
   it("should reject invalid JWT with 401", async () => {

@@ -29,7 +29,25 @@ export class BlerpError extends Error {
   }
 
   toJSON() {
+    // BUG-47: emit both the Clerk-compat `errors: [{ ... }]` envelope
+    // (canonical, generated SDK clients destructure `errors[0]`) and the
+    // legacy `error: { ... }` singular field (old dashboard / SDK code
+    // still reads `body.error.message`). Each item carries Clerk's
+    // standard fields: code, message, long_message (defaults to message),
+    // and optional meta (mirrors our `details`).
+    const item: {
+      code: string;
+      message: string;
+      long_message: string;
+      meta?: Record<string, unknown>;
+    } = {
+      code: this.code,
+      message: this.message,
+      long_message: this.message,
+      ...(this.details && { meta: this.details }),
+    };
     return {
+      errors: [item],
       error: {
         code: this.code,
         message: this.message,

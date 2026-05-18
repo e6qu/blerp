@@ -14,11 +14,31 @@ import { $ } from "bun";
 import { existsSync, copyFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+// BUG-68 (codex r8): inlined env reads — this script is the documented
+// "first thing a new dev runs"; importing `@blerp/nextjs/server` (which
+// resolves to packages/nextjs/dist) would fail on a clean checkout
+// where workspace packages haven't been built. Same dual-name
+// semantics as the shared helper. BUG-74/79/80 (codex r11/r15): strip
+// trailing `/v1` AND any trailing slash; coerce blank strings to
+// undefined so `BLERP_API_URL=` doesn't short-circuit CLERK_API_URL.
+const nonBlank = (v: string | undefined) => (v && v.trim() !== "" ? v : undefined);
+const API_URL = (
+  nonBlank(process.env.BLERP_API_URL) ??
+  nonBlank(process.env.CLERK_API_URL) ??
+  "http://localhost:3000"
+)
+  .replace(/\/v1\/?$/i, "")
+  .replace(/\/+$/, "");
+// BUG-224 (codex r70): use the same nonBlank chain as API_URL above.
+// A blank `BLERP_TENANT_ID=` in a `.env` would otherwise win over
+// `CLERK_TENANT_ID` and ship an empty `X-Tenant-Id`, failing every
+// setup request. Matches the pattern in BUG-69 / BUG-79.
+const TENANT_ID =
+  nonBlank(process.env.BLERP_TENANT_ID) ?? nonBlank(process.env.CLERK_TENANT_ID) ?? "demo-tenant";
+
 const ROOT = path.resolve(import.meta.dir, "..");
 const API_ROOT = path.resolve(ROOT, "../../apps/api");
-const API_URL = process.env.BLERP_API_URL ?? "http://localhost:3000";
 const MONITE_PORT = process.env.PORT ?? "3002";
-const TENANT_ID = "demo-tenant";
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
 // ── Step 1: Ensure .env.local exists ──

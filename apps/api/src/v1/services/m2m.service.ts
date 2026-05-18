@@ -76,6 +76,14 @@ export class M2MService {
     await this.db.delete(schema.m2mTokens).where(eq(schema.m2mTokens.id, id));
   }
 
+  // BUG-140 (codex r30): used by the controller to authorise revoke
+  // by looking up the token's project and asserting the caller owns it.
+  async findById(id: string) {
+    return this.db.query.m2mTokens.findFirst({
+      where: eq(schema.m2mTokens.id, id),
+    });
+  }
+
   async authenticate(clientId: string, clientSecret: string) {
     const token = await this.db.query.m2mTokens.findFirst({
       where: eq(schema.m2mTokens.clientId, clientId),
@@ -100,11 +108,33 @@ export class M2MService {
     };
   }
 
-  async generateJwt(clientId: string, scopes: string[], privateKey: CryptoKey): Promise<string> {
-    return jwt.sign({ client_id: clientId, scope: scopes.join(" ") }, privateKey, {
-      issuer: "blerp",
-      audience: "blerp-api",
-      expiresIn: "1h",
-    });
+  // BUG-142 (codex r31) / BUG-149 (codex r34): include `project_id`
+  // AND `tenant_id` in the JWT. Pre-fix the JWT was signed by the
+  // shared service keypair (not per-tenant) and carried only
+  // client_id + scope, so a token minted in tenant A could be replayed
+  // against tenant B by setting `X-Tenant-Id: tenantB` — total
+  // multi-tenancy bypass on admin endpoints. With tenant_id in the
+  // JWT, authMiddleware verifies it matches the requested tenant.
+  async generateJwt(
+    clientId: string,
+    projectId: string,
+    tenantId: string,
+    scopes: string[],
+    privateKey: CryptoKey,
+  ): Promise<string> {
+    return jwt.sign(
+      {
+        client_id: clientId,
+        project_id: projectId,
+        tenant_id: tenantId,
+        scope: scopes.join(" "),
+      },
+      privateKey,
+      {
+        issuer: "blerp",
+        audience: "blerp-api",
+        expiresIn: "1h",
+      },
+    );
   }
 }

@@ -3,6 +3,15 @@
  * Do not make direct changes to the file.
  */
 
+/** OneOf type helpers */
+type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
+type XOR<T, U> = T | U extends object ? (Without<T, U> & U) | (Without<U, T> & T) : T | U;
+type OneOf<T extends unknown[]> = T extends [infer Only]
+  ? Only
+  : T extends [infer A, infer B, ...infer Rest]
+    ? OneOf<[XOR<A, B>, ...Rest]>
+    : never;
+
 export interface paths {
   "/.well-known/openid-configuration": {
     /**
@@ -24,6 +33,24 @@ export interface paths {
      * @description Returns the service JWKS for automation workflows that cannot rely on the /.well-known path.
      */
     get: operations["getServiceJwks"];
+  };
+  "/v1/public-config": {
+    /**
+     * Public runtime configuration
+     * @description Returns the **public** runtime configuration values that the
+     * client SDK (`@blerp/nextjs`, `@blerp/react`) needs to bootstrap.
+     * This is the runtime escape-hatch for Next.js's build-time
+     * `NEXT_PUBLIC_*` env inlining and Vite's `VITE_*` equivalent —
+     * per Next.js docs, NEXT_PUBLIC_* vars are frozen at `next build`,
+     * so a single-image multi-env Docker deploy cannot change them at
+     * runtime. This endpoint reads `process.env` on every request, so
+     * the same image picks up environment-specific values.
+     *
+     * Never returns secrets. The publishable key is public by design;
+     * the secret key, webhook secret, and encryption key are not
+     * exposed here.
+     */
+    get: operations["getPublicConfig"];
   };
   "/v1/auth/signups": {
     /**
@@ -66,20 +93,6 @@ export interface paths {
      * @description Validates a pending sign-in challenge and issues new session tokens on success.
      */
     post: operations["completeSignin"];
-  };
-  "/v1/sessions/{session_id}/revoke": {
-    /**
-     * Revoke a session
-     * @description Immediately revokes a session so the associated devices must reauthenticate.
-     */
-    post: operations["revokeSession"];
-  };
-  "/v1/tokens/refresh": {
-    /**
-     * Exchange refresh token for access token
-     * @description Trades a refresh token for a new pair of access/refresh tokens using the rotation policy.
-     */
-    post: operations["refreshSessionToken"];
   };
   "/v1/users": {
     /**
@@ -150,6 +163,16 @@ export interface paths {
      */
     post: operations["restoreUser"];
   };
+  "/v1/users/{user_id}/unlock": {
+    /**
+     * Unlock a locked user account
+     * @description Clears `User.locked` and resets the failed sign-in attempt counter
+     * on a user that has been auto-locked after `MAX_SIGNIN_ATTEMPTS`
+     * (5) consecutive failed sign-ins (BUG-137 codex r28). Admin-only;
+     * there is no public self-unlock — matches Clerk's behavior.
+     */
+    post: operations["unlockUser"];
+  };
   "/v1/users/{user_id}/identities/oauth": {
     /**
      * Link OAuth identity
@@ -208,6 +231,19 @@ export interface paths {
      * @description Adds a user to an organization with the provided roles.
      */
     post: operations["createMembership"];
+  };
+  "/v1/organizations/{organization_id}/memberships/me": {
+    /**
+     * Get the caller's own membership in this organization
+     * @description Returns the calling user's membership row plus the authoritative
+     * resolved `permissions` array. Gated only by `authMiddleware` —
+     * every authenticated user can ask about THEIR OWN role +
+     * permissions without needing `members:read`, which custom
+     * read-only roles may lack. This is the endpoint
+     * `@blerp/nextjs auth()` uses to populate `orgPermissions` for
+     * `has({ permission })` checks.
+     */
+    get: operations["getOwnMembership"];
   };
   "/v1/organizations/{organization_id}/memberships/{membership_id}": {
     /**
@@ -294,13 +330,6 @@ export interface paths {
      */
     post: operations["regenerateBackupCodes"];
   };
-  "/v1/users/{user_id}/mfa/webauthn": {
-    /**
-     * Register WebAuthn device
-     * @description Starts a WebAuthn registration ceremony for the user.
-     */
-    post: operations["registerWebauthnDevice"];
-  };
   "/v1/webhooks/endpoints": {
     /**
      * List webhook endpoints
@@ -329,13 +358,6 @@ export interface paths {
      * @description Updates the configuration for an existing webhook endpoint.
      */
     patch: operations["updateWebhookEndpoint"];
-  };
-  "/v1/webhooks/endpoints/{endpoint_id}/rotate_secret": {
-    /**
-     * Rotate webhook endpoint secret
-     * @description Rotates the signing secret for a webhook endpoint while preserving its id.
-     */
-    post: operations["rotateWebhookSecret"];
   };
   "/v1/audit_logs": {
     /**
@@ -412,27 +434,6 @@ export interface paths {
      * @description Rotates the secret for an existing API key without changing the identifier.
      */
     post: operations["rotateApiKeySecret"];
-  };
-  "/v1/client": {
-    /**
-     * Retrieve publishable configuration
-     * @description Returns the publishable configuration consumed directly by browser-based clients.
-     */
-    get: operations["getClientConfig"];
-  };
-  "/v1/client/sessions": {
-    /**
-     * Create session during SSR
-     * @description Creates a session while rendering on the server and returns the cookie payload.
-     */
-    post: operations["createClientSession"];
-  };
-  "/v1/client/user": {
-    /**
-     * Retrieve current session user
-     * @description Returns the current session's user to light-weight server actions or clients.
-     */
-    get: operations["getClientUser"];
   };
   "/v1/userinfo": {
     /**
@@ -521,9 +522,21 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     ErrorResponse: {
+      errors?: {
+        code: string;
+        message: string;
+        long_message: string;
+        meta?: {
+          [key: string]: unknown;
+        };
+      }[];
+      /** @description Legacy singular alias; prefer `errors[0]` in new code. */
       error: {
         code: string;
         message: string;
+        details?: {
+          [key: string]: unknown;
+        };
         /** Format: uri */
         doc_url?: string;
         request_id?: string;
@@ -604,6 +617,13 @@ export interface components {
       /** @enum {string} */
       status: "active" | "inactive" | "banned";
       locked?: boolean;
+      /**
+       * @description Whether the user has a password set. Matches Clerk's
+       * `passwordEnabled` field (BUG-123 codex r22). Dashboard /
+       * SDK UIs use this to decide whether to render a "Set
+       * password" CTA.
+       */
+      password_enabled?: boolean;
       /** @description Whether TOTP (authenticator app) is enabled for this user. */
       totp_enabled?: boolean;
       /** @description Whether backup codes are available for account recovery. */
@@ -976,6 +996,42 @@ export interface operations {
     };
   };
   /**
+   * Public runtime configuration
+   * @description Returns the **public** runtime configuration values that the
+   * client SDK (`@blerp/nextjs`, `@blerp/react`) needs to bootstrap.
+   * This is the runtime escape-hatch for Next.js's build-time
+   * `NEXT_PUBLIC_*` env inlining and Vite's `VITE_*` equivalent —
+   * per Next.js docs, NEXT_PUBLIC_* vars are frozen at `next build`,
+   * so a single-image multi-env Docker deploy cannot change them at
+   * runtime. This endpoint reads `process.env` on every request, so
+   * the same image picks up environment-specific values.
+   *
+   * Never returns secrets. The publishable key is public by design;
+   * the secret key, webhook secret, and encryption key are not
+   * exposed here.
+   */
+  getPublicConfig: {
+    responses: {
+      /** @description Public config */
+      200: {
+        content: {
+          "application/json": {
+            publishable_key?: string | null;
+            tenant_id: string;
+            sign_in_url: string;
+            sign_up_url: string;
+            sign_in_force_redirect_url?: string | null;
+            sign_in_fallback_redirect_url: string;
+            sign_up_force_redirect_url?: string | null;
+            sign_up_fallback_redirect_url: string;
+            proxy_url?: string | null;
+            telemetry_disabled: boolean;
+          };
+        };
+      };
+    };
+  };
+  /**
    * Create pending signup
    * @description Creates a signup intent and dispatches verification challenges for a new end user.
    */
@@ -1033,7 +1089,14 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            user_id?: string;
+            user_id: string;
+            session?: {
+              id?: string;
+            };
+            tokens?: {
+              access_token?: string;
+              refresh_token?: string;
+            };
           };
         };
       };
@@ -1092,7 +1155,18 @@ export interface operations {
       content: {
         "application/json": {
           identifier: string;
-          /** @enum {string} */
+          /**
+           * @description First-factor strategy. Currently only `password` is
+           * implemented end-to-end (BUG-127 codex r23). The other
+           * enum values are reserved for future implementation;
+           * sending them today produces a sign-in attempt whose
+           * `available_strategies` is `["password"]`, so the
+           * caller knows the service won't honour the requested
+           * factor. Strategy support is gated server-side, not by
+           * the spec, to keep the enum forward-compatible.
+           *
+           * @enum {string}
+           */
           strategy: "password" | "magic_link" | "otp" | "passkey" | "oauth";
         };
       };
@@ -1120,8 +1194,29 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /**
+           * @description Required for first-factor attempts (the email/username used to
+           * initiate the sign-in). Omitted for second-factor attempts.
+           */
+          identifier?: string;
           password?: string;
           code?: string;
+          /**
+           * @description Factor name (Clerk convention): the verification method being
+           * submitted, e.g. `password`, `email_code`, `totp`, `backup_code`,
+           * `passkey`. Echoed back on the response status. Not used for
+           * routing — see `stage` for that.
+           */
+          strategy?: string;
+          /**
+           * @description Explicit step selector — `first_factor` or `second_factor`.
+           * Disambiguates code-only attempts where `identifier` happens
+           * to be absent. Honored over the legacy code-vs-password
+           * heuristic.
+           *
+           * @enum {string}
+           */
+          stage?: "first_factor" | "second_factor";
           webauthn_response?: {
             [key: string]: unknown;
           };
@@ -1129,60 +1224,28 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Sign-in completed */
+      /**
+       * @description Sign-in completed OR MFA required. When the user has TOTP enabled
+       * and only the first factor has been verified, the response is
+       * `{ status: "needs_second_factor", signin_id }` and the caller must
+       * submit the second-factor code via the same endpoint. On final
+       * success the response includes `session` + `tokens`.
+       */
       200: {
         content: {
-          "application/json": {
-            session: components["schemas"]["Session"];
-            tokens: components["schemas"]["TokenResponse"];
-          };
-        };
-      };
-      400: components["responses"]["BadRequest"];
-    };
-  };
-  /**
-   * Revoke a session
-   * @description Immediately revokes a session so the associated devices must reauthenticate.
-   */
-  revokeSession: {
-    parameters: {
-      path: {
-        session_id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          reason?: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Revoked */
-      204: {
-        content: never;
-      };
-      400: components["responses"]["BadRequest"];
-    };
-  };
-  /**
-   * Exchange refresh token for access token
-   * @description Trades a refresh token for a new pair of access/refresh tokens using the rotation policy.
-   */
-  refreshSessionToken: {
-    requestBody: {
-      content: {
-        "application/json": {
-          refresh_token: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Token response */
-      200: {
-        content: {
-          "application/json": components["schemas"]["TokenResponse"];
+          "application/json": OneOf<
+            [
+              {
+                session: components["schemas"]["Session"];
+                tokens: components["schemas"]["TokenResponse"];
+              },
+              {
+                /** @enum {string} */
+                status: "needs_second_factor";
+                signin_id: string;
+              },
+            ]
+          >;
         };
       };
       400: components["responses"]["BadRequest"];
@@ -1458,6 +1521,34 @@ export interface operations {
     };
   };
   /**
+   * Unlock a locked user account
+   * @description Clears `User.locked` and resets the failed sign-in attempt counter
+   * on a user that has been auto-locked after `MAX_SIGNIN_ATTEMPTS`
+   * (5) consecutive failed sign-ins (BUG-137 codex r28). Admin-only;
+   * there is no public self-unlock — matches Clerk's behavior.
+   */
+  unlockUser: {
+    parameters: {
+      path: {
+        user_id: string;
+      };
+    };
+    responses: {
+      /** @description Unlocked user */
+      200: {
+        content: {
+          "application/json": components["schemas"]["User"];
+        };
+      };
+      /** @description User not found */
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /**
    * Link OAuth identity
    * @description Associates an external OAuth identity with the specified user for future logins.
    */
@@ -1503,7 +1594,8 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            data?: components["schemas"]["Organization"][];
+            data: components["schemas"]["Organization"][];
+            total_count: number;
             meta?: components["schemas"]["PaginationMeta"];
           };
         };
@@ -1518,7 +1610,13 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          project_id: string;
+          /**
+           * @description Project the new organization belongs to. Optional
+           * — when omitted the API derives the project from
+           * the caller's auth context (session user's first
+           * owned project; M2M token's bound project).
+           */
+          project_id?: string;
           name: string;
           slug?: string;
         };
@@ -1684,6 +1782,37 @@ export interface operations {
       201: {
         content: {
           "application/json": components["schemas"]["Membership"];
+        };
+      };
+    };
+  };
+  /**
+   * Get the caller's own membership in this organization
+   * @description Returns the calling user's membership row plus the authoritative
+   * resolved `permissions` array. Gated only by `authMiddleware` —
+   * every authenticated user can ask about THEIR OWN role +
+   * permissions without needing `members:read`, which custom
+   * read-only roles may lack. This is the endpoint
+   * `@blerp/nextjs auth()` uses to populate `orgPermissions` for
+   * `has({ permission })` checks.
+   */
+  getOwnMembership: {
+    parameters: {
+      path: {
+        organization_id: string;
+      };
+    };
+    responses: {
+      /** @description The caller's membership in the target organization */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Membership"];
+        };
+      };
+      /** @description Caller is not a member of this organization */
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };
@@ -2002,32 +2131,6 @@ export interface operations {
     };
   };
   /**
-   * Register WebAuthn device
-   * @description Starts a WebAuthn registration ceremony for the user.
-   */
-  registerWebauthnDevice: {
-    parameters: {
-      path: {
-        user_id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          attestation: {
-            [key: string]: unknown;
-          };
-        };
-      };
-    };
-    responses: {
-      /** @description Device registered */
-      201: {
-        content: never;
-      };
-    };
-  };
-  /**
    * List webhook endpoints
    * @description Returns configured webhook endpoints for the project.
    */
@@ -2132,25 +2235,6 @@ export interface operations {
     };
   };
   /**
-   * Rotate webhook endpoint secret
-   * @description Rotates the signing secret for a webhook endpoint while preserving its id.
-   */
-  rotateWebhookSecret: {
-    parameters: {
-      path: {
-        endpoint_id: string;
-      };
-    };
-    responses: {
-      /** @description Secret rotated */
-      200: {
-        content: {
-          "application/json": components["schemas"]["WebhookEndpoint"];
-        };
-      };
-    };
-  };
-  /**
    * List audit log entries
    * @description Returns paginated audit log entries for compliance and monitoring.
    */
@@ -2171,7 +2255,8 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            data?: components["schemas"]["AuditLogEntry"][];
+            data: components["schemas"]["AuditLogEntry"][];
+            total_count: number;
             meta?: components["schemas"]["PaginationMeta"];
           };
         };
@@ -2437,64 +2522,6 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["APIKey"];
-        };
-      };
-    };
-  };
-  /**
-   * Retrieve publishable configuration
-   * @description Returns the publishable configuration consumed directly by browser-based clients.
-   */
-  getClientConfig: {
-    responses: {
-      /** @description Client config */
-      200: {
-        content: {
-          "application/json": {
-            project?: components["schemas"]["Project"];
-            enabled_strategies?: string[];
-          };
-        };
-      };
-    };
-  };
-  /**
-   * Create session during SSR
-   * @description Creates a session while rendering on the server and returns the cookie payload.
-   */
-  createClientSession: {
-    requestBody: {
-      content: {
-        "application/json": {
-          user_id: string;
-          organization_id?: string;
-          /** Format: date-time */
-          expires_at?: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Session created */
-      201: {
-        content: {
-          "application/json": components["schemas"]["Session"];
-        };
-      };
-    };
-  };
-  /**
-   * Retrieve current session user
-   * @description Returns the current session's user to light-weight server actions or clients.
-   */
-  getClientUser: {
-    responses: {
-      /** @description Current user */
-      200: {
-        content: {
-          "application/json": {
-            user?: components["schemas"]["User"];
-            session?: components["schemas"]["Session"];
-          };
         };
       };
     };
