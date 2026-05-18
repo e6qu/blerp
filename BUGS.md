@@ -2466,3 +2466,11 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/v1/services/auth.service.ts`, `apps/api/src/__tests__/auth.integration.test.ts`, `apps/api/src/__tests__/server-smoke.test.ts`
 
 **Fix applied:** `createSignup` now requires a non-blank `password` whenever `strategy === "password"` and throws `"Password is required for strategy='password'"` otherwise. Non-password strategies (e.g. magic-link, social) still allow an optional password. Updated five auth-test signups + the server-smoke test to supply a password at signup time; removed the now-redundant post-signup PATCH workarounds from the BUG-49 tests.
+
+### BUG-240 (codex r80): `useSignUp().create()` allowed optional `password` but always sent `strategy: "password"` — BUG-239 turned it into a runtime 400 (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — client-side contract gap exposed by BUG-239. The hook's signature was `create({ identifier: string; password?: string })` — `password` optional — but the body always posted `strategy: "password"`. Pre-r79 the server silently accepted that; post-BUG-239 it correctly rejects with 400. Hook callers that omitted password (relying on the previous behaviour) hit the 400 with no compile-time signal.
+**Files:** `packages/nextjs/src/client/hooks.ts`
+
+**Fix applied:** Made `password` required in the `create` parameter type. Added a runtime guard that throws a clear error message ("`useSignUp.create({ password })` requires a non-blank password. useSignUp wraps the password sign-up flow; for magic-link / social, use the dedicated hook.") before posting — so JS callers bypassing the type get a descriptive error instead of a network 400.

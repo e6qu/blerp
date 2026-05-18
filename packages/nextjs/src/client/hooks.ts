@@ -482,7 +482,19 @@ export function useSignUp() {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const create = async (params: { identifier: string; password?: string }) => {
+  // BUG-240 (codex r80): `password` is required because this hook
+  // always sends `strategy: "password"`, and the server (BUG-239)
+  // refuses password-strategy signups without one. Make the type
+  // require it and assert at runtime in case a JS caller bypasses
+  // the type. Callers that want passwordless flows (magic-link
+  // etc.) need a different hook — `useSignUp` is the password flow.
+  const create = async (params: { identifier: string; password: string }) => {
+    if (!params.password || params.password.trim() === "") {
+      throw new Error(
+        "useSignUp.create({ password }) requires a non-blank password. " +
+          "useSignUp wraps the password sign-up flow; for magic-link / social, use the dedicated hook.",
+      );
+    }
     setIsLoading(true);
     try {
       const { data, error } = await client.POST("/v1/auth/signups", {
