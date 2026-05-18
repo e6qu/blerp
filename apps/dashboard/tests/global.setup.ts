@@ -21,8 +21,19 @@ const API_URL = (
 )
   .replace(/\/v1\/?$/i, "")
   .replace(/\/+$/, "");
-const TENANT_ID =
-  nonBlank(process.env.BLERP_TENANT_ID) ?? nonBlank(process.env.CLERK_TENANT_ID) ?? "demo-tenant";
+// BUG-245 (codex r84): pin the E2E tenant to the same literal the
+// dashboard runtime hardcodes in `apps/dashboard/src/lib/api.ts`
+// (`const TENANT_ID = "demo-tenant"`). Pre-r84 this setup honored
+// `BLERP_TENANT_ID` / `CLERK_TENANT_ID` (BUG-69 generalisation), but
+// the dashboard runtime DOES NOT read those envs — it always sends
+// `X-Tenant-Id: demo-tenant` from the browser. Net effect of a
+// custom `BLERP_TENANT_ID=other`: setup minted a session JWT bound
+// to `other`, dashboard then called the API with that token but
+// `X-Tenant-Id: demo-tenant`, and the BUG-155 tenant-binding check
+// rejected every request. Until the dashboard runtime is wired up
+// to a configurable tenant id, the E2E harness MUST match it. The
+// `nonBlank` import stays (`API_URL` still uses it).
+const TENANT_ID = "demo-tenant";
 const DEMO_PASSWORD = "E2E_Test_Pass_42!";
 
 export interface E2ESession {

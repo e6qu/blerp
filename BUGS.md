@@ -2506,3 +2506,19 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `packages/nextjs/src/server/middleware.ts`
 
 **Fix applied:** Added `FRAMEWORK_PUBLIC_PREFIXES = ["/v1/auth/"]` and an `isFrameworkPublicPath(pathname)` helper that checks both the exact-match set and the prefix list. Every `/v1/auth/*` route is a pre-session flow (sign-up, sign-in, OAuth-provider redirect, magic-link, WebAuthn) or self-authenticating by its own contract (e.g. `POST .../attempt` carries the signup/signin id; `userinfo` carries the Bearer). API-side server auth gates still apply — the middleware bypass just stops the page-redirect short-circuit.
+
+### BUG-245 (codex r84): Dashboard E2E setup honored `BLERP_TENANT_ID` env but the dashboard runtime hardcodes `demo-tenant` (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — E2E-only regression introduced by BUG-69's env generalisation. The dashboard runtime in `apps/dashboard/src/lib/api.ts` has `const TENANT_ID = "demo-tenant"` baked at the top of the file — it does NOT read the env. The Playwright setup `apps/dashboard/tests/global.setup.ts` honored `BLERP_TENANT_ID` / `CLERK_TENANT_ID` for its own seeding pass. With a custom `BLERP_TENANT_ID=other`: setup minted a session JWT bound to `other` tenant, dashboard then sent that token with `X-Tenant-Id: demo-tenant`, and the BUG-155 tenant-binding check rejected every request — every dashboard E2E test failed.
+**Files:** `apps/dashboard/tests/global.setup.ts`
+
+**Fix applied:** Pinned `TENANT_ID` in the E2E setup to the literal `"demo-tenant"` so it matches the dashboard runtime. `nonBlank` import stays (still used by `API_URL`). Future cleanup: thread a configurable tenant id through the dashboard runtime so this can be re-relaxed — left as a follow-up since the dashboard is a Vite app and needs its own `VITE_*` env handling.
+
+### BUG-246 (codex r84): BUG-244's middleware bypass missed `/v1/organizations?domain=…` pre-session discovery (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — pre-session OAuth discovery regression. The API explicitly accepts unauthenticated `GET /v1/organizations?domain=…` calls (the BUG-167 narrow bypass + BUG-202's non-blank-domain guard) as the "which org owns this email domain" lookup OAuth sign-in uses before a session exists. But `blerpMiddleware.isFrameworkPublicPath()` only inspected `pathname`, so the quickstart `/v1/*` matcher redirected those discovery requests to the sign-in page.
+**Files:** `packages/nextjs/src/server/middleware.ts`
+
+**Fix applied:** Changed `isFrameworkPublicPath` to take the full `NextRequest.nextUrl` (so it can inspect the query). When `pathname === "/v1/organizations"` AND the `?domain=` query is a non-blank string, treat it as public — mirroring the API's gate exactly. The two callsites (callback form + options form) both updated. Existing public set and `/v1/auth/*` prefix still short-circuit first.

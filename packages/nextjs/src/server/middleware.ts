@@ -57,9 +57,24 @@ const FRAMEWORK_PUBLIC_PATHS = new Set<string>([
 // server side; this just stops the middleware from short-circuiting
 // the page redirect.
 const FRAMEWORK_PUBLIC_PREFIXES = ["/v1/auth/"] as const;
-function isFrameworkPublicPath(pathname: string): boolean {
+function isFrameworkPublicPath(url: NextRequest["nextUrl"]): boolean {
+  const pathname = url.pathname;
   if (FRAMEWORK_PUBLIC_PATHS.has(pathname)) return true;
-  return FRAMEWORK_PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+  if (FRAMEWORK_PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return true;
+  // BUG-246 (codex r84): `/v1/organizations?domain=…` is the pre-
+  // session "which org owns this email domain" discovery flow used
+  // by OAuth sign-in (the BUG-167 unauth bypass on the API route).
+  // The API explicitly accepts the call unauthenticated as long as
+  // the `domain` query is non-blank (BUG-202). When the host app's
+  // matcher covers `/v1/*`, this redirect would otherwise short-
+  // circuit the discovery call to the sign-in page — preventing
+  // OAuth callers from finding their org. Mirror the API's gate so
+  // both sides agree on the public surface.
+  if (pathname === "/v1/organizations") {
+    const domain = url.searchParams.get("domain");
+    if (domain && domain.trim() !== "") return true;
+  }
+  return false;
 }
 function parseAuthUrl(raw: string): { pathname: string; isAbsolute: boolean; origin?: string } {
   const parsed = new URL(raw, PLACEHOLDER_BASE);
@@ -137,7 +152,7 @@ export function blerpMiddleware(
       // callback unconditionally calls `auth().protect()`, the boot
       // request to `/v1/public-config` would otherwise redirect to
       // sign-in. Skip the callback entirely for these paths.
-      if (isFrameworkPublicPath(req.nextUrl.pathname)) {
+      if (isFrameworkPublicPath(req.nextUrl)) {
         return NextResponse.next();
       }
       const token =
@@ -186,7 +201,7 @@ export function blerpMiddleware(
   // Options form (original)
   const { publicRoutes } = optionsOrCallback;
   return async (req: NextRequest) => {
-    const isFrameworkPublic = isFrameworkPublicPath(req.nextUrl.pathname);
+    const isFrameworkPublic = isFrameworkPublicPath(req.nextUrl);
     const isPublic =
       isFrameworkPublic ||
       (typeof publicRoutes === "function"
