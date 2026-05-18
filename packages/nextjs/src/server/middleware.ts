@@ -43,6 +43,24 @@ const FRAMEWORK_PUBLIC_PATHS = new Set<string>([
   "/v1/oauth/token",
   "/v1/csrf-token",
 ]);
+
+// BUG-244 (codex r83): every `/v1/auth/*` API route is an
+// unauthenticated pre-session flow (sign-ups / sign-ins /
+// OAuth-provider redirect / magic links / WebAuthn challenge) or a
+// self-authenticated one (`POST .../attempt` carries the
+// signup/signin id; `userinfo` carries the Bearer). The host app's
+// quickstart middleware matcher commonly covers `/v1/*`, so without
+// this prefix bypass the embedded `<SignIn>` / `<SignUp>` /
+// `<AuthenticateWithRedirectCallback>` calls get redirected to the
+// sign-in page instead of reaching the API — users can't
+// authenticate. The API still does its own auth checks at the
+// server side; this just stops the middleware from short-circuiting
+// the page redirect.
+const FRAMEWORK_PUBLIC_PREFIXES = ["/v1/auth/"] as const;
+function isFrameworkPublicPath(pathname: string): boolean {
+  if (FRAMEWORK_PUBLIC_PATHS.has(pathname)) return true;
+  return FRAMEWORK_PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+}
 function parseAuthUrl(raw: string): { pathname: string; isAbsolute: boolean; origin?: string } {
   const parsed = new URL(raw, PLACEHOLDER_BASE);
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
@@ -119,7 +137,7 @@ export function blerpMiddleware(
       // callback unconditionally calls `auth().protect()`, the boot
       // request to `/v1/public-config` would otherwise redirect to
       // sign-in. Skip the callback entirely for these paths.
-      if (FRAMEWORK_PUBLIC_PATHS.has(req.nextUrl.pathname)) {
+      if (isFrameworkPublicPath(req.nextUrl.pathname)) {
         return NextResponse.next();
       }
       const token =
@@ -168,7 +186,7 @@ export function blerpMiddleware(
   // Options form (original)
   const { publicRoutes } = optionsOrCallback;
   return async (req: NextRequest) => {
-    const isFrameworkPublic = FRAMEWORK_PUBLIC_PATHS.has(req.nextUrl.pathname);
+    const isFrameworkPublic = isFrameworkPublicPath(req.nextUrl.pathname);
     const isPublic =
       isFrameworkPublic ||
       (typeof publicRoutes === "function"

@@ -2498,3 +2498,11 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/v1/controllers/webhook.controller.ts`, `apps/api/src/middleware/auth.ts` (exported `isSessionTenantAdmin`)
 
 **Fix applied:** Made `includeDefaultBucket` async; returns true when `isTenantRootM2M(req)` OR `isSessionTenantAdmin(req)`. Exported `isSessionTenantAdmin` from `middleware/auth.ts` (was previously module-local). All controller callers `await includeDefaultBucket(req)`. Pure project-scoped M2M tokens still don't see the bucket (preserves BUG-241's leak fix).
+
+### BUG-244 (codex r83): `blerpMiddleware` blocked unauthenticated `/v1/auth/*` API calls — users couldn't sign in / sign up (FIXED)
+
+**Status:** Fixed
+**Severity:** P1 — same class as BUG-216, missed surface. BUG-216 added a `FRAMEWORK_PUBLIC_PATHS` set (`/v1/public-config`, `/v1/jwks`, `/.well-known/openid-configuration`, `/v1/oauth/token`, `/v1/csrf-token`) so the quickstart middleware matcher wouldn't redirect those public endpoints to the sign-in page. But the actual sign-in / sign-up API endpoints (`/v1/auth/signins`, `/v1/auth/signups`, `/v1/auth/oauth/:provider/*`, `/v1/auth/magic-links/*`, `/v1/auth/webauthn/*`) weren't on the list. Embedded `<SignIn>` / `<SignUp>` / `<AuthenticateWithRedirectCallback>` POSTs to those routes got redirected — users couldn't authenticate in a quickstart Next.js app.
+**Files:** `packages/nextjs/src/server/middleware.ts`
+
+**Fix applied:** Added `FRAMEWORK_PUBLIC_PREFIXES = ["/v1/auth/"]` and an `isFrameworkPublicPath(pathname)` helper that checks both the exact-match set and the prefix list. Every `/v1/auth/*` route is a pre-session flow (sign-up, sign-in, OAuth-provider redirect, magic-link, WebAuthn) or self-authenticating by its own contract (e.g. `POST .../attempt` carries the signup/signin id; `userinfo` carries the Bearer). API-side server auth gates still apply — the middleware bypass just stops the page-redirect short-circuit.
