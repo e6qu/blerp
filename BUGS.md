@@ -2418,3 +2418,19 @@ Schema types regenerated; typecheck + lint + openapi:lint all green.
 **Files:** `apps/api/src/v1/controllers/m2m.controller.ts`
 
 **Fix applied:** Added the same `isTenantRootM2M(req, { devShimIsTenantRoot: false })` exemption as BUG-220 (`requirePermission`) and BUG-231 (`requireProjectAccess`). All three project-binding surfaces now use the same predicate. The downstream BUG-187 chain-of-trust check (`every requested scope must be held by the minter`) still applies — tenant-root `sk_` has the full scope set so it can mint into any project, but a project-scoped M2M still can't.
+
+### BUG-234 (codex r75): BlerpProvider initial state used `@blerp/shared` dynamic env helpers — NEXT*PUBLIC_CLERK_SIGN*\*\_URL silently ignored at build time (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same class as BUG-228 (which I fixed for `publishable_key` only). The BlerpProvider's initial `useState<PublicConfig>(...)` seeded every URL — `sign_in_url`, `sign_up_url`, force/fallback redirect URLs, tenant_id — from `@blerp/shared` helpers that use dynamic `process.env[key]` indexing. Next.js / Vite bundlers only inline `process.env.NAME` for STATIC member-expression references; dynamic lookups stay as runtime reads against `{}` in the browser, returning undefined. So when `tenantId` was supplied at the provider level (making `needsRuntimeFetch` false, no runtime config fetch), the SDK silently fell back to `/sign-in` / `/sign-up` / no force-redirect even with `NEXT_PUBLIC_CLERK_SIGN_IN_URL` etc. set at build time.
+**Files:** `packages/nextjs/src/client/env.ts`, `packages/nextjs/src/client/BlerpProvider.tsx`
+
+**Fix applied:** Extended `packages/nextjs/src/client/env.ts` with static wrappers for every URL the provider seeds: `getSignInUrl`, `getSignUpUrl`, `getSignInForceRedirectUrl`, `getSignInFallbackRedirectUrl`, `getSignUpForceRedirectUrl`, `getSignUpFallbackRedirectUrl`, `getTenantId`. Each lists every supported public alias as a STATIC `process.env.NAME` access (bare > NEXT*PUBLIC* > VITE* > PUBLIC* > EXPO*PUBLIC* > NUXT*PUBLIC*; BLERP first, CLERK second). BlerpProvider now imports those from `./env.js` instead of `@blerp/shared`. `appendRedirectUrl` (pure logic, no env) stays from `@blerp/shared`.
+
+### BUG-235 (codex r75): `requireScopeOrTenantAdmin` 403s bypassed the central error envelope (FIXED)
+
+**Status:** Fixed
+**Severity:** P2 — same fix BUG-223 made for `requireM2M`, missed when BUG-209 added the new `requireScopeOrTenantAdmin` middleware. Both 403 sites (missing-scope on M2M; non-tenant-admin session) wrote `res.status(403).json({ error: { message } })` directly. Generated openapi-fetch clients + `throwIfError()` paths read `body.error.code` as undefined for these gates — and they cover the dashboard-facing routes (`/v1/users`, `/v1/webhooks/endpoints`, `/v1/audit_logs`, `/v1/usage`, `/v1/signup-restrictions`, `/v1/redirect-urls`) so it's a common failure surface.
+**Files:** `apps/api/src/middleware/auth.ts`
+
+**Fix applied:** Both 403 sites swapped to `next(new ForbiddenError(message))`. Central error handler now formats them through the dual `{ error, errors[] }` envelope.

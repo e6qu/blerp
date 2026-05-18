@@ -514,13 +514,20 @@ async function isSessionTenantAdmin(req: Request): Promise<boolean> {
 export function requireScopeOrTenantAdmin(
   requiredScope: string,
 ): (req: Request, res: Response, next: NextFunction) => Promise<void> {
-  return async (req, res, next) => {
+  // BUG-235 (codex r75): route 403s through `next(new ForbiddenError())`
+  // so the central error handler emits the dual `{ error, errors[] }`
+  // envelope (BUG-47). Pre-r75 these gates wrote
+  // `res.status(403).json({ error: { message } })` directly, so
+  // generated openapi-fetch clients + `throwIfError()` helpers read
+  // `body.error.code` as undefined for failures on the dashboard-
+  // facing routes (`/v1/users`, `/v1/webhooks/endpoints`,
+  // `/v1/audit_logs`, etc.). Same fix BUG-223 applied to `requireM2M`.
+  return async (req, _res, next) => {
     if (req.m2m) {
       if (!req.m2m.scopes.includes(requiredScope)) {
-        res.status(403).json({
-          error: { message: `M2M token is missing the required scope "${requiredScope}".` },
-        });
-        return;
+        return next(
+          new ForbiddenError(`M2M token is missing the required scope "${requiredScope}".`),
+        );
       }
       next();
       return;
@@ -529,13 +536,12 @@ export function requireScopeOrTenantAdmin(
       next();
       return;
     }
-    res.status(403).json({
-      error: {
-        message:
-          `Requires an M2M / secret-key token with "${requiredScope}" or a session for ` +
+    next(
+      new ForbiddenError(
+        `Requires an M2M / secret-key token with "${requiredScope}" or a session for ` +
           "a tenant admin (a user who owns every project in the tenant).",
-      },
-    });
+      ),
+    );
   };
 }
 

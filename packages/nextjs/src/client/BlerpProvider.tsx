@@ -13,9 +13,15 @@ import createClient, { type Middleware } from "openapi-fetch";
 import type { paths } from "@blerp/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Cookies from "js-cookie";
-import { getPublishableKeyOrBuildPlaceholder } from "./env.js";
+// BUG-234 (codex r75): every URL the provider seeds into the
+// initial config state must come from a STATIC `process.env.NAME`
+// read so Next.js / Vite can inline the value at build time.
+// `@blerp/shared`'s helpers use dynamic indexing which the bundler
+// can't statically replace; reading the same names from `./env.js`'s
+// static wrappers preserves NEXT_PUBLIC_* support. `appendRedirectUrl`
+// is pure logic with no env access — still safe to import from shared.
 import {
-  appendRedirectUrl,
+  getPublishableKeyOrBuildPlaceholder,
   getSignInFallbackRedirectUrl,
   getSignInForceRedirectUrl,
   getSignInUrl,
@@ -23,7 +29,8 @@ import {
   getSignUpForceRedirectUrl,
   getSignUpUrl,
   getTenantId,
-} from "@blerp/shared";
+} from "./env.js";
+import { appendRedirectUrl } from "@blerp/shared";
 import { clearSessionCookies, readSessionCookie } from "./session-cookies";
 
 // BUG-99 / BUG-107 (codex r18): full runtime-config shape served by
